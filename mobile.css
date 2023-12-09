@@ -1,0 +1,83 @@
+html {
+    background-image: url("background.webp");
+    background-size: cover;
+    background-repeat:no-repeat;
+}
+
+body, html {
+    height: 100%;
+    margin: 0;
+    font-family: sans-serif;
+    overflow-x: hidden; /* Changed to only hide horizontal overflow */
+}
+
+#app {
+    background-color: rgba(255,255,255, 0.8);
+    border-radius: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: absolute;
+    top: 9%;
+    left: 5%; /* Reduced for smaller screens */
+    right: 5%; /* Reduced for smaller screens */
+    bottom: 10%;
+    overflow-y: auto; /* Allow vertical scrolling on overflow */
+}
+
+/* ... other styles ... */
+
+/* Mobile-specific styles */
+@media only screen and (max-width: 768px) {
+    h1 {
+        font-size: 1.5rem; /* Reduced size for smaller screens */
+    }
+
+    #backToMain, #stopGame, .backToMain {
+        padding: 0.3rem 0.6rem;
+        font-size: 1rem; /* Reduced font size for smaller screens */
+    }
+
+    #gameContainer {
+        padding: 10px;
+        max-width: none; /* Allow the container to fit the screen width */
+    }
+
+    #sheetSelection, #difficultySelection, #gameArea, #highscores, #gameNavigation, #endOfGameDialog {
+        margin-top: 10px;
+        padding: 0;
+        background-color: rgba(255,255,255, 0.9); /* Adjusted for better readability */
+    }
+
+    #gameNavigation {
+        bottom: -100%; /* Adjusted for initial state off-screen */
+    }
+
+    #gameNavigation.active {
+        bottom: 0; /* Adjust for active state to slide in */
+    }
+
+    button {
+        font-size: 1.2rem; /* Reduced font size for smaller screens */
+        padding: 8px 16px; /* Reduced padding for smaller screens */
+    }
+
+    #highscores {
+        width: 90%; /* Adjusted width for smaller screens */
+        max-width: none; /* Allow full width on small screens */
+        top: 5%; /* Adjusted for smaller screens */
+        left: 5%; /* Adjusted for smaller screens */
+        transform: translate(-5%, -5%); /* Adjusted for smaller screens */
+    }
+
+    .emoji-fall {
+        font-size: 2rem; /* Adjusted size for smaller screens */
+    }
+
+    label {
+        padding: 2px;
+        margin-left: 0;
+    }
+}
