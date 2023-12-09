@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦄💩</title>
+    <link href="fredoka.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css"> <!-- Link to your CSS file -->
+
+
+</head>
+<body>
+    <div id="app">
+        <h1>🦄 Unicorn Poep 💩<br>
+            <small>Door SchizoDuckie, voor Sanne <img src="heart.gif" alt="<3"></small></h1>
+        <div id="gameContainer">
+            <div id="loading">
+                <img src="loading.gif">
+                <h1>Even wat laden, momentje!</h1>
+            </div>
+            <div id="sheetSelection" style="display:none;">
+                <div id="sheetsCol">
+                    <h1>Wat wil je doen?</h1>
+                    <div id="sheetsCheckboxes">
+                        <!-- Checkboxes for sheet selection will be dynamically populated -->
+                    </div>
+                </div>
+                <div id="difficultyCol">
+                    <h1>Ben je daar goed in?</h1>
+                    <div id="difficultySelection">
+                        <label><input type="radio" name="difficulty" value="easy"> Denk het niet (⏱ 60)</label>
+                        <label><input type="radio" name="difficulty" value="medium" checked> Misschien (⏱ 30)</label>
+                        <label><input type="radio" name="difficulty" value="hard"> Zeker wel! (⏱ 5)</label>
+                    </div>
+                </div>
+                <button id="startGame">Start!</button>
+            </div>
+
+            <div id="mainMenu">
+                <div id="menuItems">
+                    <button id="practice">📚 Oefenen</button>
+                    <button id="takeTest">⏱ Examen</button>
+                    <button id="viewHighscores">🥇 Hoogste Scores</button>
+                </div>
+                <div id="subMenu">
+
+                </div>
+                <div id="backButton">
+                    <button class="backToMain">Terug</button>
+                </div>
+            </div>
+            <div id="gameArea" style="display:none;">
+                <div id="question"></div>
+                <div id="answers"></div>
+                <div id="timer"></div>
+                <div id="score"></div>
+                <div id="gameNavigation">
+                    <button id="nextButton">Volgende</button>
+                </div>
+                <div id="exitGame">
+                    <button id="stopGame">Stop</button>
+                </div>
+            </div>
+            <dialog id="endOfGameDialog">
+                <h1>Goed gedaan!</h1>
+                <p>Je score is: <strong id="finalScore"></strong> en daarmee haal je een plekje in de top 20!</p>
+
+                <div>
+                    <label for="playerName">Jouw naam:</label>
+                    <input type="text" id="playerName" placeholder="Typ hier...">
+                </div>
+                <div id="endGameButtons">
+                    <button id="saveHighscore">Opslaan</button>
+                    <button id="restartGame">Opnieuw</button>
+                    <button class="backToMain">Stoppen</button>
+                </div>
+            </dialog>
+            <div id="highscores" style="display:none;">
+                <h1>Deze mensen zijn de allerbeste!</h1>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Plek</th>
+                        <th>Naam</th>
+                        <th>Score</th>
+                        <th>Datum</th>
+
+                    </tr></thead>
+                    <tbody id="scoreList"></tbody>
+                    <!-- Highscores will be displayed here -->
+                </table>
+                <div>
+                    <button class="backToMain">Terug</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+     <!-- Script includes for each class -->
+    <script src="questionsmanager.js"></script>
+    <script src="highscores.js"></script>
+    <script src="ui.js"></script>
+    <script src="questionsheet.js"></script>
+    <script src="timer.js"></script>
+    <script src="scoretimer.js"></script>
+    <script src="mainmenu.js"></script>
+    <script src="game.js"></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', (event) => {
+        const game = new Game();
+        game.start();
+    });
+    </script>
+    <script src="confetti.js"></script>
+</body>
+</html>
