@@ -197,7 +197,7 @@ button {
     padding: 1.5rem 5rem;
     font-size: 2rem;
     font-weight: bold;
-    text-shadow: 1px 1px 2px #0005; /* Text shadow for depth */
+    text-shadow: 1px 1px 2px #000000bf; /* Text shadow for depth */
     box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2); /* Soft box shadow for 3D effect */
     transition: transform 0.1s, box-shadow 0.1s;
     margin: 0.5rem; /* Spacing around buttons */
