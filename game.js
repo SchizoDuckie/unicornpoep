@@ -3,6 +3,7 @@
  */
 class Game {
     constructor() {
+        this.selectedSheets = [];
         this.currentQuestions = [];
         this.currentQuestionIndex = 0;
         this.score = 0;
@@ -72,6 +73,7 @@ class Game {
         this.mainMenu.hideSubMenu();
         this.ui.showGameArea();
         this.ui.enableAnswers();
+        this.selectedSheets = selectedSheets;
 
         this.currentQuestions = [];
         for (const sheetName of selectedSheets) {
@@ -251,8 +253,8 @@ class Game {
 
         if (playerName) {
             const highscoresClass = new Highscores(this.questionsManager);
-            await highscoresClass.updateHighscore(playerName, this.score, new Date().toISOString());
-            alert("Highscore opgeslagen!");
+            await highscoresClass.updateHighscore(this.selectedSheets.join(', '), playerName, this.score, new Date().toISOString());
+            alert("Highscore voor "+this.selectedSheets.join(' en ')+" opgeslagen!");
         }
         this.viewHighscores();
     }

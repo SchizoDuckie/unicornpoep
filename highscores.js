@@ -24,6 +24,9 @@ class Highscores {
             if (index < 3) { // Highlight the top three scores
                 scoreContainer.classList.add('top-score');
             }
+            const gameNameCell = document.createElement('td');
+            gameNameCell.textContent = score.gameName || '-';
+            gameNameCell.classList.add('score-game-name');
 
             const rankCell = document.createElement('th');
             rankCell.textContent = index +1;
@@ -46,6 +49,7 @@ class Highscores {
 
             // Append columns to the score container
             scoreContainer.appendChild(rankCell);
+            scoreContainer.appendChild(gameNameCell);
             scoreContainer.appendChild(nameCell);
             scoreContainer.appendChild(scoreCell);
             scoreContainer.appendChild(timestampCell);
@@ -56,24 +60,13 @@ class Highscores {
     }
 
 
-    /**
-     * Updates the highscores in localStorage with a new highscore.
-     *
-     * @param {string} name The name of the player.
-     * @param {number} score The score achieved by the player.
-     * @param {string} timestamp The timestamp of the highscore.
-     */
-    updateHighscore(name, score, timestamp) {
-        const newHighscore = { name, score, timestamp };
+    updateHighscore(gameName, name, score, timestamp) {
+        const newHighscore = { gameName, name, score, timestamp };
 
-        // Retrieve the current highscores from localStorage
         const highscores = this.fetchHighscores();
-
-        // Add the new highscore and sort
         highscores.push(newHighscore);
         highscores.sort((a, b) => b.score - a.score);
 
-        // Store back into localStorage
         localStorage.setItem(this.highscoresKey, JSON.stringify(highscores));
     }
 }
