@@ -32,7 +32,12 @@ class MainMenu {
         document.getElementById('viewHighscores').addEventListener('click', () => this.game.viewHighscores());
         document.getElementById('myQuestions').addEventListener('click', () => {
             this.hideMainMenu();
-            this.game.ui.showCustomQuestions() });
+            this.game.ui.showCustomQuestions()
+        });
+        document.getElementById('hoeDan').addEventListener('click', () => {
+            this.hideMainMenu();
+            this.game.ui.showAbout()
+        });
 
         document.body.addEventListener('click', (event)  => {
             if (event.target.classList.contains('backToMain')) {
@@ -101,6 +106,7 @@ class MainMenu {
         this.game.ui.hideEndOfGameDialog();
         this.game.ui.hideGameArea();
         this.game.ui.hideCustomQuestions();
+        this.game.ui.hideAbout();
     }
 
     hideMainMenu() {
