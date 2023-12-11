@@ -20,7 +20,8 @@ class UI {
         this.endOfGameDialog = document.getElementById('endOfGameDialog');
         this.finalScoreSpan = document.getElementById('finalScore');
         this.playerNameInput = document.getElementById('playerName');
-        this.customQuestions = document.getElementById('customQuestionsManager')
+        this.customQuestions = document.getElementById('customQuestionsManager');
+        this.aboutPage = document.getElementById('about');
         this.initEndOfGameDialog();
 
         document.getElementById('saveCustomQuestionsButton').addEventListener('click', () => this.handleSaveCustomQuestions());
@@ -180,6 +181,14 @@ class UI {
 
     enableAnswers() {
         this.answersElement.classList.remove('disable-interaction');
+    }
+
+    showAbout() {
+        this.aboutPage.style.display = 'flex';
+    }
+
+    hideAbout() {
+        this.aboutPage.style.display = 'none';
     }
 
     showHighscores() {

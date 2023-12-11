@@ -76,15 +76,31 @@ body, html {
     font-size: 1.5rem;
 }
 
-h1 {
+h1, h2, h3 {
     font-family: 'Fredoka One', cursive; /* A playful yet neat font */
     color: #614ae2;
     text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.25); /* Subtle shadow for depth */
     margin-bottom: 0.5em;
     user-select: none; /* Prevent text selection */
-    font-size: 3rem;
-
 }
+
+
+#about p {
+    font-family: 'Fredoka One', cursive; /* A playful yet neat font */
+    font-weight: normal;
+    font-size: 1.5rem;
+}
+h1 {
+    font-size: 3rem;
+}
+
+h2 {
+    font-size: 2.5rem;
+}
+h3 {
+    font-size: 2rem;
+}
+
 
 h1 small {
     display: block;
@@ -502,7 +518,7 @@ th {
 }
 
 #customQuestionsManager {
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -524,4 +540,9 @@ th {
     background-color: rgba(255, 224, 224, 0.8);
     padding: 100px;
     border-radius: 100px;
+}
+
+#about {
+    display:none;
+    flex-direction: column;
 }
