@@ -3,6 +3,8 @@ class Highscores {
         this.highscoresKey = "highscores"; // The key used for localStorage
         this.scores = this.fetchHighscores();
         this.highscoresElement = document.getElementById('scoreList');
+        new KonamiCode(this.triggerRandomConfetti);
+
     }
 
     fetchHighscores() {
@@ -29,7 +31,19 @@ class Highscores {
             gameNameCell.classList.add('score-game-name');
 
             const rankCell = document.createElement('th');
-            rankCell.textContent = index +1;
+            let rank = index +1;
+            switch (rank) {
+                case 1:
+                    rank = '🥇';
+                    break;
+                case 2:
+                    rank = '🥈';
+                    break;
+                case 3:
+                    rank = '🥉';
+                    break;
+            }
+            rankCell.textContent = rank;
             rankCell.classList.add('score-rank');
 
             // Create columns for name, score, and timestamp
@@ -68,5 +82,57 @@ class Highscores {
         highscores.sort((a, b) => b.score - a.score);
 
         localStorage.setItem(this.highscoresKey, JSON.stringify(highscores));
+    }
+
+    triggerRandomConfetti() {
+        console.log("enabling easter egg click listeners");
+        window.confettiStart = 0;
+        window.addEventListener('mousedown', function() {
+            window.confettiStart = new Date().getTime();
+        })
+
+        window.addEventListener('mouseup', (e) => {
+            window.confettiAmount = new Date().getTime() - window.confettiStart;
+            console.log("Confetti: ", window.confettiAmount);
+            // Define the possible directions for the confetti
+            const directions = ['top', 'bottom', 'left', 'right'];
+            // Pick a random direction
+            const direction = directions[Math.floor(Math.random() * directions.length)];
+
+            // Your confetti triggering logic goes here, using the chosen direction
+            // For example, using canvas-confetti (make sure you have included the canvas-confetti library):
+            const xPosition = event.pageX / window.innerWidth;
+            const yPosition = event.pageY / window.innerHeight;
+            confetti({
+                startVelocity: 30,
+                particleCount: Math.min(window.confettiAmount, 150),
+                spread: Math.floor(Math.random() * 360),
+                origin: { x: xPosition, y: yPosition }
+            });
+        })
+
+    }
+}
+
+class KonamiCode {
+    constructor(callback) {
+        this.konamiSequence = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight'];
+        this.currentPosition = 0;
+        this.callback = callback;
+
+        document.addEventListener('keydown', (event) => this.checkKonamiCode(event));
+    }
+
+    checkKonamiCode(event) {
+        if (event.code === this.konamiSequence[this.currentPosition]) {
+            this.currentPosition++;
+
+            if (this.currentPosition === this.konamiSequence.length) {
+                this.callback(); // Trigger the callback function when the full sequence is entered
+                this.currentPosition = 0; // Reset the position for the next attempt
+            }
+        } else {
+            this.currentPosition = 0; // Reset the position if the wrong key is pressed
+        }
     }
 }

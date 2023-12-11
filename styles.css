@@ -402,8 +402,7 @@ input[type=checkbox] {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 80%;
-    max-width: 600px;
+
     background: rgba(255, 255, 255, 0.9); /* Slightly transparent white background */
     border-radius: 20px;
     padding: 20px;
@@ -430,11 +429,20 @@ input[type=checkbox] {
     padding: 0 5px;
 }
 
+#highscores table {
+    font-size: 1.5rem;
+}
+
 /* Additional styling for top scores */
 #highscores .top-score .score-name,
 #highscores .top-score .score-score,
 #highscores .top-score .score-timestamp {
     color: #604ae0; /* White text for better contrast on gold background */
+}
+
+th.score-rank {
+    padding: 2px;
+    font-size: 1.5rem;
 }
 
 
