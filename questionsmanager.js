@@ -90,5 +90,23 @@ class QuestionsManager {
         return Promise.reject(new Error(`Sheet "${sheetName}" not found in any file`));
     }
 
+    saveCustomQuestions(sheetName, customText) {
+        const customQuestions = this.parseQuestions(customText);
+        const customSheets = JSON.parse(localStorage.getItem('customSheets')) || {};
+        customSheets[sheetName] = customQuestions;
+        localStorage.setItem('customSheets', JSON.stringify(customSheets));
+    }
+
+    getCustomQuestions(sheetName) {
+        const customSheets = JSON.parse(localStorage.getItem('customSheets')) || {};
+        return customSheets[sheetName] || null;
+    }
+
+    deleteCustomQuestions(sheetName) {
+        const customSheets = JSON.parse(localStorage.getItem('customSheets')) || {};
+        delete customSheets[sheetName];
+        localStorage.setItem('customSheets', JSON.stringify(customSheets));
+    }
+
 
 }

@@ -20,7 +20,14 @@ class UI {
         this.endOfGameDialog = document.getElementById('endOfGameDialog');
         this.finalScoreSpan = document.getElementById('finalScore');
         this.playerNameInput = document.getElementById('playerName');
+        this.customQuestions = document.getElementById('customQuestionsManager')
         this.initEndOfGameDialog();
+
+        document.getElementById('saveCustomQuestionsButton').addEventListener('click', () => this.handleSaveCustomQuestions());
+        document.getElementById('editCustomQuestionsButton').addEventListener('click', () => this.handleEditCustomQuestions());
+        document.getElementById('deleteCustomQuestionsButton').addEventListener('click', () => this.handleDeleteCustomQuestions());
+
+
     }
 
     initEndOfGameDialog() {
@@ -75,9 +82,20 @@ class UI {
             const button = document.createElement('button');
             button.textContent = answer;
             button.className = 'answerButton';
+            button.setAttribute('data-answer', answer);
             button.addEventListener('click', (e) => answerCallback(answer, e));
             this.answersElement.appendChild(button);
         });
+    }
+
+    highlightCorrectAnswer(correctAnswer) {
+        let button = this.answersElement.querySelector('button[data-answer="'+correctAnswer+'"]');
+        button.classList.add('correct-answer');
+    }
+
+    highlightWrongAnswer(wrongAnswer) {
+        let button = this.answersElement.querySelector('button[data-answer="'+wrongAnswer+'"]');
+        button.classList.add('wrong-answer');
     }
 
     hideLoader()
@@ -97,33 +115,6 @@ class UI {
 
     updateTimer(time) {
         this.timerElement.textContent = `Time: ${Math.ceil(time / 1000)}s`;
-    }
-
-
-    /**
-     * Shows feedback to the player based on the correctness of their answer.
-     * @param {boolean} isCorrect Indicates whether the player's answer was correct.
-     */
-    showFeedback(isCorrect) {
-        const feedbackElement = document.createElement('div');
-        feedbackElement.id = 'feedback';
-        feedbackElement.textContent = isCorrect ? 'Correct!' : 'Incorrect';
-        feedbackElement.className = isCorrect ? 'feedback-correct' : 'feedback-incorrect';
-
-        // Remove any existing feedback and show the new feedback
-        const existingFeedback = this.answersElement.querySelector('#feedback');
-        if (existingFeedback) {
-            this.answersElement.removeChild(existingFeedback);
-        }
-
-        this.answersElement.appendChild(feedbackElement);
-
-        // Optionally, hide the feedback after a few seconds
-        setTimeout(() => {
-            if (feedbackElement.parentNode) {
-                feedbackElement.parentNode.removeChild(feedbackElement);
-            }
-        }, 3000); // Adjust time as needed
     }
 
 
@@ -214,6 +205,53 @@ class UI {
         this.gameEndElement.appendChild(saveButton);
         this.gameEndElement.appendChild(restartButton);
         this.gameEndElement.style.display = 'block';
+    }
+
+    showCustomQuestions() {
+        this.customQuestions.style.display = 'flex';
+    }
+
+    hideCustomQuestions() {
+        this.customQuestions.style.display = 'none';
+    }
+
+    handleSaveCustomQuestions() {
+        const customText = document.getElementById('customQuestionsInput').value;
+        const sheetName = document.getElementById('customSheetName').value.trim();
+        if (sheetName) {
+            questionsManager.saveCustomQuestions(sheetName, customText);
+            alert('Custom questions saved.');
+        } else {
+            alert('Please enter a sheet name.');
+        }
+    }
+
+    handleEditCustomQuestions() {
+        const sheetName = document.getElementById('customSheetName').value.trim();
+        if (sheetName) {
+            const customQuestions = questionsManager.getCustomQuestions(sheetName);
+            if (customQuestions) {
+                document.getElementById('customQuestionsInput').value = convertQuestionsToText(customQuestions);
+            } else {
+                alert('Sheet not found.');
+            }
+        } else {
+            alert('Please enter a sheet name.');
+        }
+    }
+
+    handleDeleteCustomQuestions() {
+        const sheetName = document.getElementById('customSheetName').value.trim();
+        if (sheetName) {
+            questionsManager.deleteCustomQuestions(sheetName);
+            alert('Custom sheet deleted.');
+        } else {
+            alert('Please enter a sheet name.');
+        }
+    }
+
+    convertQuestionsToText(questions) {
+        return questions.map(q => `${q.question}\t${q.answer}`).join('\n');
     }
 
 }

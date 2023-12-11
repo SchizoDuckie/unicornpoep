@@ -191,6 +191,12 @@ class Game {
 
         let scoreIncrement = 0;
         const isCorrect = selectedAnswer === this.currentQuestions[this.currentQuestionIndex].answer;
+
+        this.ui.highlightCorrectAnswer(this.currentQuestions[this.currentQuestionIndex].answer);
+        if(!isCorrect) {
+            this.ui.highlightWrongAnswer(selectedAnswer);
+        }
+
         if (this.isTestMode) {
             scoreIncrement = isCorrect ? this.timer.calculateScore(this.difficulty) : 0;
             this.score += scoreIncrement;
