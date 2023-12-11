@@ -17,7 +17,6 @@ class MainMenu {
         this.difficultySelectionContainer = document.getElementById('difficultyCol');
         this.difficultySelectionElement = document.getElementById('difficultySelection');
         this.startGameButton = document.getElementById('startGame');
-
         this.backButtonElement = document.getElementById('backButton');
 
         // Setup event listeners for main menu interactions
@@ -31,6 +30,10 @@ class MainMenu {
         document.getElementById('practice').addEventListener('click', () => this.selectSheets(false));
         document.getElementById('takeTest').addEventListener('click', () => this.selectSheets(true));
         document.getElementById('viewHighscores').addEventListener('click', () => this.game.viewHighscores());
+        document.getElementById('myQuestions').addEventListener('click', () => {
+            this.hideMainMenu();
+            this.game.ui.showCustomQuestions() });
+
         document.body.addEventListener('click', (event)  => {
             if (event.target.classList.contains('backToMain')) {
                 this.showMainMenu();
@@ -97,12 +100,12 @@ class MainMenu {
         this.game.ui.hideHighscores();
         this.game.ui.hideEndOfGameDialog();
         this.game.ui.hideGameArea();
+        this.game.ui.hideCustomQuestions();
     }
 
     hideMainMenu() {
         this.menuItemsContainer.style.display = 'none';
     }
-
 
     /**
      * Hides the submenus and the back button.

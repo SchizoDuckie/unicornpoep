@@ -486,3 +486,42 @@ th {
 }
 
 
+@keyframes wiggle {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
+}
+
+.correct-answer {
+    display: inline-block; /* Ensures transform applies correctly */
+    animation: wiggle 0.2s ease-in-out;
+    background: rgba(82, 226, 74, 0.74)
+}
+
+.wrong-answer {
+    background: rgba(226, 74, 74, 0.74)
+}
+
+#customQuestionsManager {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    gap: 20px; /* Adjust the space between elements */
+    max-width: 600px; /* Adjust based on your layout needs */
+    margin: 0 auto; /* Center the container */
+    background: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.wip {
+    color: red;
+    font-family: 'Fredoka One';
+    font-size: 5rem;
+    position: fixed;
+    rotate: -56deg;
+    background-color: rgba(255, 224, 224, 0.8);
+    padding: 100px;
+    border-radius: 100px;
+}

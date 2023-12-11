@@ -58,6 +58,8 @@
                     <button id="practice">📚 Oefenen</button>
                     <button id="takeTest">⏱ Examen</button>
                     <button id="viewHighscores">🥇 Hoogste Scores</button>
+                    <button id="myQuestions">🎒 Zelf vragen maken</button>
+                    <button id="hoeDan">🦄 Wat is Unicorn Poep?</button>
                 </div>
                 <div id="subMenu">
 
@@ -110,6 +112,23 @@
                 <div>
                     <button class="backToMain">Terug</button>
                 </div>
+            </div>
+            <div id="customQuestionsManager" style="display:none;">
+                <p class="wip">Nog niet klaar!</p>
+                <button class="backToMain">Terug</button>
+
+                <input type="text" id="customSheetName" placeholder="Enter sheet name" />
+
+                <textarea rows=15 cols=15 id="customQuestionsInput" placeholder="Paste your questions here. Format: question\tanswer.">
+                    Paste your questions here. Format: question\tanswer."
+                </textarea>
+
+                <select name="existingCustomQuestions">
+                    <option value="">select a custom question sheet</option>
+                </select>
+                <button id="saveCustomQuestionsButton">Save</button>
+                <button id="editCustomQuestionsButton">Edit</button>
+                <button id="deleteCustomQuestionsButton">Delete</button>
             </div>
         </div>
 
