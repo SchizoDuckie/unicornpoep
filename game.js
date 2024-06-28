@@ -56,7 +56,6 @@ class Game {
      * @private
      */
     async preloadData() {
-        console.log("Preloading spreadsheet data");
         try {
             const highscoresClass = new Highscores(this.questionsManager);
             this.highscores = await highscoresClass.fetchHighscores();

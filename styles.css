@@ -546,6 +546,7 @@ th {
 #about {
     display:none;
     flex-direction: column;
+    text-align: left;
 }
 
 #customQuestionsManager {
