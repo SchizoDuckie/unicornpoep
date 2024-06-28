@@ -207,9 +207,9 @@ class Game {
         }
 
         if (isCorrect) {
-            this.ui.showConfetti(scoreIncrement * 3 || 30, event);
+            this.ui.showConfetti(scoreIncrement * 2 || 30, event);
         } else {
-            this.ui.showBadConfetti(scoreIncrement || 10);
+            this.ui.showBadConfetti(scoreIncrement * 3 || 10);
         }
 
         this.ui.showNextButton(this.nextQuestion.bind(this));

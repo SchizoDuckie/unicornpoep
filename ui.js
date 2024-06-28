@@ -163,10 +163,11 @@ class UI {
      * @param {number} amount - The amount of confetti particles.
      * @param {Event} event - The click event object.
      */
-    showConfetti(amount = 100, event) {
+    showConfetti(amount = 40, event) {
         confetti({
             particleCount: amount,
             spread: 70,
+            ticks: 100,
             origin: {
                 x: event.clientX / window.innerWidth,
                 y: event.clientY / window.innerHeight
@@ -184,7 +185,7 @@ class UI {
             const emojiElement = document.createElement('div');
             emojiElement.textContent = emojisList[Math.floor(Math.random() * emojisList.length)];
             emojiElement.style.left = `${Math.random() * 100}vw`;
-            emojiElement.style.top = '0';
+            emojiElement.style.top = `${Math.random() * 40}vh`;
             emojiElement.classList.add('emoji-fall');
             document.body.appendChild(emojiElement);
             emojiElement.addEventListener('animationend', () => emojiElement.remove());
