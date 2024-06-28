@@ -96,7 +96,6 @@ Tafel van 8:
  	10 x 8 => 80
  	11 x 8 => 88
 
-
 Tafel van 9:
  	1 x 9 => 9
  	2 x 9 => 18
