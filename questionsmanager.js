@@ -72,7 +72,6 @@ class QuestionsManager {
             .flatMap(fileContent => Object.keys(fileContent));
         const customSheets = this.listCustomSheets();
         const allSheets = [...new Set([...predefinedSheets, ...customSheets])];
-        console.log('All available sheets:', allSheets);
         return allSheets;
     }
 
