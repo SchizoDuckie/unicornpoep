@@ -1,22 +1,30 @@
 /**
- * This class manages question sets and highscores for the game.
- * It allows fetching of questions from text files and handling of highscores using local storage.
+ * Manages the loading, parsing, and storage of question sets for the game.
+ * Handles both predefined and custom question sets.
  */
 class QuestionsManager {
+    /**
+     * Initializes the QuestionsManager.
+     */
     constructor() {
-        this.questionsCache = {}; // Cache for storing fetched questions
+        /** @type {Object.<string, Object>} Cache for storing fetched questions */
+        this.questionsCache = {};
+        /** @type {boolean} Flag indicating if initialization is complete */
         this.isInitialized = false;
     }
 
     /**
-     * Fetches questions from specified text files and initializes the manager.
-     *
-     * @param {Array} filePaths An array of paths to the text files containing questions.
+     * Initializes the manager by fetching and parsing questions from specified files.
+     * @param {string[]} filePaths - An array of paths to the text files containing questions.
+     * @returns {Promise<void>}
      */
     async init(filePaths) {
         try {
             for (const filePath of filePaths) {
                 const response = await fetch(filePath);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const text = await response.text();
                 this.questionsCache[filePath] = this.parseQuestions(text);
             }
@@ -30,31 +38,28 @@ class QuestionsManager {
 
     /**
      * Waits for the initialization to complete.
-     *
-     * @returns {Promise} A promise that resolves when the manager is initialized.
+     * @returns {Promise<void>}
      */
     async waitForInitialisation() {
         while (!this.isInitialized) {
-            await new Promise(resolve => setTimeout(resolve, 100)); // Wait for 100ms before checking again
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
     }
 
     /**
-     * Parses the text content into a structured array of questions and answers.
-     *
-     * @param {string} text The text content containing questions and answers.
-     * @returns {Object} An object with categories as keys and question-answer pairs as values.
+     * Parses the text content into a structured object of questions and answers.
+     * @param {string} text - The text content containing questions and answers.
+     * @returns {Object.<string, Array<{question: string, answer: string}>>}
      */
     parseQuestions(text) {
-
         const categories = text.replace(/\r/g, '').trim().split('\n\n');
         const questionsData = {};
 
         categories.forEach(categoryBlock => {
             const lines = categoryBlock.split('\n');
-            const title = lines.shift().trim().replace(':', ''); // Remove colon from title
+            const title = lines.shift().trim().replace(':', '');
             questionsData[title] = lines.map(line => {
-                const [question, answer] = line.trim().split('\t');
+                const [question, answer] = line.trim().split('=>').map(s => s.trim());
                 return { question, answer };
             });
         });
@@ -62,51 +67,74 @@ class QuestionsManager {
         return questionsData;
     }
 
-       /**
-     * Lists all categories of questions available.
-     * 
-     * @returns {Array} An array of category names.
-     */
     listSheets() {
-       const allSheets = [];
-       for (const fileContent of Object.values(this.questionsCache)) {
-           allSheets.push(...Object.keys(fileContent));
-       }
-       return allSheets;
+        const predefinedSheets = Object.values(this.questionsCache)
+            .flatMap(fileContent => Object.keys(fileContent));
+        const customSheets = this.listCustomSheets();
+        const allSheets = [...new Set([...predefinedSheets, ...customSheets])];
+        console.log('All available sheets:', allSheets);
+        return allSheets;
     }
 
     /**
-     * Reads questions from a specified category across all cached files.
-     *
-     * @param {string} sheetName The name of the category to read questions from.
-     * @returns {Promise<Array>} A promise that resolves to an array of question-answer pairs.
+     * Lists all custom question sheets.
+     * @returns {string[]} An array of custom sheet names.
      */
-    readSheet(sheetName) {
+    listCustomSheets() {
+        const customSheets = JSON.parse(localStorage.getItem('customSheets')) || {};
+        return Object.keys(customSheets);
+    }
+
+    /**
+     * Reads questions from a specified sheet.
+     * @param {string} sheetName - The name of the sheet to read questions from.
+     * @returns {Promise<Array<{question: string, answer: string}>>}
+     */
+    async readSheet(sheetName) {
+        const customQuestions = this.getCustomQuestions(sheetName);
+        if (customQuestions) {
+            return customQuestions;
+        }
+
         for (const fileContent of Object.values(this.questionsCache)) {
             if (fileContent[sheetName]) {
-                return Promise.resolve(fileContent[sheetName]);
+                return fileContent[sheetName];
             }
         }
-        return Promise.reject(new Error(`Sheet "${sheetName}" not found in any file`));
+        throw new Error(`Sheet "${sheetName}" not found`);
     }
 
+    /**
+     * Saves a set of custom questions.
+     * @param {string} sheetName - The name of the custom sheet.
+     * @param {string} customText - The text content of custom questions.
+     */
     saveCustomQuestions(sheetName, customText) {
-        const customQuestions = this.parseQuestions(customText);
+        const questions = customText.split('\n').map(line => {
+            const [question, answer] = line.split('=>').map(part => part.trim());
+            return { question, answer };
+        });
         const customSheets = JSON.parse(localStorage.getItem('customSheets')) || {};
-        customSheets[sheetName] = customQuestions;
+        customSheets[sheetName] = questions;
         localStorage.setItem('customSheets', JSON.stringify(customSheets));
     }
-
+    /**
+     * Retrieves a set of custom questions.
+     * @param {string} sheetName - The name of the custom sheet.
+     * @returns {Array<{question: string, answer: string}>|null}
+     */
     getCustomQuestions(sheetName) {
         const customSheets = JSON.parse(localStorage.getItem('customSheets')) || {};
         return customSheets[sheetName] || null;
     }
 
+    /**
+     * Deletes a set of custom questions.
+     * @param {string} sheetName - The name of the custom sheet to delete.
+     */
     deleteCustomQuestions(sheetName) {
         const customSheets = JSON.parse(localStorage.getItem('customSheets')) || {};
         delete customSheets[sheetName];
         localStorage.setItem('customSheets', JSON.stringify(customSheets));
     }
-
-
 }
