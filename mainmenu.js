@@ -54,7 +54,7 @@ class MainMenu {
     }
 
     /**
-     * Fetches sheet names from Google Sheets and populates the checkboxes for sheet selection.
+     * Populates the checkboxes for sheet selection.
      */
     async setSheetNames(sheets) {
         const sheetsCheckboxesElement = document.getElementById('sheetsCheckboxes');
@@ -73,6 +73,8 @@ class MainMenu {
     selectSheets(isTestMode) {
         // Show the sheet and difficulty selection
         this.hideMainMenu();
+        this.game.preloadSheets();
+
         this.sheetSelectionElement.style.display = 'flex';
         this.difficultySelectionContainer.style.display = isTestMode ? 'block' : 'none';
 

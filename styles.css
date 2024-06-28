@@ -46,6 +46,12 @@ body, html {
     }
 }
 
+#loading {
+    padding: 50px;
+    overflow:visible;
+    overflow-x:hidden;
+
+}
 
 #loading img {
     animation: jumpAndFlip 1.0s infinite; /* Adjust time as needed */
@@ -525,19 +531,6 @@ th {
     background: rgba(226, 74, 74, 0.74)
 }
 
-#customQuestionsManager {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    gap: 20px; /* Adjust the space between elements */
-    max-width: 600px; /* Adjust based on your layout needs */
-    margin: 0 auto; /* Center the container */
-    background: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
-    border-radius: 15px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
 
 .wip {
     color: red;
@@ -553,4 +546,82 @@ th {
 #about {
     display:none;
     flex-direction: column;
+}
+
+#customQuestionsManager {
+    position: absolute;
+    top: 9%;
+    left: 10%;
+    right: 10%;
+    bottom: 10%;
+    border-radius: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+    overflow-y: auto;
+    background-color: rgb(154 147 147 / 40%); /* Add the background gray color */
+
+}
+
+#customQuestionsManager h1 {
+    text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.25), 1px 1px 1px rgb(255 255 255);
+    margin-bottom: 0.5em;
+    color: #614ae2;
+    font-size: 3rem;
+}
+
+#customQuestionsManager #customSheetSelection {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+#customSheetsCol {
+    width: 60%;
+}
+
+#customDifficultyCol {
+    width: 35%;
+}
+
+#customQuestionsInput {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#customQuestionsInput input[type="text"],
+#customQuestionsTextarea {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #614ae2;
+    border-radius: 10px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+#customQuestionsTextarea {
+    min-height: 200px;
+    resize: vertical;
+}
+
+#customDifficultySelection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#customDifficultySelection button,
+#customDifficultySelection select {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+/* Add the custom color for the delete button */
+#deleteCustomQuestionsButton {
+    background: linear-gradient(45deg, #ff4d4d, #ff6666);
 }

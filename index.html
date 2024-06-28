@@ -113,23 +113,29 @@
                     <button class="backToMain">Terug</button>
                 </div>
             </div>
-            <div id="customQuestionsManager">
-                <p class="wip">Nog niet klaar!</p>
-                <button class="backToMain">Terug</button>
-
-                <input type="text" id="customSheetName" placeholder="Enter sheet name" />
-
-                <textarea rows=15 cols=15 id="customQuestionsInput" placeholder="Paste your questions here. Format: question\tanswer.">
-                    Paste your questions here. Format: question\tanswer."
-                </textarea>
-
-                <select name="existingCustomQuestions">
-                    <option value="">select a custom question sheet</option>
-                </select>
-                <button id="saveCustomQuestionsButton">Save</button>
-                <button id="editCustomQuestionsButton">Edit</button>
-                <button id="deleteCustomQuestionsButton">Delete</button>
-            </div>
+		    <div id="customQuestionsManager" style="display:none;">
+			    <button class="backToMain">Terug naar hoofdmenu</button>
+			    <div id="customSheetSelection">
+			        <div id="customSheetsCol">
+			            <h2>Jouw vragen:</h2>
+			            <div id="customQuestionsInput">
+			                <input type="text" id="customSheetName" placeholder="Naam van je vragenlijst">
+			                <textarea id="customQuestionsTextarea" rows="10" placeholder="Typ je vragen hier. Elke vraag + antwoord op een nieuwe regel. Zorg dat er ' => ' tussen vraag en antwoord staat. Voorbeeld: Hoeveel is 2 x 2? => 4"></textarea>
+			                <button id="saveCustomQuestionsButton">Opslaan</button>
+			            </div>
+			        </div>
+			        <div id="customDifficultyCol">
+			            <h2>Wat wil je doen?</h2>
+			            <div id="customDifficultySelection">
+			                <select id="existingCustomQuestions">
+			                    <option value="">Kies een vragenlijst om te bewerken</option>
+			                </select>
+			                <button id="editCustomQuestionsButton">Bewerken</button>
+			                <button id="deleteCustomQuestionsButton">Verwijderen</button>
+			            </div>
+			        </div>
+			    </div>
+			</div>
             <div id="about">
                 <button class="backToMain">Terug</button>
                 <h2>Wat is Unicorn Poep</h2>
