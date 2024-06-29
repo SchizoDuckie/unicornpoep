@@ -225,6 +225,7 @@ button {
     margin: 0.5rem; /* Spacing around buttons */
     cursor: pointer;
     outline: none; /* Remove default focus outline */
+    user-select: none;
 }
 
 
@@ -318,7 +319,12 @@ label::before {
 #startGame {
     margin-top: 20px;
     font-weight: bold;
-    flex: 0 0 100%;
+    flex: 0 1 80%;
+    border: 1px solid rgba(25, 25, 25, 0.8);
+    box-sizing: border-box;
+    text-align: center;
+    padding: 40px;
+    font-size: 40px;
 }
 
 #question {
@@ -404,17 +410,13 @@ input[type=checkbox] {
 
 #highscores {
     flex-direction: column;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-
+    
     background: rgba(255, 255, 255, 0.9); /* Slightly transparent white background */
     border-radius: 20px;
     padding: 20px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     text-align: center;
-    z-index: 1000; /* Make sure it's above all other content */
+    background-color: rgb(154 147 147 / 40%); /* Add the background gray color */
 }
 
 #highscores h1 {
@@ -626,3 +628,21 @@ th {
 #deleteCustomQuestionsButton {
     background: linear-gradient(45deg, #ff4d4d, #ff6666);
 }
+
+#sheetNavigation {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: rgb(97 74 226 / 74%);
+    transition: bottom 0.5s ease-in-out;
+    z-index: 10;
+    bottom: -100%;
+    justify-content: space-around;
+    display: flex;
+}
+
+#sheetNavigation.active {
+    bottom: 0;
+}
+
