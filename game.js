@@ -47,7 +47,7 @@ class Game {
             this.config = await response.json();
         } catch (error) {
             console.error("Error loading config: ", error);
-            // Consider implementing a fallback configuration or error handling strategy
+
         }
     }
 
@@ -62,7 +62,7 @@ class Game {
             this.preloadSheets();
         } catch (error) {
             console.error("Error preloading data: ", error);
-            // Consider implementing a retry mechanism or fallback data
+
         }
     }
 
@@ -90,7 +90,7 @@ class Game {
                 this.currentQuestions.push(...questions);
             } catch (error) {
                 console.error(`Error loading questions for sheet "${sheetName}":`, error);
-                // Consider notifying the user about the error
+
             }
         }
         this.shuffleQuestions();
