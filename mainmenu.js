@@ -29,6 +29,9 @@ class MainMenu {
     setupEventListeners() {
         document.getElementById('practice').addEventListener('click', () => this.selectSheets(false));
         document.getElementById('takeTest').addEventListener('click', () => this.selectSheets(true));
+        this.sheetSelectionElement.addEventListener('change', () => this.validateSelections());
+        this.difficultySelectionElement.addEventListener('change', () => this.validateSelections());
+
         document.getElementById('viewHighscores').addEventListener('click', () => this.game.viewHighscores());
         document.getElementById('myQuestions').addEventListener('click', () => {
             this.hideMainMenu();
@@ -52,6 +55,25 @@ class MainMenu {
 
         // Fetch and display sheet names for selection
     }
+
+
+    /**
+     * Validates the selections and shows/hides the startGame button accordingly.
+     * @private
+     */
+    validateSelections() {
+        const selectedSheets = Array.from(this.sheetSelectionElement.querySelectorAll('input[name="sheet"]:checked'));
+        const selectedDifficulty = document.querySelector('input[name="difficulty"]:checked');
+
+        const sheetNavigationElement = document.getElementById('sheetNavigation');
+
+        if (selectedSheets.length > 0 && selectedDifficulty) {
+            sheetNavigationElement.classList.add('active');
+        } else {
+            sheetNavigationElement.classList.remove('active');
+        }
+    }
+
 
     /**
      * Populates the checkboxes for sheet selection.

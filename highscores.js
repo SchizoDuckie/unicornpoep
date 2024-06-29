@@ -105,7 +105,7 @@ class Highscores {
             const yPosition = event.pageY / window.innerHeight;
             confetti({
                 startVelocity: 30,
-                particleCount: Math.min(window.confettiAmount, 150),
+                particleCount: 20,
                 spread: Math.floor(Math.random() * 360),
                 origin: { x: xPosition, y: yPosition }
             });
