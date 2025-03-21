@@ -29,6 +29,7 @@ class MainMenu {
     setupEventListeners() {
         document.getElementById('practice').addEventListener('click', () => this.selectSheets(false));
         document.getElementById('takeTest').addEventListener('click', () => this.selectSheets(true));
+        document.getElementById('multiplayer').addEventListener('click', () => this.game.showMultiplayerChoice());
         this.sheetSelectionElement.addEventListener('change', () => this.validateSelections());
         this.difficultySelectionElement.addEventListener('change', () => this.validateSelections());
 
@@ -49,13 +50,11 @@ class MainMenu {
         });
 
         // Initially hide the sheet selection and difficulty selection
-
         this.difficultySelectionContainer.style.display = 'none';
         this.backButtonElement.style.display = 'none';
 
         // Fetch and display sheet names for selection
     }
-
 
     /**
      * Validates the selections and shows/hides the startGame button accordingly.
@@ -74,7 +73,6 @@ class MainMenu {
         }
     }
 
-
     /**
      * Populates the checkboxes for sheet selection.
      */
@@ -85,14 +83,14 @@ class MainMenu {
             .filter(name => name != 'Scores' && name != 'Highscores')
             .map(name => `<label><input type="checkbox" name="sheet" value="${name}"> ${name}</label>`)
             .join('');
-
     }
 
     /**
      * Handles the selection of sheets and difficulty (if applicable).
      * @param {boolean} isTestMode Indicates whether the test mode is selected.
+     * @param {boolean} isMultiplayer Indicates whether multiplayer mode is selected.
      */
-    selectSheets(isTestMode) {
+    selectSheets(isTestMode, isMultiplayer = false) {
         // Show the sheet and difficulty selection
         this.hideMainMenu();
         this.game.preloadSheets();
@@ -111,28 +109,55 @@ class MainMenu {
                 alert("Zo kan ik ook winnen, je moet wel iets te doen kiezen!")
                 return;
             }
-            this.game.startNewGame(selectedSheets, selectedDifficulty);
-            this.hideSubMenu();
+            if (isMultiplayer) {
+                // Hide sheet selection and show multiplayer area
+                this.hideSubMenu();
+                this.game.startMultiplayerGame(selectedSheets, selectedDifficulty, true);
+            } else {
+                this.game.startNewGame(selectedSheets, selectedDifficulty);
+                this.hideSubMenu();
+            }
         };
     }
 
     /**
-     * Shows the main menu and hides the submenus and back button.
+     * Shows the main menu and resets game state
      */
     showMainMenu() {
-        this.mainMenuContainer.style.display = 'flex';
+        // Ensure game is in clean state
+        if (this.game) {
+            this.game.resetGameState();
+        }
+        
+        // Ensure UI is in clean state
+        if (this.game.ui) {
+            this.game.ui.hideAllDialogs();
+            this.game.ui.hideGameArea();
+            this.game.ui.hideConnectingScreen();
+        }
+        
+        // Show the main menu
+        this.mainMenuContainer.style.display = 'block';
+        
+        // Hide other screens
         this.menuItemsContainer.style.display = 'flex';
-        // Show the main menu buttons and hide the submenus
         this.sheetSelectionElement.style.display = 'none';
         this.difficultySelectionContainer.style.display = 'none';
         this.backButtonElement.style.display = 'none';
         this.game.ui.hideHighscores();
         this.game.ui.hideEndOfGameDialog();
-        this.game.ui.hideGameArea();
         this.game.ui.hideCustomQuestions();
         this.game.ui.hideAbout();
+        this.game.ui.hideMultiplayerElements();
+        document.getElementById('gameArea').style.display = 'none';
+        document.getElementById('connectionStatus').style.display = 'none';
+        
+        console.log('Main menu displayed, game state reset');
     }
 
+    /**
+     * Hides the main menu.
+     */
     hideMainMenu() {
         this.menuItemsContainer.style.display = 'none';
     }

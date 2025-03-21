@@ -74,14 +74,21 @@ class Highscores {
     }
 
 
-    updateHighscore(gameName, name, score, timestamp) {
-        const newHighscore = { gameName, name, score, timestamp };
-
-        const highscores = this.fetchHighscores();
-        highscores.push(newHighscore);
+    async updateHighscore(sheetName, playerName, score, timestamp, isMultiplayer = false) {
+        const key = `highscores_${sheetName}`;
+        const entry = {
+            player: playerName,
+            score: score,
+            date: timestamp,
+            mode: isMultiplayer ? 'Multiplayer' : 'Single Player'
+        };
+        
+        const highscores = JSON.parse(localStorage.getItem(key) || '[]');
+        highscores.push(entry);
+        
+        // Sort descending and keep top 10
         highscores.sort((a, b) => b.score - a.score);
-
-        localStorage.setItem(this.highscoresKey, JSON.stringify(highscores));
+        localStorage.setItem(key, JSON.stringify(highscores.slice(0, 10)));
     }
 
     triggerRandomConfetti() {

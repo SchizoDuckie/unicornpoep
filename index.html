@@ -62,6 +62,7 @@
                     <button id="takeTest">⏱ Toets</button>
                     <button id="viewHighscores">🥇 Hoogste Scores</button>
                     <button id="myQuestions">🎒 Zelf vragen maken</button>
+                    <button id="multiplayer">👥 Samen spelen</button>
                     <button id="hoeDan">🦄 Wat is Unicorn Poep?</button>
                 </div>
                 <div id="subMenu">
@@ -72,6 +73,13 @@
                 </div>
             </div>
             <div id="gameArea" style="display:none;">
+       
+                <!-- Multiplayer-specific elements, hidden by default -->
+                <div id="playerScores" style="display:none;">
+                    <div id="player1Score">Speler 1: 0</div>
+                    <div id="progressIndicator">Vraag <span id="currentQuestionNumber">1</span> van <span id="totalQuestions">10</span></div>
+                    <div id="player2Score">Speler 2: 0</div>
+                </div>
                 <div id="question"></div>
                 <div id="answers"></div>
                 <div id="timer"></div>
@@ -82,6 +90,37 @@
                 <div id="exitGame">
                     <button id="stopGame">Stop</button>
                 </div>
+            </div>
+            <div id="multiplayerChoice" style="display:none;">
+                <button class="backToMain">Terug</button>
+                <h2>Samen spelen</h2>
+                <div class="name-input-container">
+                    <label for="playerNameInput">Jouw naam:</label>
+                    <input type="text" id="playerNameInput" placeholder="Typ je naam...">
+                </div>
+                <button id="hostGame" class="menuButton">Ik wil een spel starten</button>
+                <button id="joinGame" class="menuButton">Ik wil meedoen met een spel</button>
+            </div>
+            <div id="connectionStatus" style="display:none;">
+                <h2>Verbinden...</h2>
+                <div id="connectionCode" class="connectionBox">
+                    <h3 id="hostCodeDisplay"></h3>
+                    <p class="help-text">Deel deze code met de andere speler</p>
+                </div>
+                <div id="joinView" class="connectionBox" style="display:none;">
+                    <div class="input-wrapper">
+                        <input type="number" 
+                               maxlength="6" 
+                               pattern="[0-9]*" 
+                               inputmode="numeric"
+                               placeholder="Voer 6-cijferige code in" 
+                               id="connectionCodeInput">
+                        <button id="submitCode" class="menuButton yellow-button">Verbinden</button>
+                        <p class="help-text">Vraag de andere speler om de code</p>
+                    </div>
+                </div>
+                <div id="waitingMessage" class="waitingText"></div>
+               
             </div>
             <dialog id="endOfGameDialog">
                 <h1>Goed gedaan!</h1>
@@ -95,6 +134,30 @@
                     <button id="saveHighscore">Opslaan</button>
                     <button id="restartGame">Opnieuw</button>
                     <button class="backToMain">Stoppen</button>
+                </div>
+            </dialog>
+            <dialog id="multiplayerEndGame" class="unicorn-theme">
+                
+                <h1>En de winnaar is...</h1>
+                <div class="player-result winner">
+                    <span class="player-emoji">🦄</span>
+                    <span class="player-name" id="winnerName"></span>
+                    <div class="score-badge">
+                        <span class="score-label">Score</span>
+                        <span class="score-value" id="winnerScore"></span>
+                    </div>
+                </div>
+                <div class="player-result">
+                    <span class="player-emoji">💩</span>
+                    <span class="player-name" id="loserName"></span>
+                    <div class="score-badge">
+                        <span class="score-label">Score</span>
+                        <span class="score-value" id="loserScore"></span>
+                    </div>
+                </div>
+                <div id="endGameButtons">
+                    <button id="saveMultiplayerHighscore">Scores Opslaan</button>
+                    <button onclick="location.reload()">Opnieuw Spelen</button>
                 </div>
             </dialog>
             <div id="highscores" style="display:none;">
@@ -194,6 +257,7 @@
     <script src="timer.js?update-1"></script>
     <script src="scoretimer.js?update-1"></script>
     <script src="mainmenu.js?update-1"></script>
+    <script src="webrtcmanager.js?update-1"></script>
     <script src="game.js?update-1"></script>
     <script>
         window.addEventListener('DOMContentLoaded', (event) => {
@@ -203,5 +267,13 @@
     </script>
     <script src="confetti.js"></script>
     <script data-goatcounter="https://unicornpoep.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+    <script src="peerjs.min.js"></script>
+    <dialog id="disconnectionDialog" class="unicorn-theme">
+        <h2>Verbinding verbroken</h2>
+        <p id="disconnectionMessage">De andere speler heeft de verbinding verbroken.</p>
+        <div id="endGameButtons">
+            <button id="backToMainMenu">Terug naar hoofdmenu</button>
+        </div>
+    </dialog>
 </body>
 </html>

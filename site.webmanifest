@@ -50,7 +50,7 @@
   ],
   "start_url": "/unicornpoep/",
   "display": "standalone",
-  "orientation": "any"
+  "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#ffffff"
 }
