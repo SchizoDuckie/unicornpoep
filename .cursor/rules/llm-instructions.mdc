@@ -1,0 +1,99 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## UnicornPoep Project LLM Instructions
+
+These instructions will help you understand the structure, patterns, and conventions of the UnicornPoep project codebase.
+
+**1. Core Architecture & Design Patterns:**
+
+*   **Central Orchestrator:** The `Game` class (`game.js`) acts as the central hub, managing game state, transitions between modes (main menu, practice, test, multiplayer), and coordinating interactions between different controllers and managers.
+*   **Controller Pattern:** The UI is divided into logical sections, each managed by a dedicated controller class (e.g., `MainMenuController`, `GameAreaController`, `DialogController`, `MultiplayerController`, `HighscoresController`, `CustomQuestionsController`, `AboutController`, `LoadingController`).
+    *   Controllers are responsible for handling user interactions within their specific UI section (button clicks, input changes).
+    *   They interact with the main `Game` instance to trigger state changes or actions.
+    *   **UI Visibility:** A common pattern is toggling the `.hidden` CSS class on container elements (`<div id="...">` or `<dialog id="...">`) to show/hide UI sections. Controllers manage this via their `show()` and `hide()` methods. Assume elements have a base display style (like `flex`, `block`) that becomes active when `.hidden` is removed.
+*   **Manager Pattern:** Data handling and external interactions are encapsulated in manager classes:
+    *   `QuestionsManager`: Loads, parses, caches, and manages access to predefined and custom questions (stored in `localStorage`).
+    *   `HighscoresManager`: Handles saving and retrieving high scores to/from `localStorage`, including sorting and capping entries.
+    *   `WebRTCManager`: Manages the peer-to-peer connection logic using the `peerjs` library for multiplayer mode.
+*   **Separation of Concerns:** Controllers handle UI and user input, Managers handle data and external systems (WebRTC, `localStorage`), and the `Game` class orchestrates the overall flow.
+
+**2. Key Components & Logic Distribution:**
+
+*   **Game Flow:** Managed primarily by `Game.js`. Methods like `start()`, `startNewGame()`, `startMultiplayerHost()`, `connectToMultiplayerGame()`, `nextQuestion()`, `endGame()`, `backToMainMenu()` control the application state.
+*   **Main Menu:** `MainMenuController.js` handles the main menu options, sheet selection, and difficulty selection UI before starting a game.
+*   **Game Area:** `GameAreaController.js` manages the display of questions, answers, score, timer, and progress during active gameplay (single or multiplayer).
+*   **Dialogs:** `DialogController.js` manages various modal dialogs (`<dialog>` elements) like End of Game (single/multi), Disconnection, and Opponent Quit messages.
+*   **Multiplayer:**
+    *   `MultiplayerController.js`: Manages the UI screens for choosing Host/Join, entering/displaying connection codes, and showing status/waiting messages.
+    *   `WebRTCManager.js`: Handles the underlying WebRTC connection setup, signaling (via `peerjs`'s server), and message passing between peers (`sendMessage`, receiving data via `connection.on('data', ...)`).
+    *   `peerjs.min.js`: The third-party library abstracting WebRTC.
+*   **High Scores:**
+    *   `HighscoresManager.js`: Logic for saving/loading scores from `localStorage`.
+    *   `HighscoresController.js`: UI for displaying the high scores list.
+*   **Custom Questions:**
+    *   `QuestionsManager.js`: Logic for saving/loading/deleting custom question sets in `localStorage`.
+    *   `CustomQuestionsController.js`: UI for creating, editing, and deleting custom question sets.
+*   **Timing:** `Timer.js` provides a base timer, and `ScoreTimer.js` extends it for difficulty-based durations and score calculation.
+
+**3. Code Standards & Conventions:**
+
+*   **Language:** Modern JavaScript (ES6+). Use `class` syntax for structuring components.
+*   **Asynchronous Operations:** Use `async`/`await` for Promises, especially for operations like loading data (`fetch`), saving/loading scores, and potentially some WebRTC interactions.
+*   **Docblocks:** Functions and classes generally have JSDoc-style comments explaining their purpose and parameters (`@param`, `@returns`). Maintain this style.
+*   **Naming:** Use camelCase for variables and functions, PascalCase for class names.
+*   **DOM Manipulation:** Primarily uses `document.getElementById` and `querySelector`/`querySelectorAll` to get elements. Interactions often involve adding/removing classes (`.classList.add`/`.remove`) and setting `textContent` or `innerHTML`.
+*   **Error Handling:** Use `try...catch` blocks for operations that might fail (e.g., `localStorage` access, `fetch`, JSON parsing). Log errors to the console (`console.error`, `console.warn`). User-facing errors are often shown via `alert()` or specific UI elements managed by controllers (like `DialogController` or `MultiplayerController`).
+*   **Comments:** Avoid redundant comments. Focus on explaining non-obvious logic or reasoning. Preserve existing important comments (e.g., explaining edge cases).
+
+**4. Data Storage:**
+
+*   **`localStorage`:** Used for persisting:
+    *   High scores (managed by `HighscoresManager`). Keys typically follow a pattern like `unicornpoep_highscore_[sheetKey]_[difficulty]`.
+    *   Custom question sets (managed by `QuestionsManager`). Stored under a key like `customSheets`.
+    *   Player name (updated via `game.updatePlayerName` and likely stored directly by the `Game` instance or related controller).
+    *   **`localStorage`:** Used for persisting...
+    *   **State Management:** Core game state (like `selectedSheets`, `difficulty`, `playerName`, `score`) is typically managed within the `Game` instance. This state is often populated based on user input handled by Controllers and then accessed or used by Managers when performing their tasks (e.g., `QuestionsManager` using `selectedSheets` to load data, `WebRTCManager` sending state updates). Understanding this UI -> Controller -> Game -> Manager flow is key to debugging state-related issues.
+
+**5. Potential Points of Attention:**
+
+*   **Redundant Files:** Be aware that `mainmenu.js` and `MainMenuController.js` exist, as do `highscores.js` and `HighscoresController.js`/`HighscoresManager.js`. The `*Controller.js` and `*Manager.js` files represent the more current, structured approach. Prioritize working with the Controller/Manager pattern files unless explicitly asked to modify the older ones.
+*   **Konami Code:** Easter egg logic is present in `highscores-controller.js`.
+*   **Global Libraries:** Assumes global availability of `confetti` (from `confetti.js`) and `Peer` (from `peerjs.min.js`).
+
+**6. Continuous improvements
+
+* When you encounter new logic or things that are explained, suggest adding them to this document to prevent the same thing having to happen again.
+
+Additional info added by LLM:
+- 
+
+
+By following these guidelines, you should be able to navigate the codebase, understand the flow of logic, and make changes consistent with the existing patterns and standards.
+
+**7. Debugging Guidance:**
+
+*   **Prioritize Error Messages:** Always treat the exact error message and stack trace (if available) as the primary source of truth. Trace the code execution path leading to the error, paying close attention to the specific function mentioned.
+*   **Identify Missing Code:** If the error trace involves calls to methods in classes or modules whose code is not currently visible or attached, **explicitly state** that access to those specific files (e.g., `[ClassName].js`) is necessary for a complete and accurate diagnosis. Do not assume the provided context is exhaustive if the trace points beyond it.
+*   **Trace Intra-Class Logic:** When a method from one component (e.g., `Game`) calls a method in another (e.g., `QuestionsManager.someMethod()`), tracing must extend *into* the implementation of `someMethod()` within its class file to check for errors there.
+*   **NO console.log debugging** Console.log debugging is admitting failure. You know you do not need it to comprehend the logic. If this is where your CoT leads you, start over from scratch, make a plan first, and identify where things could go wrong instead of having the user do this.
+*   **Focus on Root Causes:** Avoid suggesting fixes that merely mask symptoms (e.g., adding default values for variables that *should* be defined). Focus on identifying *why* a value is incorrect or a function is missing. DO NOT suggest workareounds, they are allowed only if explicitly requested
+* if the root cause cannot be determined after thorough investigation with available code, ask for any code that is missing or suggest the user starts a fresh chat to clear the token space.
+
+
+
+By following these guidelines, you should be able to navigate the codebase, understand the flow of logic, and make changes consistent with the existing patterns and standards.
+
+
+
+
+
+
+
+
+
+
+
+

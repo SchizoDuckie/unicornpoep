@@ -1,18 +1,19 @@
 html {
     background-image: url("background.webp");
     background-size: cover;
-    background-repeat:no-repeat;
+    background-repeat: no-repeat;
 }
 
-body, html {
+body,
+html {
     height: 100%;
     margin: 0;
     font-family: sans-serif;
-    overflow:hidden
+    overflow: hidden
 }
 
 #app {
-    background-color: rgba(255,255,255, 0.8);
+    background-color: rgba(255, 255, 255, 0.8);
     border-radius: 30px;
     display: flex;
     flex-direction: column;
@@ -29,80 +30,123 @@ body, html {
 
 @keyframes jumpAndFlip {
     0% {
-        transform: translateY(0) rotate(0deg); /* Start and end in the original position */
+        transform: translateY(0) rotate(0deg);
+        /* Start and end in the original position */
     }
 
     45% {
-        transform: translateY(-15px) rotate(0deg); /* Start and end in the original position */
+        transform: translateY(-15px) rotate(0deg);
+        /* Start and end in the original position */
     }
 
 
     85% {
-        transform: translateY(-15px) rotate(-360deg); /* Full backflip */
+        transform: translateY(-15px) rotate(-360deg);
+        /* Full backflip */
     }
 
     100% {
-        transform: translateY(0) rotate(-360deg); /* Start and end in the original position */
+        transform: translateY(0) rotate(-360deg);
+        /* Start and end in the original position */
     }
 }
 
 #loading {
     padding: 50px;
-    overflow:visible;
-    overflow-x:hidden;
+    overflow: visible;
+    overflow-x: hidden;
 
 }
 
 #loading img {
-    animation: jumpAndFlip 1.0s infinite; /* Adjust time as needed */
+    animation: jumpAndFlip 1.0s infinite;
+    /* Adjust time as needed */
     animation-direction: normal;
     animation-fill-mode: forwards;
 
 }
 
-#app > h1 {
+#app>h1 {
     text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.25), 1px 1px 1px rgb(255 255 255);
     margin-bottom: 0.5em;
     position: fixed;
-    top:0;
+    /* Changed from absolute to fixed if it should stay relative to viewport */
+    top: 0;
+    width: 80%;
+    /* Ensure it doesn't overflow #app */
+    left: 10%;
+    /* Center it horizontally */
+    right: 10%;
+    text-align: center;
+    /* Ensure text inside is centered */
+    z-index: 5;
+    /* Keep it above game container */
 }
 
 
 
-
-#backToMain {
-    position: fixed;
-    top: 11%;
-    left: 11%;
-}
-
-#stopGame, .backToMain {
+/* Combined stopGame and backToMain shared styles */
+#stopGame,
+.backToMain {
     background: #614ae2;
     padding: 0.5rem 1rem;
     font-size: 1.5rem;
+    color: white;
+    border: 2px solid white;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.1s, box-shadow 0.1s;
+    text-shadow: 1px 1px 2px #000000bf;
+    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+    user-select: none;
+    top: 10%;
+    left: 10%;
+    z-index: 5;
+    position: fixed;
 }
 
-h1, h2, h3 {
-    font-family: 'Fredoka One', cursive; /* A playful yet neat font */
+.backToMain:hover {
+    background-color: #4A90E2;
+    transform: scale(1.05);
+    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.backToMain:active {
+    transform: scale(0.95);
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+
+h1,
+h2,
+h3 {
+    font-family: 'Fredoka One', cursive;
+    /* A playful yet neat font */
     color: #614ae2;
-    text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.25); /* Subtle shadow for depth */
+    text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.25);
+    /* Subtle shadow for depth */
     margin-bottom: 0.5em;
-    user-select: none; /* Prevent text selection */
+    user-select: none;
+    /* Prevent text selection */
 }
 
 
 #about p {
-    font-family: 'Fredoka One', cursive; /* A playful yet neat font */
+    font-family: 'Fredoka One', cursive;
+    /* A playful yet neat font */
     font-weight: normal;
     font-size: 1.5rem;
 }
+
 h1 {
-    font-size: 3rem;
+    font-size: 2.8rem;
+    margin-top:0;
 }
 
 h2 {
     font-size: 2.5rem;
 }
+
 h3 {
     font-size: 2rem;
 }
@@ -122,17 +166,20 @@ h1 small {
         transform: scale(0.8);
         opacity: 0.5;
     }
+
     70% {
         transform: scale(1.2);
         opacity: 1;
     }
+
     100% {
         transform: scale(1);
     }
 }
 
-/* Apply the bounceIn animation to the h1 tag */
-h1 {
+/* Apply the bounceIn animation to the h1 tag within #app */
+#app>h1 {
+    /* Make selector more specific if needed */
     animation: bounceIn 1s ease-out forwards;
 }
 
@@ -140,53 +187,202 @@ h1 {
 #gameContainer {
     width: 100%;
     max-width: 1200px;
+    /* Constrain max width */
+    height: 100%;
+    /* Take full height of #app */
     margin: auto;
     padding: 20px;
     box-sizing: border-box;
     overflow-y: auto;
+    /* Allow scrolling if content overflows */
+    display: flex;
+    /* Use flex to center its direct child (like mainMenu or gameArea) */
+    flex-direction: column;
+    /* Stack children vertically */
+    align-items: center;
+    /* Center children horizontally */
+    justify-content: center;
+    /* Center children vertically */
+    padding-top: 50px;
+    /* Add padding to avoid overlap with fixed h1 */
 }
 
-#sheetSelection, #difficultySelection, #gameArea, #highscores, #gameNavigation, #endOfGameDialog {
+
+/* --- MODIFICATION START --- */
+/* Apply common styles ONLY to containers that SHOULD be flex rows */
+#sheetSelection,
+#difficultySelection,
+#highscores,
+#endOfGameDialog,
+#customQuestionsManager #customSheetSelection {
     margin-top: 20px;
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     background-color: rgb(154 147 147 / 40%);
+    display: flex;
+    /* These containers use flex */
+    position: relative;
+    /* Keep relative positioning */
+    width: 100%;
+    /* Control width */
+    box-sizing: border-box;
 }
+
+/* Specific styles for #gameArea (NOT a flex row container) */
+#gameArea {
+    margin-top: 20px;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    background-color: rgb(154 147 147 / 40%);
+    display: block;
+    /* Ensure it's a block container */
+    position: relative;
+    width: 90%;
+    /* Control width */
+    box-sizing: border-box;
+    /* Add padding at the bottom to make space for the fixed #gameNavigation bar */
+    padding-bottom: 120px;
+    /* Adjust value as needed */
+    overflow-y: auto;
+    /* Allow internal scrolling if needed */
+    height: calc(100% - 70px);
+    /* Adjust based on top padding/elements */
+}
+
+/* --- MODIFICATION END --- */
+
 
 #endOfGameDialog {
     background-color: white;
-    font-family: 'Fredoka One', cursive; /* A playful yet neat font */
+    font-family: 'Fredoka One', cursive;
+    padding: 20px;
+    /* Adjusted padding */
+    flex-direction: column;
+    /* Stack content vertically */
+    align-items: center;
+    /* Center content */
+    text-align: center;
 }
 
 #endOfGameDialog .backToMain {
     position: absolute;
-    top: 5px;
-    left: 5px;
+    /* Position relative to dialog */
+    top: 15px;
+    left: 15px;
 }
+
 
 #sheetSelection {
     flex-wrap: wrap;
+    padding-top: 50px;
+    overflow-y: auto;
+    align-items: flex-start;
+    justify-content: space-around;
 }
 
-#gameNavigation {
-    position: fixed;
-    bottom: 0;
-    left: 0;
+#sheetsCol {
+    flex-basis: 52%;
+    box-sizing: border-box;
+    padding: 0 10px;
+}
+
+#difficultyCol {
+    flex-basis: 38%;
+    box-sizing: border-box;
+    padding: 0 10px;
+}
+
+#difficultySelection {
+    flex-direction: column;
+    /* Already set, just confirming */
     width: 100%;
-    background-color: rgb(97 74 226 / 74%);
-    transition: bottom 0.5s ease-in-out; /* Smooth transition for the slide-in effect */
-    z-index: 10; /* Ensure it's above other content */
-    bottom: -100%; /* Start off-screen */
-}
-#gameNavigation.active {
-    bottom: 0; /* Slide in to view */
+    /* Ensure it takes up column width */
 }
 
-#nextButton {
-    width: 80%;
-    user-select: none;
+#difficultySelection label {
+    display: flex;
+    /* Use flex for alignment */
+    align-items: center;
+    /* Vertically center checkbox and text */
+    margin-bottom: 10px;
+    cursor: pointer;
+    margin-left: 0;
+    white-space: normal;
 }
+
+/* Fixed bottom bar for sheet selection START button */
+#sheetNavigation {
+    position: fixed;
+    /* Keep fixed positioning */
+    bottom: -100%;
+    /* Start hidden */
+    left: 10%;
+    /* Align with #app */
+    right: 10%;
+    /* Align with #app */
+    width: 80%;
+    /* Match #app width */
+    padding: 15px 0;
+    background-color: rgba(97, 74, 226, 0.85);
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
+    transition: bottom 0.4s ease-in-out;
+    z-index: 15;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Center button vertically */
+    border-bottom-left-radius: 30px;
+    /* Match #app rounding */
+    border-bottom-right-radius: 30px;
+    /* Match #app rounding */
+}
+
+#sheetNavigation.active {
+        bottom: 0;
+        width: 100%;
+        left: 0;
+        padding: 20px;
+}
+
+#startGame {
+    width: 80%;
+    padding: 1rem 2rem;
+    font-size: 2rem;
+    margin: 0;
+    /* Remove margin */
+    background: #FFD700;
+    color: white;
+    border: 2px solid white;
+    border-radius: 15px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px #000000bf;
+    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    outline: none;
+    user-select: none;
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+#startGame:disabled {
+    background: #aaa;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+#startGame:not(:disabled):hover,
+#startGame:not(:disabled):focus {
+    transform: scale(1.05);
+    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(45deg, #FFC107, #FFEB3B);
+}
+
+#startGame:not(:disabled):active {
+    transform: scale(0.95);
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+}
+
 
 #playerName {
     font-size: 3rem;
@@ -200,49 +396,67 @@ h1 {
 
 
 #mainMenu {
-    display: none;
+    display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    width: 100%;
+    /* Take full width of gameContainer */
 }
 
 #menuItems {
     display: flex;
     width: 90%;
+    
+    /* Max width for buttons */
     justify-content: space-around;
     align-items: stretch;
-    flex-wrap: nowrap;
-    align-content: center;
-    margin: 0 auto;
+    /* Make buttons same height */
     flex-direction: column;
+    /* Stack buttons vertically */
+    margin: 0 auto;
 }
 
 button {
-    background: #FFD700; /* Golden color */
+    background: #FFD700;
+    /* Golden color */
     color: white;
-    border: 2px solid white; /* Solid white border */
+    border: 2px solid white;
+    /* Base white border */
     border-radius: 15px;
-    padding: 1.5rem 5rem;
+    padding: 1.2rem 2rem;
+    /* Adjusted padding */
     font-size: 2rem;
     font-weight: bold;
-    text-shadow: 1px 1px 2px #000000bf; /* Text shadow for depth */
-    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2); /* Soft box shadow for 3D effect */
+    text-shadow: 1px 1px 2px #000000bf;
+    /* Text shadow for depth */
+    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+    /* Soft box shadow for 3D effect */
     transition: transform 0.1s, box-shadow 0.1s;
-    margin: 0.5rem; /* Spacing around buttons */
+    margin: 0.75rem;
+    /* Adjusted spacing */
     cursor: pointer;
-    outline: none; /* Remove default focus outline */
+    outline: none;
+    /* Remove default focus outline */
     user-select: none;
+    flex-grow: 0;
+    /* Prevent buttons from growing unevenly */
 }
 
 
-button:hover, button:focus {
-    transform: scale(1.05); /* Slightly increase size on hover/focus */
-    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3); /* Larger shadow on hover/focus for lifting effect */
+button:hover,
+button:focus {
+    transform: scale(1.05);
+    /* Slightly increase size on hover/focus */
+    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+    /* Larger shadow on hover/focus for lifting effect */
 }
 
 button:active {
-    transform: scale(0.95); /* Slightly decrease size when clicked */
-    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2); /* Smaller shadow when clicked */
+    transform: scale(0.95);
+    /* Slightly decrease size when clicked */
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+    /* Smaller shadow when clicked */
 }
 
 /* Gradient background example for hover state */
@@ -250,9 +464,10 @@ button:hover {
     background: linear-gradient(45deg, #FFC107, #FFEB3B);
 }
 
-button:hover {
+/* This rule was overriding the gradient, remove or adjust */
+/* button:hover {
     background-color: #45a049;
-}
+} */
 
 /* Container for the scrollable list of sheets */
 #sheetsCheckboxes {
@@ -261,26 +476,30 @@ button:hover {
     padding: 10px;
     margin-bottom: 20px;
     flex-direction: column;
-    max-height: fit-content;
+    width: 100%;
 }
 
 /* Custom style for the checkboxes */
 input[type="checkbox"] {
-    -webkit-appearance: none; /* Removes default checkbox style */
+    -webkit-appearance: none;
     appearance: none;
     margin: 0;
-    width: 25px; /* Custom size for checkbox */
+    width: 25px;
     height: 25px;
-    background: white; /* Background of unchecked box */
+    background: white;
     border-radius: 5px;
-    border: 2px solid #614ae2; /* Border color matching the theme */
+    border: 2px solid #614ae2;
     position: relative;
     cursor: pointer;
+    flex-shrink: 0;
+    /* Prevent checkbox from shrinking */
+    margin-right: 10px;
+    /* Add space between checkbox and label text */
 }
 
 /* Style for checkbox when checked */
 input[type="checkbox"]:checked {
-    background: #614ae2; /* Background of checked box */
+    background: #614ae2;
     border-radius: 5px;
 }
 
@@ -288,8 +507,10 @@ input[type="checkbox"]:checked {
 input[type="checkbox"]:checked:after {
     content: '✓';
     position: absolute;
-    top: 2px;
-    left: 6px;
+    top: 0px;
+    /* Adjust position */
+    left: 5px;
+    /* Adjust position */
     font-size: 18px;
     color: white;
 }
@@ -298,88 +519,150 @@ input[type="checkbox"]:checked:after {
 label {
     font-family: 'Fredoka One', cursive;
     display: flex;
-    margin-left: 35px;
+    /* Use flex for alignment */
+    align-items: center;
+    /* Align checkbox and text */
+    /* margin-left: 35px; /* Removed, rely on checkbox margin */
     font-size: 1.5rem;
     line-height: 2rem;
     color: #614ae2;
-    white-space: nowrap; /* Ensures the text doesn't wrap */
+    white-space: normal;
+    /* Allow label text to wrap */
     cursor: pointer;
-    user-select: none; /* Prevent text selection */
+    user-select: none;
     transition: color 0.3s ease;
-    padding:5px;
+    padding: 5px 0;
+    /* Adjust padding */
 }
 
 label:hover {
-    color: #4A90E2; /* Lighter shade when hovering over label */
+    color: #4A90E2;
+    /* Lighter shade when hovering over label */
 }
 
-/* Style for the label text that appears next to the checkbox */
-label::before {
-    content: attr(data-label);
-    display: inline-block;
-    vertical-align: middle;
-    margin-right: 10px;
-}
+/* Remove ::before pseudo-element if not needed or used */
+/* label::before { ... } */
 
 
-#startGame {
-    margin-top: 20px;
-    font-weight: bold;
-    flex: 0 1 80%;
-    border: 1px solid rgba(25, 25, 25, 0.8);
-    box-sizing: border-box;
-    text-align: center;
-    padding: 40px;
-    font-size: 40px;
-}
-
+/* --- QUESTION STYLING (Inside #gameArea) --- */
 #question {
-    font-size: 2.5rem;
+    color: #000000;
+    /* Black color */
+    margin-top: 10px;
+    /* Space below score/timer */
     margin-bottom: 20px;
+    /* Space above answers */
+    text-shadow: none;
+    /* No shadow */
+    font-size: 3rem;
+    /* Adjusted size for prominence */
     font-weight: bold;
+    text-align: center;
+    box-sizing: border-box;
+    width: 100%;
+    /* Ensure it takes full width */
+    padding: 10px 0;
+    /* Add vertical padding */
 }
 
+/* --- ANSWERS STYLING (Inside #gameArea) --- */
 #answers {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-around;
+    /* Distribute space */
     align-items: stretch;
-    gap: 10px;
+    /* Make buttons equal height */
+    gap: 15px;
+    /* Space between buttons */
+    /* padding-bottom: 100px; /* Removed, #gameArea now has padding-bottom */
+    width: 100%;
+    /* Take full width */
+    box-sizing: border-box;
+    height: 75%;
 }
 
-#answers button, #nextButton {
-    flex: 0 1 48%; /* Adjusts the basis to 48% and allows flex items to grow and shrink */
-    border: 1px solid rgba(25,25,25,0.8);
+#answers button {
+    flex: 1 1 45%;
+    /* Grow and shrink, basis of 45% for 2 columns */
+    min-height: 100px;
+    /* Ensure minimum height */
     box-sizing: border-box;
     text-align: center;
-    padding: 40px;
-    font-size: 40px;
+    padding: 20px;
+    /* Adjusted padding */
+    font-size: 2.5rem;
+    /* Adjusted font size */
+    background: #FFD700;
+    color: white;
+    border: 2px solid white;
+    border-radius: 15px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px #000000bf;
+    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+    transition: transform 0.1s, box-shadow 0.1s, background-color 0.2s ease-out;
+    cursor: pointer;
+    outline: none;
+    user-select: none;
+    margin: 0;
+    /* Override general button margin */
 }
 
-#timer, #score {
-    font-size: 3rem;
-    margin: 20px 0;
+#answers button:not(:disabled):hover,
+#answers button:not(:disabled):focus {
+    transform: scale(1.05);
+    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(45deg, #FFC107, #FFEB3B);
+}
+
+#answers button:not(:disabled):active {
+    transform: scale(0.95);
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+#answers button:disabled {
+    background-color: #b0b0b0;
+    color: #e0e0e0;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+    border-color: #999;
+}
+
+/* --- TIMER & SCORE STYLING --- */
+#timer,
+#score {
+    font-size: 2.5rem;
+    /* Slightly smaller */
+    margin: 10px 0;
+    /* Reduced margin */
     position: fixed;
+    /* Keep fixed */
     font-family: 'Fredoka One', cursive;
     color: #614ae2;
     text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.25);
-    right:20%;
+    right: 12%;
+    /* Adjusted position */
+    z-index: 10;
+    /* Above game area */
 }
 
 #score {
-    top:10%;
+    top: 11%;
+    /* Adjusted position */
 }
 
 #timer {
-    top:16%;
-
+    top: 17%;
+    /* Adjusted position */
 }
 
-input[type=checkbox] {
+/* General Checkbox size override (if needed, check specificity) */
+/* input[type=checkbox] {
     height: 2rem;
     width: 2rem;
     margin-right:1rem;
-}
+} */
 
 .disable-interaction {
     pointer-events: none;
@@ -390,6 +673,7 @@ input[type=checkbox] {
         transform: translateY(-100%);
         opacity: 1;
     }
+
     100% {
         transform: translateY(100vh);
         opacity: 0;
@@ -401,32 +685,41 @@ input[type=checkbox] {
     top: 0;
     left: 50%;
     font-size: 5rem;
-    opacity: 0; /* Start fully transparent */
-    animation: drop 1.5s linear forwards; /* Start the drop animation */
-    pointer-events: none; /* Ensure the emoji doesn't interfere with clicks */
-    z-index: 20; /* Ensure the emoji is visible above other content */
+    opacity: 0;
+    /* Start fully transparent */
+    animation: drop 1.5s linear forwards;
+    /* Start the drop animation */
+    pointer-events: none;
+    /* Ensure the emoji doesn't interfere with clicks */
+    z-index: 20;
+    /* Ensure the emoji is visible above other content */
 }
 
 #exitGame {
     position: fixed;
+    /* Keep fixed */
     top: 11%;
     left: 11%;
+    z-index: 10;
+    /* Ensure it's above game area */
 }
 
 
 #highscores {
     flex-direction: column;
-    
-    background: rgba(255, 255, 255, 0.9); /* Slightly transparent white background */
+    background: rgba(255, 255, 255, 0.9);
     border-radius: 20px;
     padding: 20px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     text-align: center;
-    background-color: rgb(154 147 147 / 40%); /* Add the background gray color */
+    background-color: rgb(154 147 147 / 40%);
+    max-height: 80%;
+    /* Allow scrolling within highscores */
+    overflow-y: auto;
 }
 
 #highscores h1 {
-    color: #614ae2; /* Match the button color for consistency */
+    color: #614ae2;
     margin-bottom: 1rem;
     font-size: 2rem;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
@@ -434,24 +727,30 @@ input[type=checkbox] {
 
 
 #highscores .score-container.top-score {
-    background: #ffd700; /* Gold background for top 3 scores */
+    background: #ffd700;
     font-weight: bold;
 }
 
-.score-name, .score-score, .score-timestamp {
+.score-name,
+.score-score,
+.score-timestamp {
     flex: 1;
     padding: 0 5px;
 }
 
 #highscores table {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
+    /* Slightly smaller font */
+    width: 100%;
+    /* Table takes full width */
 }
 
 /* Additional styling for top scores */
 #highscores .top-score .score-name,
 #highscores .top-score .score-score,
 #highscores .top-score .score-timestamp {
-    color: #604ae0; /* White text for better contrast on gold background */
+    color: #604ae0;
+    /* White text for better contrast on gold background */
 }
 
 th.score-rank {
@@ -461,30 +760,39 @@ th.score-rank {
 
 
 /* Gold background for the first place */
-#highscores .score-container.top-score:first-child {
-    background: #ffd700; /* Solid gold color */
+#highscores tr.top-score:nth-child(1) {
+    background: #ffd700;
+    /* Solid gold color */
 }
 
 /* Gradient background for the second place */
-#highscores .score-container.top-score:nth-child(2) {
-    background: linear-gradient(to right, #ffd700, #fff9e6); /* Fade to lighter yellow */
+#highscores tr.top-score:nth-child(2) {
+    background: linear-gradient(to right, #e6c300, #fff9e6);
+    /* Adjusted gold */
 }
 
 /* Gradient background for the third place */
-#highscores .score-container.top-score:nth-child(3) {
-    background: linear-gradient(to right, #ffd700, #fff); /* Fade to white */
+#highscores tr.top-score:nth-child(3) {
+    background: linear-gradient(to right, #cca700, #fff);
+    /* Darker gold fade */
 }
 
 table {
     margin: 20px 0;
-    max-height: 300px;
+    /* max-height: 300px; /* Removed, rely on #highscores overflow */
     background: #ececff;
-    overflow-y: auto; /* Allow scrolling for overflow */
+    /* overflow-y: auto; /* Removed, rely on #highscores overflow */
     text-align: left;
     border-collapse: collapse;
-    border-radius:20px;
+    border-radius: 10px;
+    /* Rounded corners for table */
+    overflow: hidden;
+    /* Clip content to rounded corners */
+    width: 100%;
+    /* Ensure table takes width */
 
-    padding: 10px;
+    padding: 0;
+    /* Remove padding from table itself */
     margin-bottom: 10px;
     box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
 
@@ -492,51 +800,57 @@ table {
 
 th {
     text-align: center;
-    padding:10px;
+    padding: 10px;
+    background-color: #dcd6ff;
+    /* Header background */
 }
 
-#scoreList tr, #scoreList td {
-    padding:5px;
+#scoreList tr:nth-child(even) {
+    background-color: #f7f5ff;
+    /* Zebra striping */
+}
+
+#scoreList td {
+    padding: 8px 10px;
+    /* Adjust cell padding */
 }
 
 
-.backToMain {
-    background-color: #614ae2;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    padding: 10px 20px;
-    font-size: 1rem;
-    margin-top: 1rem;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-    position: fixed;
-    top: 11%;
-    left: 11%;
-}
-
-#highscores .backToMain {
-    position: initial;
-}
-
-.backToMain:hover {
-    background-color: #4A90E2; /* Lighter blue when hovering */
-}
-
+/* Back button is already styled above */
 
 @keyframes wiggle {
-    0%, 100% { transform: rotate(-3deg); }
-    50% { transform: rotate(3deg); }
+
+    0%,
+    100% {
+        transform: rotate(-3deg);
+    }
+
+    50% {
+        transform: rotate(3deg);
+    }
 }
 
-.correct-answer {
-    display: inline-block; /* Ensures transform applies correctly */
+#answers button.correct-answer {
+    /* display: inline-block; /* Not needed with flex */
     animation: wiggle 0.2s ease-in-out;
-    background: rgba(82, 226, 74, 0.74)
+    background: rgba(82, 226, 74, 0.65);
+    border-color: #3a8a35;
+    color: white;
 }
 
-.wrong-answer {
-    background: rgba(226, 74, 74, 0.74)
+#answers button.correct-answer:hover {
+    background: rgba(82, 226, 74, 0.85);
+}
+
+#answers button.wrong-answer {
+    /* display: inline-block; /* Not needed with flex */
+    background: rgba(226, 74, 74, 0.65);
+    border-color: #a03232;
+    color: white;
+}
+
+#answers button.wrong-answer:hover {
+    background: rgba(226, 74, 74, 0.85);
 }
 
 
@@ -549,12 +863,22 @@ th {
     background-color: rgba(255, 224, 224, 0.8);
     padding: 100px;
     border-radius: 100px;
+    z-index: 100;
+    /* Ensure it's on top */
 }
 
 #about {
-    display:none;
     flex-direction: column;
     text-align: left;
+    width: 90%;
+    /* Control width */
+    max-height: 80%;
+    /* Allow scrolling */
+    overflow-y: auto;
+    background-color: rgb(154 147 147 / 40%);
+    padding: 30px;
+    border-radius: 20px;
+    box-sizing: border-box;
 }
 
 #customQuestionsManager {
@@ -568,25 +892,41 @@ th {
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
+    /* Align content to top */
     text-align: center;
     overflow-y: auto;
-    background-color: rgb(154 147 147 / 40%); /* Add the background gray color */
-
+    background-color: rgb(154 147 147 / 40%);
+    padding: 20px;
+    /* Add padding */
+    box-sizing: border-box;
 }
 
-#customQuestionsManager h1 {
+#customQuestionsManager h2 {
+    /* Target h2 instead of h1 if h1 is fixed */
     text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.25), 1px 1px 1px rgb(255 255 255);
-    margin-bottom: 0.5em;
+    margin-bottom: 1em;
+    /* Increased margin */
     color: #614ae2;
-    font-size: 3rem;
+    font-size: 2.5rem;
+    /* Adjusted size */
 }
 
 #customQuestionsManager #customSheetSelection {
     width: 100%;
     display: flex;
+    /* Already set by shared rule */
     justify-content: space-between;
-    padding: 20px;
+    padding: 20px 0;
+    /* Adjust padding */
     box-sizing: border-box;
+    background-color: transparent;
+    /* Remove inherited background */
+    box-shadow: none;
+    /* Remove inherited shadow */
+    margin-top: 0;
+    /* Reset margin */
+    border-radius: 0;
+    /* Reset border-radius */
 }
 
 #customSheetsCol {
@@ -628,28 +968,15 @@ th {
 #customDifficultySelection select {
     width: 100%;
     margin-bottom: 10px;
+    padding: 0.75rem 1rem;
+    /* Consistent padding */
+    font-size: 1.2rem;
+    /* Consistent font size */
 }
 
 /* Add the custom color for the delete button */
 #deleteCustomQuestionsButton {
     background: linear-gradient(45deg, #ff4d4d, #ff6666);
-}
-
-#sheetNavigation {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background-color: rgb(97 74 226 / 74%);
-    transition: bottom 0.5s ease-in-out;
-    z-index: 10;
-    bottom: -100%;
-    justify-content: space-around;
-    display: flex;
-}
-
-#sheetNavigation.active {
-    bottom: 0;
 }
 
 #connectionCodeInput {
@@ -705,16 +1032,17 @@ th {
 #multiplayerChoice {
     display: flex;
     flex-direction: column;
-    align-items: center;    
+    align-items: center;
     gap: 20px;
     padding: 30px;
-    background-color: rgb(154 147 147 / 40%); /* Match the background gray color used elsewhere */
+    background-color: rgb(154 147 147 / 40%);
     border-radius: 30px;
-    padding: 30px;
-    width: 80%;
+    width: 90%;
+    /* Match other sections */
     max-width: 600px;
     margin: 0 auto;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
 }
 
 #multiplayerChoice h2 {
@@ -737,6 +1065,10 @@ th {
     color: #614ae2;
     margin-left: 0;
     margin-bottom: 10px;
+    display: block;
+    /* Ensure label is block */
+    text-align: center;
+    /* Center label text */
 }
 
 .name-input-container input[type="text"] {
@@ -748,15 +1080,19 @@ th {
     border-radius: 15px;
     text-align: center;
     font-family: 'Fredoka One', cursive;
+    background-color: white;
+    /* Ensure white background */
 }
 
-#multiplayerChoice button {
+#multiplayerChoice button.menuButton {
+    /* General button style applied earlier */
     width: 80%;
     background: linear-gradient(45deg, #FFC107, #FFEB3B);
     border: 3px solid white;
     color: white;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
     margin: 10px auto;
+    /* Use auto margin for centering if needed */
     padding: 20px;
     font-size: 1.8rem;
 }
@@ -767,6 +1103,10 @@ th {
     align-items: center;
     gap: 20px;
     padding: 20px;
+    width: 90%;
+    /* Match other sections */
+    max-width: 600px;
+    box-sizing: border-box;
 }
 
 .connectionBox {
@@ -775,8 +1115,9 @@ th {
     border-radius: 15px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     width: 100%;
-    max-width: 500px;
+    /* Take full width of parent */
     margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .input-wrapper {
@@ -787,9 +1128,11 @@ th {
 }
 
 #connectionStatus #connectionCodeInput {
+    /* Target the specific input */
     font-size: 2.5rem;
     padding: 15px;
-    width: 80%;
+    width: 90%;
+    /* Adjust width */
     text-align: center;
     text-transform: uppercase;
     border: 3px solid #614ae2;
@@ -799,6 +1142,7 @@ th {
     background: white;
     margin: 0 auto;
     display: block;
+    box-sizing: border-box;
 }
 
 #connectionStatus #connectionCodeInput::placeholder {
@@ -823,6 +1167,7 @@ th {
 }
 
 .yellow-button {
+    /* Already styled by general button rules */
     background: #FFD700;
     width: 80%;
     margin-top: 10px;
@@ -839,6 +1184,7 @@ th {
     width: 100%;
     max-width: 600px;
     text-align: left;
+    box-sizing: border-box;
 }
 
 .debugBox h3 {
@@ -870,51 +1216,83 @@ th {
     color: #4dbbff;
 }
 
+/* Multiplayer Game Styles */
 #multiplayerGame #answers {
+    /* Target specific multiplayer answers */
     display: flex;
     flex-direction: column;
+    /* Stack answers vertically */
     gap: 15px;
     margin: 20px 0;
+    align-items: center;
+    /* Center buttons horizontally */
 }
 
 #multiplayerGame #answers button {
     flex: none;
+    /* Don't allow flex grow/shrink */
     width: 80%;
+    /* Set a fixed width */
+    max-width: 400px;
+    /* Max width */
     margin: 0 auto;
+    /* Center button */
     padding: 20px;
     font-size: 2rem;
 }
 
 /* Winner announcement styles */
 .unicorn-theme {
+    /* General dialog theme */
     background: linear-gradient(45deg, #ff6b6b, #ff9f43, #feca57, #2ecc71);
     border: 3px solid #ffffff;
     border-radius: 20px;
     text-align: center;
     position: relative;
     overflow: visible;
+    padding: 30px;
+    /* Add padding */
+    color: white;
+    /* Default text color */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+    /* Add subtle shadow */
+}
+
+.unicorn-theme h1,
+.unicorn-theme h2 {
+    color: white;
+    /* Ensure headers are white */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .player-result {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 20px 0;
+    /* Center items */
+    margin: 20px auto;
+    /* Center block */
     padding: 15px;
-    background: rgba(255,255,255,0.9);    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    padding: 30px;
-    background-color: rgba(255, 255, 255, 0.8);
-
+    background: rgba(255, 255, 255, 0.9);
     border-radius: 15px;
+    color: #333;
+    /* Text color inside result box */
+    text-shadow: none;
+    /* Reset text shadow */
+    width: 90%;
+    /* Control width */
+    max-width: 400px;
+    /* Max width */
+    box-sizing: border-box;
 }
 
-.winner {
+.player-result.winner {
     transform: scale(1.1);
     background: #ffeaa7;
     animation: glow 1s infinite alternate;
+    color: #614ae2;
+    /* Winner text color */
+    font-weight: bold;
 }
 
 .player-emoji {
@@ -922,85 +1300,115 @@ th {
     margin-right: 15px;
 }
 
+.player-name {
+    font-size: 1.5rem;
+    /* Adjust name size */
+    flex-grow: 1;
+    /* Allow name to take space */
+    text-align: left;
+    /* Align name left */
+}
+
 .score-badge {
     display: inline-flex;
     flex-direction: column;
+    align-items: center;
+    /* Center text inside badge */
     background: #2ecc71;
     color: white;
-    padding: 10px 20px;
+    padding: 8px 15px;
+    /* Adjust badge padding */
     border-radius: 10px;
     margin-left: 15px;
+    font-size: 0.9rem;
+    /* Adjust badge font size */
+    text-shadow: none;
+    /* Reset shadow */
+}
+
+.score-badge .score-label {
+    font-size: 0.8em;
+    /* Smaller label */
+    margin-bottom: 2px;
+}
+
+.score-badge .score-value {
+    font-size: 1.2em;
+    /* Larger score value */
+    font-weight: bold;
 }
 
 @keyframes glow {
-    from { box-shadow: 0 0 10px #ff9f43; }
-    to { box-shadow: 0 0 20px #ff9f43, 0 0 30px #ff9f43; }
+    from {
+        box-shadow: 0 0 10px #ff9f43;
+    }
+
+    to {
+        box-shadow: 0 0 20px #ff9f43, 0 0 30px #ff9f43;
+    }
 }
 
 .winner::after {
     content: "🎉";
     font-size: 3em;
     position: absolute;
+    top: -20px;
+    /* Adjust position */
+    left: calc(50% - 0.5em);
+    /* Center horizontally */
     animation: float 3s ease-in-out infinite;
+    z-index: -1;
+    /* Place behind the content box */
 }
 
 @keyframes float {
-    0% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-20px) rotate(180deg); }
-    100% { transform: translateY(0) rotate(360deg); }
+    0% {
+        transform: translateY(0) rotate(0deg);
+    }
+
+    50% {
+        transform: translateY(-20px) rotate(180deg);
+    }
+
+    100% {
+        transform: translateY(0) rotate(360deg);
+    }
 }
 
-/* Remove fireworks.gif reference */
-.unicorn-theme {
-    background: linear-gradient(45deg, #ff6b6b, #ff9f43, #feca57, #2ecc71);
-    border: 3px solid #ffffff;
-    border-radius: 20px;
-    text-align: center;
-    position: relative;
-    overflow: visible;
-}
 
-.winner::after {
-    content: "🎉";
-    font-size: 3em;
-    position: absolute;
-    animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-    0% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-20px) rotate(180deg); }
-    100% { transform: translateY(0) rotate(360deg); }
-}
-
-/* Ensure the back button is visible and positioned correctly */
-#multiplayerChoice .backToMain,
-#connectionStatus .backToMain {
-    display: block;
-    position: fixed;
-    top: 11%;
-    left: 11%;
-    background-color: #614ae2;
-    color: white;
-    padding: 0.5rem 1rem;
-    font-size: 1.5rem;
-    border-radius: 10px;
-    cursor: pointer;
-}
-
-/* Style the input field to stand out against the semi-transparent background */
-#multiplayerChoice input[type="text"] {
-    background-color: white;
-    border: 3px solid #614ae2;
-    border-radius: 15px;
-    padding: 10px;
-    font-size: 1.5rem;
-    width: 80%;
-    text-align: center;
-    font-family: 'Fredoka One', cursive;
-}
+/* Multiplayer Name Input was handled earlier */
 
 /* Question progress indicator */
+#playerScores {
+    /* Container for scores and progress */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    /* Allow wrapping on small screens */
+    padding: 5px 10px;
+    /* Reduced padding */
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 15px;
+    margin-bottom: 15px;
+    width: 100%;
+    /* Take full width */
+    box-sizing: border-box;
+}
+
+.player-score-display {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.2rem;
+    /* Adjust size */
+    color: #614ae2;
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+    padding: 5px 10px;
+    flex: 1 1 auto;
+    /* Allow scores to take space */
+    text-align: center;
+    /* Center score text */
+}
+
 #progressIndicator {
     background-color: rgba(97, 74, 226, 0.7);
     color: white;
@@ -1009,65 +1417,34 @@ th {
     font-weight: bold;
     font-family: 'Fredoka One', cursive;
     font-size: 1.2rem;
-    margin: 10px auto;
-    width: fit-content;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-}
-
-/* Style player scores div as a container */
-#playerScores {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    padding: 10px;
-    background-color: rgba(255, 255, 255, 0.3);
-    border-radius: 15px;
-    margin-bottom: 15px;
-}
-
-/* Style the progress indicator inside playerScores */
-#progressIndicator {
-    background-color: rgba(97, 74, 226, 0.7);
-    color: white;
-    padding: 5px 10px;
-    border-radius: 15px;
-    font-weight: bold;
-    font-family: 'Fredoka One', cursive;
-    font-size: 1rem;
     margin: 5px auto;
+    /* Center horizontally when wrapped */
     width: fit-content;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-    order: 2; /* This puts it between the player scores */
-    flex-basis: 100%; /* On mobile it will go to a new line */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    order: 0;
+    /* Default order */
+    flex: 0 0 auto;
+    /* Don't grow or shrink */
 }
 
-/* Make player scores more compact when grouped with progress indicator */
-.player-score-display {
-    flex: 0 1 auto;
-    margin: 5px;
-}
-
-/* Responsive adjustments */
-@media (min-width: 768px) {
-    #progressIndicator {
-        flex-basis: auto;
-        order: 0;
-    }
-}
 
 /* Animation for opponent score updates */
 @keyframes scoreUpdate {
     0% {
         transform: scale(1);
     }
+
     50% {
         transform: scale(1.2);
         background-color: #FFD700;
         box-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
+        color: white;
+        /* Change text color during animation */
+        border-radius: 10px;
+        /* Add radius during animation */
     }
+
     100% {
         transform: scale(1);
     }
@@ -1079,3 +1456,409 @@ th {
 }
 
 
+.hidden {
+    display: none !important;
+    /* This class controls the visibility */
+}
+
+/* --- GAME NAVIGATION BAR (Fixed Bottom) --- */
+#gameNavigation {
+    position: fixed;
+    bottom: -100%;
+    /* Start off-screen */
+    left: 0%;
+    /* Align with #app */
+    right: 0%;
+    /* Align with #app */
+    width: 100%;
+    /* Match #app width */
+    background-color: rgba(97, 74, 226, 0.85);
+    /* Purple background */
+    transition: bottom 0.5s ease-in-out;
+    z-index: 15;
+    /* Ensure it's above game area content */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 15px 0;
+    /* Padding for the bar */
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
+    /* Optional top shadow */
+    margin-top: 0;
+    /* Override any inherited margin */
+    border-bottom-left-radius: 30px;
+    /* Match #app rounding */
+    border-bottom-right-radius: 30px;
+    /* Match #app rounding */
+}
+
+#gameNavigation.active {
+    bottom: 0%;
+    /* Align with bottom of #app */
+}
+
+/* Style the #nextButton specifically for the bottom bar */
+#gameNavigation #nextButton {
+    /* Use specific selector */
+    width: 80%;
+    padding: 1rem 2rem;
+    font-size: 2rem;
+    margin: 0;
+    /* Remove margin */
+    background: #FFD700;
+    color: white;
+    border: 2px solid white;
+    border-radius: 15px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px #000000bf;
+    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    outline: none;
+    user-select: none;
+    transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s;
+    /* flex: none; /* Not needed */
+    box-sizing: border-box;
+    text-align: center;
+}
+
+#gameNavigation #nextButton:disabled {
+    background: #aaa;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+#gameNavigation #nextButton:not(:disabled):hover,
+#gameNavigation #nextButton:not(:disabled):focus {
+    transform: scale(1.05);
+    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(45deg, #FFC107, #FFEB3B);
+}
+
+#gameNavigation #nextButton:not(:disabled):active {
+    transform: scale(0.95);
+    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 2.5rem;
+    }
+
+    h2 {
+        font-size: 2rem;
+    }
+
+    h3 {
+        font-size: 1.8rem;
+    }
+
+    button {
+        font-size: 1.5rem;
+        padding: 1rem 1.5rem;
+        margin: 0.5rem;
+    }
+
+    #answers button {
+        font-size: 1.8rem;
+        padding: 15px;
+        min-height: 80px;
+    }
+
+    #question {
+        font-size: 2rem;
+    }
+
+    #timer,
+    #score {
+        font-size: 1.8rem;
+    }
+
+    #gameNavigation #nextButton {
+        font-size: 1.5rem;
+        padding: 0.8rem 1.5rem;
+    }
+
+    #sheetNavigation #startGame {
+        font-size: 1.5rem;
+        padding: 0.8rem 1.5rem;
+    }
+
+    .backToMain,
+    #stopGame {
+        font-size: 1.2rem;
+        padding: 0.4rem 0.8rem;
+    }
+
+    #app {
+        top: 5%;
+        left: 5%;
+        right: 5%;
+        bottom: 5%;
+        border-radius: 20px;
+    }
+
+    #gameNavigation,
+    #sheetNavigation {
+        left: 5%;
+        right: 5%;
+        width: 90%;
+        bottom: 5%;
+        border-radius: 0;
+        border-bottom-left-radius: 20px;
+        border-bottom-right-radius: 20px;
+    }
+
+    #gameArea {
+        width: 100%;
+        padding: 15px;
+        padding-bottom: 100px;
+    }
+
+    /* Adjust padding */
+    #answers {
+        gap: 10px;
+
+    }
+
+    #playerScores {
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    #progressIndicator {
+        order: -1;
+        /* Put progress on top on mobile */
+    }
+
+    .player-score-display {
+        font-size: 1rem;
+        padding: 3px 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    h1 {
+        font-size: 2rem;
+    }
+
+    #app>h1 small {
+        font-size: 0.5em;
+    }
+
+    button {
+        font-size: 1.2rem;
+        padding: 0.8rem 1rem;
+    }
+
+    #answers button {
+        font-size: 1.5rem;
+        padding: 10px;
+        min-height: 60px;
+    }
+
+    #question {
+        font-size: 1.8rem;
+    }
+
+    label {
+        font-size: 1.2rem;
+    }
+
+    #timer,
+    #score {
+        font-size: 1.5rem;
+    }
+
+    #gameNavigation #nextButton,
+    #sheetNavigation #startGame {
+        font-size: 1.2rem;
+        padding: 0.6rem 1rem;
+    }
+
+    #answers button {
+        flex-basis: 100%;
+    }
+
+    /* Stack answers vertically */
+
+}
+
+/* Enhanced Host Code Display */
+.host-code-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 10px;
+    margin-bottom: 20px;
+    gap: 10px; /* Add gap between buttons */
+}
+
+.host-code-text {
+    font-family: 'Fredoka One', cursive;
+    font-size: 4rem; 
+    font-weight: bold;
+    color: #614ae2; /* Use theme colors? Maybe keep specific for contrast */
+    letter-spacing: 5px;
+    background-color: rgba(255, 255, 255, 0.8); /* Lighter background inside dialog */
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 2px dashed #614ae2;
+    margin-right: 15px;
+}
+
+.copy-button {
+    background: #614ae2;
+    border: none;
+    border-radius: 50%; /* Make it circular */
+    padding: 10px;
+    cursor: pointer;
+    display: inline-flex; /* Align icon nicely */
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.copy-button:hover {
+    background-color: #4A90E2;
+    transform: scale(1.1);
+}
+
+.copy-button:active {
+    transform: scale(0.95);
+    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.copy-button svg {
+    /* SVG styles are inline, but can override size here if needed */
+    width: 24px;
+    height: 24px;
+}
+
+/* General Share Button Style */
+.share-button {
+    background: #614ae2; /* Default color, can be overridden */
+    border: none;
+    border-radius: 50%; 
+    padding: 10px;
+    cursor: pointer;
+    display: inline-flex; 
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+    text-decoration: none; /* Remove underline from link */
+}
+
+.share-button:hover {
+    transform: scale(1.1);
+}
+
+.share-button:active {
+    transform: scale(0.95);
+    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.share-button svg {
+    width: 24px;
+    height: 24px;
+    fill: #FFFFFF; /* Ensure icon is white */
+}
+
+/* WhatsApp Specific Style */
+.whatsapp-button {
+    background-color: #25D366; /* WhatsApp green */
+}
+
+.whatsapp-button:hover {
+    background-color: #1DAE54; /* Darker WhatsApp green */
+}
+
+/* Kirby Waiting Animation */
+.waiting-kirby {
+    display: block; /* Center it */
+    margin: 20px auto; /* Space around it */
+    width: 100px; /* Adjust size as needed */
+    height: auto;
+    /* Apply the jumpAndFlip animation from loading screen */
+    animation: jumpAndFlip 1.0s infinite; 
+    animation-direction: normal;
+    animation-fill-mode: forwards;
+}
+
+/* Waiting Message Animation */
+#connectionCode .waitingText { /* Target waiting text specifically inside connectionCode box */
+    font-size: 1.5rem;
+    color: #614ae2;
+    text-align: center;
+    margin: 15px 0 10px 0; /* Adjust margin */
+    font-family: 'Fredoka One', cursive;
+}
+
+@keyframes blink { 
+    0% { opacity: 0; } 
+    50% { opacity: 1; } 
+    100% { opacity: 0; } 
+}
+
+#waitingMessage span[class^="dot"] { 
+    animation: blink 1.4s infinite; 
+    opacity: 0; 
+}
+
+#waitingMessage .dot1 { animation-delay: 0s; } 
+#waitingMessage .dot2 { animation-delay: 0.2s; } 
+#waitingMessage .dot3 { animation-delay: 0.4s; } 
+
+
+/* Adjust h2 positioning for Dialog */
+#connectionStatus h2 {
+    margin-top: 10px; /* Reduce top margin */
+    margin-bottom: 20px;
+    color: #FFFFFF; /* White text for unicorn theme */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); /* Consistent shadow */
+    font-size: 2.5rem;
+}
+
+/* Remove background/shadow from inner boxes when inside dialog */
+#connectionStatus .connectionBox {
+    background: transparent;
+    padding: 15px 0; /* Adjust padding */
+    box-shadow: none;
+    width: 90%; /* Adjust width as needed */
+    max-width: 500px; /* Optional max width */
+    margin: 0 auto;
+    box-sizing: border-box;
+    display: flex; /* Use flex for centering inner content */
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Ensure input/button inside joinView still look ok */
+#connectionStatus #joinView .input-wrapper {
+    background-color: rgba(255, 255, 255, 0.8); /* Light background for contrast */
+    padding: 20px;
+    border-radius: 10px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#connectionStatus #joinView .input-wrapper input {
+    /* Styles likely ok, but ensure contrast */
+    background-color: white; 
+}
+
+#connectionStatus #joinView .input-wrapper .help-text {
+    color: #614ae2; /* Ensure readable color */
+    text-shadow: none;
+}
+
+/* Ensure help text inside host view is readable */
+#connectionStatus #connectionCode .help-text {
+    color: white; 
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4); 
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+}

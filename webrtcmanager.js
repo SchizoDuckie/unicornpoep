@@ -175,11 +175,7 @@ class WebRTCManager {
                         break;
                     case 'playerInfo':
                         console.log(`Received player info: ${message.name}`);
-                        this.game.opponentName = message.name;
-                        this.game.ui.updatePlayerNames(
-                            this.game.playerName || 'Speler 1', 
-                            message.name || 'Speler 2'
-                        );
+                        this.game.handlePlayerInfo(message);
                         break;
                     case 'gameEnd':
                         console.log(`Game ended. Scores: ${message.hostScore} vs ${message.clientScore}`);

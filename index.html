@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>🦄💩</title>
     <link href="fredoka.css" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?update-1"> <!-- Link to your CSS file -->
-    <link rel="stylesheet" href="mobile.css" media="only screen and (max-width: 768px)">
+    <link rel="stylesheet" href="styles.css?final"> <!-- Link to final CSS -->
+
 
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -31,67 +31,74 @@
         <h1>🦄 Unicorn Poep 💩<br>
             <small>Door SchizoDuckie, voor Sanne <img src="heart.gif" alt="<3"></small></h1>
         <div id="gameContainer">
-            <div id="loading">
-                <img src="loading.gif">
+            <!-- Loading Indicator -->
+            <div id="loading"> <!-- Starts visible -->
+                <img src="loading.gif" alt="Loading...">
                 <h1>Even wat laden, momentje!</h1>
             </div>
-            <div id="sheetSelection" style="display:none;">
-                <div id="sheetsCol">
-                    <h1>Wat wil je doen?</h1>
-                    <div id="sheetsCheckboxes">
-                        <!-- Checkboxes for sheet selection will be dynamically populated -->
-                    </div>
-                </div>
-                <div id="difficultyCol">
-                    <h1>Ben je daar goed in?</h1>
-                    <div id="difficultySelection">
-                        <label><input type="radio" name="difficulty" value="easy"> Denk het niet (⏱ 60)</label>
-                        <label><input type="radio" name="difficulty" value="medium" checked> Misschien (⏱ 30)</label>
-                        <label><input type="radio" name="difficulty" value="hard"> Zeker wel! (⏱ 5)</label>
-                    </div>
-                </div>
-                <div id="sheetNavigation">
-                	<button id="startGame">Start!</button>
-                </div>
-                
-            </div>
 
-            <div id="mainMenu">
-                <div id="menuItems">
+            <!-- Main Menu & Sheet Selection -->
+            <div id="mainMenu" class="hidden">
+                 <div id="menuItems">
                     <button id="practice">📚 Oefenen</button>
                     <button id="takeTest">⏱ Toets</button>
                     <button id="viewHighscores">🥇 Hoogste Scores</button>
                     <button id="myQuestions">🎒 Zelf vragen maken</button>
                     <button id="multiplayer">👥 Samen spelen</button>
                     <button id="hoeDan">🦄 Wat is Unicorn Poep?</button>
-                </div>
-                <div id="subMenu">
+                 </div>
+                 <!-- Sheet Selection (SubMenu) -->
+                 <div id="sheetSelection" class="hidden">
+                    <!-- Moved Back Button outside sheetNavigation -->
+                    <button id="sheetSelectBack" class="backToMain hidden">Terug</button>
 
-                </div>
-                <div id="backButton">
-                    <button class="backToMain">Terug</button>
-                </div>
+                    <div id="sheetsCol">
+                        <h1>Wat wil je doen?</h1>
+                        <div id="sheetsCheckboxes">
+                            <!-- Checkboxes populated by JS -->
+                        </div>
+                    </div>
+                    <div id="difficultyCol" class="hidden">
+                        <h1>Ben je daar goed in?</h1>
+                        <div id="difficultySelection">
+                            <label><input type="radio" name="difficulty" value="easy"> Denk het niet (⏱ 60)</label>
+                            <label><input type="radio" name="difficulty" value="medium" checked> Misschien (⏱ 30)</label>
+                            <label><input type="radio" name="difficulty" value="hard"> Zeker wel! (⏱ 10)</label>
+                        </div>
+                    </div>
+                    <!-- Sheet Navigation NOW ONLY CONTAINS Start Button -->
+                    <div id="sheetNavigation" style="/* CSS controls positioning */">
+                        <button id="startGame" disabled>Start!</button> <!-- No general button class needed if specific style used -->
+                    </div>
+                 </div>
             </div>
-            <div id="gameArea" style="display:none;">
-       
-                <!-- Multiplayer-specific elements, hidden by default -->
-                <div id="playerScores" style="display:none;">
-                    <div id="player1Score">Speler 1: 0</div>
-                    <div id="progressIndicator">Vraag <span id="currentQuestionNumber">1</span> van <span id="totalQuestions">10</span></div>
-                    <div id="player2Score">Speler 2: 0</div>
+
+             <!-- Game Area -->
+            <div id="gameArea" class="hidden">
+                <!-- Score Displays -->
+                <div id="playerScores" class="hidden">
+                    <div id="player1Score" class="player-score-display">Speler 1: 0</div>
+                    <div id="progressIndicator">Vraag <span id="currentQuestionNumber">0</span> van <span id="totalQuestions">0</span></div>
+                    <div id="player2Score" class="player-score-display">Speler 2: 0</div>
                 </div>
+                <div id="score" class="hidden">Score: 0</div>
+                <div id="timer" class="hidden">⏱ 0</div>
+
+                <!-- Question & Answers -->
                 <div id="question"></div>
                 <div id="answers"></div>
-                <div id="timer"></div>
-                <div id="score"></div>
-                <div id="gameNavigation">
-                    <button id="nextButton">Volgende</button>
+
+                <!-- Navigation -->
+                <div id="gameNavigation" class="hidden">
+                    <button id="nextButton" disabled>Volgende</button>
                 </div>
                 <div id="exitGame">
-                    <button id="stopGame">Stop</button>
+                    <button id="stopGame" class="backToMain">Stop</button>
                 </div>
             </div>
-            <div id="multiplayerChoice" style="display:none;">
+
+            <!-- Multiplayer Choice Screen -->
+            <div id="multiplayerChoice" class="hidden">
                 <button class="backToMain">Terug</button>
                 <h2>Samen spelen</h2>
                 <div class="name-input-container">
@@ -101,66 +108,42 @@
                 <button id="hostGame" class="menuButton">Ik wil een spel starten</button>
                 <button id="joinGame" class="menuButton">Ik wil meedoen met een spel</button>
             </div>
-            <div id="connectionStatus" style="display:none;">
-                <h2>Verbinden...</h2>
-                <div id="connectionCode" class="connectionBox">
-                    <h3 id="hostCodeDisplay"></h3>
-                    <p class="help-text">Deel deze code met de andere speler</p>
+
+            <!-- Multiplayer Connection Status (Now a Dialog) -->
+            <dialog id="connectionStatus" class="unicorn-theme hidden"> <!-- Changed to dialog, added theme -->
+                <button class="backToMain">Terug</button>
+                <h2>Samen spelen</h2>
+                <div id="connectionCode" class="connectionBox hidden">
+                    <p class="help-text">Deel deze code met de andere speler:</p>
+                    <div class="host-code-wrapper">
+                        <span id="hostCodeDisplay" class="host-code-text"></span>
+                        <button id="copyCodeButton" class="copy-button" title="Kopieer code">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                        </button>
+                        <!-- Added WhatsApp Share Button -->
+                        <a id="whatsappShareButton" class="share-button whatsapp-button" href="#" target="_blank" title="Deel via WhatsApp">
+                            <!-- Simple WhatsApp Icon SVG -->
+                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF">
+                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                            </svg>
+                        </a>
+                    </div>
+                    <img src="loading.gif" alt="Waiting..." class="waiting-kirby">
+                    <div id="waitingMessage" class="waitingText">
+                        <span>Wachten op andere speler</span><span class="dot1">.</span><span class="dot2">.</span><span class="dot3">.</span>
+                    </div>
                 </div>
-                <div id="joinView" class="connectionBox" style="display:none;">
+                <div id="joinView" class="connectionBox hidden">
                     <div class="input-wrapper">
-                        <input type="number" 
-                               maxlength="6" 
-                               pattern="[0-9]*" 
-                               inputmode="numeric"
-                               placeholder="Voer 6-cijferige code in" 
-                               id="connectionCodeInput">
+                        <input type="number" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Voer 6-cijferige code in" id="connectionCodeInput">
                         <button id="submitCode" class="menuButton yellow-button">Verbinden</button>
                         <p class="help-text">Vraag de andere speler om de code</p>
                     </div>
                 </div>
-                <div id="waitingMessage" class="waitingText"></div>
-               
-            </div>
-            <dialog id="endOfGameDialog">
-                <h1>Goed gedaan!</h1>
-                <p>Je score is: <strong id="finalScore"></strong> en daarmee haal je een plekje in de top 20!</p>
+            </dialog> <!-- Closed dialog -->
 
-                <div>
-                    <label for="playerName">Jouw naam:</label>
-                    <input type="text" id="playerName" placeholder="Typ hier...">
-                </div>
-                <div id="endGameButtons">
-                    <button id="saveHighscore">Opslaan</button>
-                    <button id="restartGame">Opnieuw</button>
-                    <button class="backToMain">Stoppen</button>
-                </div>
-            </dialog>
-            <dialog id="multiplayerEndGame" class="unicorn-theme">
-                
-                <h1>En de winnaar is...</h1>
-                <div class="player-result winner">
-                    <span class="player-emoji">🦄</span>
-                    <span class="player-name" id="winnerName"></span>
-                    <div class="score-badge">
-                        <span class="score-label">Score</span>
-                        <span class="score-value" id="winnerScore"></span>
-                    </div>
-                </div>
-                <div class="player-result">
-                    <span class="player-emoji">💩</span>
-                    <span class="player-name" id="loserName"></span>
-                    <div class="score-badge">
-                        <span class="score-label">Score</span>
-                        <span class="score-value" id="loserScore"></span>
-                    </div>
-                </div>
-                <div id="endGameButtons">
-                    <button id="saveMultiplayerHighscore">Scores Opslaan</button>
-                    <button onclick="location.reload()">Opnieuw Spelen</button>
-                </div>
-            </dialog>
-            <div id="highscores" style="display:none;">
+            <!-- Highscores Screen -->
+            <div id="highscores" class="hidden">
                 <h1>Deze mensen zijn de allerbeste!</h1>
                 <table>
                     <thead>
@@ -170,45 +153,46 @@
                         <th>Naam</th>
                         <th>Score</th>
                         <th>Datum</th>
-
                     </tr></thead>
                     <tbody id="scoreList"></tbody>
-                    <!-- Highscores will be displayed here -->
                 </table>
                 <div>
                     <button class="backToMain">Terug</button>
                 </div>
             </div>
-		    <div id="customQuestionsManager" style="display:none;">
-			    <button class="backToMain">Terug</button>
-			    <div id="customSheetSelection">
-			        <div id="customSheetsCol">
-			            <h2>Jouw vragen:</h2>
-			            <div id="customQuestionsInput">
-			                <input type="text" id="customSheetName" placeholder="Naam van je vragenlijst">
-			                <textarea id="customQuestionsTextarea" rows="10" placeholder="Typ je vragen hier. Elke vraag + antwoord op een nieuwe regel. Zorg dat er ' => ' tussen vraag en antwoord staat. Voorbeeld: Hoeveel is 2 x 2? => 4"></textarea>
-			                <button id="saveCustomQuestionsButton">Opslaan</button>
-			            </div>
-			        </div>
-			        <div id="customDifficultyCol">
-			            <h2>Wat wil je doen?</h2>
-			            <div id="customDifficultySelection">
-			                <select id="existingCustomQuestions">
-			                    <option value="">Kies een vragenlijst om te bewerken</option>
-			                </select>
-			                <button id="editCustomQuestionsButton">Bewerken</button>
-			                <button id="deleteCustomQuestionsButton">Verwijderen</button>
-			            </div>
-			        </div>
-			    </div>
-			</div>
-            <div id="about">
+
+            <!-- Custom Questions Screen -->
+            <div id="customQuestionsManager" class="hidden">
+                <button class="backToMain">Terug</button>
+                 <h2>Jouw Vragen Beheren</h2>
+                <div id="customSheetSelection">
+                    <div id="customSheetsCol">
+                        <h3>Nieuwe lijst / Bewerken:</h3>
+                        <div id="customQuestionsInput">
+                            <input type="text" id="customSheetName" placeholder="Naam van je vragenlijst">
+                            <textarea id="customQuestionsTextarea" rows="10" placeholder="Typ je vragen hier. Elke vraag + antwoord op een nieuwe regel. Zorg dat er ' => ' tussen vraag en antwoord staat. Voorbeeld: Hoeveel is 2 x 2? => 4"></textarea>
+                            <button id="saveCustomQuestionsButton">Opslaan</button>
+                        </div>
+                    </div>
+                    <div id="customDifficultyCol">
+                        <h3>Bestaande lijsten:</h3>
+                        <div id="customDifficultySelection">
+                            <select id="existingCustomQuestions">
+                                <option value="">-- Nieuwe lijst maken --</option>
+                            </select>
+                            <button id="editCustomQuestionsButton">Bewerken</button>
+                            <button id="deleteCustomQuestionsButton">Verwijderen</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About Screen -->
+            <div id="about" class="hidden">
                 <button class="backToMain">Terug</button>
                 <h2>Wat is Unicorn Poep?</h2>
-
                 <p>Unicorn Poep is een heel simpel spelletje wat je helpt snel beter te worden in de tafels,
                     woordjes, en andere dingen die je moet onthouden voor school.</p>
-
                 <h3>Hoe speel je het spel?</h3>
                 <p>Het is heel eenvoudig! <br>
                     Wanneer je het spel start, zie je vragen met een paar antwoorden.<br>
@@ -217,20 +201,17 @@
                     Hoe sneller je bent, hoe meer punten je krijgt!<br>
                     Als je het fout hebt zie je 😿 maar OOK het goede antwoord in groen,<br> goed onthouden voor de volgende keer dus!
                 </p>
-
                 <h3>Oefenen of een Examen</h3>
                 <p>Je kan kiezen om te oefenen of om een toets te doen die kijkt hoe goed je bent.<br>
                     Bij oefenen is er geen tijdslimiet, dus je kunt rustig nadenken.<br>
                     Bij de toets moet je snel zijn en voor elke vraag punten verzamelen.<br>
                     Hoe meer punten je haalt, hoe hoger je naam op de lijst van Hoogste Scores komt!
                 </p>
-
                 <h3>Maak je eigen vragen</h3>
                 <p>Weet je alle tafels al uit je hoofd? Je kan Unicorn Poep blijven gebruiken door je eigen vragen spelletje maken van alles wat je moet leren!<br>
                     Klik op 'Mijn Vragen' en type je vragen in het grote vak.<br>
                     Type een nieuwe vraag op elke regel, daarna <em>=></em> en daarna het antwoord.<br>
                     Elke vraag + antwoord moet dus op een eigen regel!
-
                     Bijvoorbeeld:
                 </p>
                     <code>
@@ -240,40 +221,113 @@
                     </code>
                 <p> Je kan ook een naam geven aan je vragenlijst.<br>
                     Zo kun je altijd terugkomen en jouw eigen spelletjes spelen.</p>
-
                 <h3>Veel plezier!</h3>
                 <p>Veel plezier met het spelen van Unicorn Poep.<br> Vergeet niet, elke keer dat je speelt word je weer beter dan de vorige keer!</p>
-
             </div>
-        </div>
 
-    </div>
+        </div> <!-- End #gameContainer -->
 
-     <!-- Script includes for each class -->
-    <script src="questionsmanager.js?update-1"></script>
-    <script src="highscores.js?update-1"></script>
-    <script src="ui.js?update-1"></script>
-    <script src="questionsheet.js?update-1"></script>
-    <script src="timer.js?update-1"></script>
-    <script src="scoretimer.js?update-1"></script>
-    <script src="mainmenu.js?update-1"></script>
-    <script src="webrtcmanager.js?update-1"></script>
-    <script src="game.js?update-1"></script>
+         <!-- Dialogs (visibility controlled by JS showModal/close, no change needed) -->
+         <dialog id="endOfGameDialog" class="unicorn-theme hidden">
+            <h1>Goed gedaan!</h1>
+            <p>Je score is: <strong id="finalScore"></strong>!</p>
+            <div>
+                <label for="playerName">Jouw naam (voor scorelijst):</label>
+                <input type="text" id="playerName" placeholder="Typ hier...">
+            </div>
+            <div id="endGameButtons">
+                <button id="saveHighscore">Opslaan</button>
+                <button id="restartGame">Opnieuw</button>
+                <!-- NOTE: Leaving menuButton class here as it's an action within the dialog, not strictly a 'back' navigation -->
+                <button class="backToMain menuButton">Hoofdmenu</button>
+            </div>
+         </dialog>
+
+         <dialog id="multiplayerEndGame" class="unicorn-theme hidden">
+            <h1>En de winnaar is...</h1>
+            <div class="player-result winner">
+                <span class="player-emoji">🦄</span>
+                <span class="player-name" id="winnerName"></span>
+                <div class="score-badge">
+                    <span class="score-label">Score</span>
+                    <span class="score-value" id="winnerScore"></span>
+                </div>
+            </div>
+            <div class="player-result">
+                <span class="player-emoji">💩</span>
+                <span class="player-name" id="loserName"></span>
+                <div class="score-badge">
+                    <span class="score-label">Score</span>
+                    <span class="score-value" id="loserScore"></span>
+                </div>
+            </div>
+            <div id="endGameButtons">
+                <button id="saveMultiplayerHighscore">Mijn Score Opslaan</button>
+                <button onclick="location.reload()">Opnieuw Spelen</button>
+                <!-- NOTE: Leaving menuButton class here as it's an action within the dialog, not strictly a 'back' navigation -->
+                <button class="backToMain menuButton">Hoofdmenu</button>
+            </div>
+         </dialog>
+
+         <dialog id="disconnectionDialog" class="unicorn-theme hidden">
+             <h2>Verbinding verbroken</h2>
+             <p id="disconnectionMessage">De andere speler heeft de verbinding verbroken.</p>
+             <div id="endGameButtons">
+                 <button id="backToMainMenu">Terug naar hoofdmenu</button>
+             </div>
+         </dialog>
+
+         <!-- Corrected Name Prompt Dialog (Matching Multiplayer Input Pattern) -->
+         <dialog id="namePromptDialog" class="unicorn-theme hidden">
+             <h2>Naam invoeren</h2>
+             <p>Voer je naam in om mee te spelen:</p>
+             <div class="name-input-container"> 
+                 <input type="text" id="namePromptInput" placeholder="Jouw naam" maxlength="20" autocomplete="off">
+             </div>
+             <div id="endGameButtons"> 
+                 <button id="namePromptConfirm">Ok</button>
+             </div>
+         </dialog>
+
+         <dialog id="multiplayerEndDialog" class="dialog hidden">
+           <h2 id="multiplayerEndTitle">Spel Voorbij!</h2>
+           <div id="multiplayerEndResults">
+             <!-- Results will be populated here -->
+           </div>
+           <button id="multiplayerEndBackButton" class="button">Terug naar menu</button>
+         </dialog>
+
+    </div> <!-- End #app -->
+
+    <!-- Script Includes -->
+    <script src="peerjs.min.js"></script>
+    <script src="confetti.js"></script>
+    <script src="timer.js?final"></script>
+    <script src="scoretimer.js?final"></script>
+    <script src="questionsmanager.js?final"></script>
+    <script src="highscores-manager.js?final"></script>
+    <script src="webrtcmanager.js?final"></script>
+    <script src="loading-controller.js?final"></script>
+    <script src="mainmenu-controller.js?final"></script>
+    <script src="gamearea-controller.js?final"></script>
+    <script src="multiplayer-controller.js?final"></script>
+    <script src="highscores-controller.js?final"></script>
+    <script src="customquestions-controller.js?final"></script>
+    <script src="about-controller.js?final"></script>
+    <script src="dialog-controller.js?final"></script>
+    <script src="game.js?final"></script> <!-- Game class last -->
+
+    <!-- Initialization -->
     <script>
         window.addEventListener('DOMContentLoaded', (event) => {
-        const game = new Game();
-        game.start();
-    });
+            const game = new Game();
+            game.start();
+        });
     </script>
-    <script src="confetti.js"></script>
+
+    <!-- Analytics -->
     <script data-goatcounter="https://unicornpoep.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
-    <script src="peerjs.min.js"></script>
-    <dialog id="disconnectionDialog" class="unicorn-theme">
-        <h2>Verbinding verbroken</h2>
-        <p id="disconnectionMessage">De andere speler heeft de verbinding verbroken.</p>
-        <div id="endGameButtons">
-            <button id="backToMainMenu">Terug naar hoofdmenu</button>
-        </div>
-    </dialog>
+
+
 </body>
 </html>

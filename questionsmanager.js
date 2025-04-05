@@ -136,4 +136,20 @@ class QuestionsManager {
         delete customSheets[sheetName];
         localStorage.setItem('customSheets', JSON.stringify(customSheets));
     }
+
+    /**
+     * Gets a formatted string of sheet names based on an array of sheet names.
+     * @param {string[]} sheetNames - An array of sheet names.
+     * @returns {string} A comma-separated string of sheet names, or an empty string if input is invalid.
+     */
+    getFormattedSheetNames(sheetNames) {
+        // Input validation: Check if it's a non-empty array of strings
+        if (!Array.isArray(sheetNames) || sheetNames.length === 0 || sheetNames.some(name => typeof name !== 'string')) {
+            console.warn("getFormattedSheetNames received invalid input:", sheetNames);
+            return ''; // Return empty string for invalid input
+        }
+
+        // The input array *is* the list of names, just join them.
+        return sheetNames.join('\n -');
+    }
 }

@@ -1,127 +1,280 @@
+/* Apply base mobile styles directly, override desktop specifics */
+
 html {
     background-image: url("background.webp");
     background-size: cover;
     background-repeat:no-repeat;
+    background-attachment: fixed; /* Prevent background scrolling */
 }
 
 body, html {
     height: 100%;
     margin: 0;
     font-family: sans-serif;
-    overflow-x: hidden; /* Changed to only hide horizontal overflow */
+    overflow-x: hidden; /* Prevent horizontal scroll */
+    -webkit-text-size-adjust: 100%; /* Prevent iOS font scaling */
 }
 
 #app {
-    background-color: rgba(255,255,255, 0.8);
-    border-radius: 30px;
+    background-color: rgba(255,255,255, 0.85); /* Slightly more opaque */
+    border-radius: 15px; /* Smaller radius */
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start; /* Content from top */
     text-align: center;
     position: absolute;
-    top: 9%;
-    left: 5%; /* Reduced for smaller screens */
-    right: 5%; /* Reduced for smaller screens */
-    bottom: 10%;
-    overflow-y: auto; /* Allow vertical scrolling on overflow */
+    top: 2%; /* Closer to top */
+    left: 2%;
+    right: 2%;
+    bottom: 2%; /* Closer to bottom */
+    overflow-y: auto;
+    padding: 10px;
+    box-sizing: border-box;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+#app > h1 {
+    position: relative; /* Not sticky */
+    font-size: 1.6rem; /* Further reduced size */
+    margin-bottom: 10px;
+    padding-top: 0;
+    width: auto;
+    animation: none; /* Disable bounce on mobile */
+}
+h1 small { font-size: 0.5em; }
+h2 { font-size: 1.4rem; }
+h3 { font-size: 1.1rem; }
+
+#gameContainer {
+    padding: 5px 0; /* Vertical padding only */
+    max-width: none;
+    width: 100%;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* General Button Styling */
+button, .menuButton {
+    font-size: 1rem; /* Base size */
+    padding: 10px 15px; /* Base padding */
+    margin: 5px; /* Base margin */
+    border-radius: 8px; /* Smaller radius */
+    -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
+}
+
+#mainMenu { width: 100%; }
+#menuItems { width: 100%; margin: 10px auto; }
+#menuItems button { width: 90%; font-size: 1.1rem; padding: 12px; } /* Slightly larger main buttons */
+
+
+#sheetSelection, #difficultySelection, #gameArea, #highscores, #customQuestionsManager, #about, dialog {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: rgba(255,255,255, 0.9); /* More opaque background for content */
+    border-radius: 10px; /* Smaller radius */
+    max-width: 100%; /* Ensure sections fit */
+}
+
+#sheetSelection { flex-direction: column; }
+#sheetsCol, #difficultyCol { width: 100%; }
+#sheetNavigation { flex-direction: column; }
+#sheetNavigation button { width: 80%; margin: 5px auto; }
+#sheetsCheckboxes { max-height: 150px; background: rgba(255, 255, 255, 0.7);} /* Shorter list, semi-transparent */
+
+#answers {
+    display: flex;
+    flex-direction: column; /* Stack answers vertically */
+    justify-content: normal;
+    align-items: center; /* Center buttons */
+    gap: 8px; /* Reduced gap */
+    width: 100%; /* Full width */
+}
+
+#answers button {
+    flex: 0 0 auto; /* Don't flex */
+    width: 95%; /* Almost full width */
+    border: none; /* Use background */
+    box-sizing: border-box;
+    text-align: center;
+    padding: 12px; /* Adjusted padding */
+    font-size: 1.1rem; /* Adjusted font size */
+    min-height: 3em;
+    border-radius: 8px;
+    background-color: #f0f0f0; /* Default background */
+    color: #333;
+}
+#gameNavigation {
+    padding: 8px 0; /* Smaller padding */
+    z-index: 100;
+}
+
+#nextButton {
+    width: 70%; /* Adjust width */
+    padding: 12px;
+    font-size: 1.1rem;
+}
+
+/* General back/stop button positioning */
+.backToMain, #stopGame {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem; /* Reduced font size */
+    position: absolute;
+    top: 8px; /* Closer to edge */
+    left: 8px;
+    z-index: 20;
+}
+/* Override specific back buttons if needed for layout flow */
+#highscores .backToMain,
+#customQuestionsManager .backToMain,
+#about .backToMain,
+#connectionStatus .backToMain {
+    position: relative; /* Reset */
+    top: auto; left: auto;
+    margin: 15px auto 5px auto; /* Adjust margin */
+    display: block;
+    width: fit-content;
+}
+dialog .backToMain {
+     font-size: 0.9rem;
+     margin: 5px; /* Smaller margin in dialog */
 }
 
 
+#highscores h1 { font-size: 1.3rem; }
+#highscores table { font-size: 0.9rem; }
+#highscores th, #highscores td { padding: 4px; }
 
-/* Mobile-specific styles */
-@media only screen and (max-width: 768px) {
-    h1 {
-        font-size: 1.5rem; /* Reduced size for smaller screens */
-    }
-    #answers {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: normal;
-        align-items: normal;
-        gap: 0;
-    }
-
-    #answers button, #nextButton {
-        flex: 90%;
-        border: 1px solid rgba(25,25,25,0.8);
-        box-sizing: border-box;
-        text-align: center;
-        padding: 4%;
-        font-size: x-large;
-    }
-
-    #backToMain, #stopGame, .backToMain {
-        padding: 0.3rem 0.6rem;
-        font-size: 1rem; /* Reduced font size for smaller screens */
-    }
-
-    #gameContainer {
-        padding: 10px;
-        max-width: none; /* Allow the container to fit the screen width */
-    }
-
-    #sheetSelection, #difficultySelection, #gameArea, #highscores, #gameNavigation, #endOfGameDialog {
-        margin-top: 10px;
-        padding: 0;
-        background-color: rgba(255,255,255, 0.9); /* Adjusted for better readability */
-    }
-
-
-    #gameNavigation {
-        bottom: -100%; /* Adjusted for initial state off-screen */
-        background-color: rgba(97 74 226 / 74%)
-    }
-
-    #gameNavigation.active {
-        bottom: 0; /* Adjust for active state to slide in */
-    }
-
-    button {
-        font-size: 1.2rem; /* Reduced font size for smaller screens */
-        padding: 8px 16px; /* Reduced padding for smaller screens */
-    }
-
-    #highscores {
-
-    }
-
-    #highscores h1 {
-        font-size:1.5rem;
-    }
-
-    #timer {
-        top: 7%;
-    }
-
-    #timer, #score {
-        font-size: 1.5rem;
-    }
-
-    .emoji-fall {
-        font-size: 2rem; /* Adjusted size for smaller screens */
-    }
-
-    label {
-        padding: 2px;
-        margin-left: 0;
-        word-wrap: break-word;
-        text-wrap: pretty;
-        text-align: left;
-        font-size: 1.0rem;
-    }
-
-    input[type=checkbox] {
-        height: 1.5rem;
-        width: 1.5rem;
-        font-size: 1rem;
-        line-height: 1rem;
-    }
-
-    #endOfGameDialog {
-        padding:15px;
-    }
-    #playerName {
-        font-size: 1.5rem;
-    }
+/* Responsive Highscore Table */
+#highscores table { border: 0; }
+#highscores table thead { display: none; } /* Hide header row */
+#highscores table tr {
+    border-bottom: 1px solid #ddd; /* Lighter border */
+    display: block; margin-bottom: .5em; padding: 5px 0;
 }
+#highscores table td {
+    border-bottom: none; /* Remove bottom border on cells */
+    display: block; font-size: .9em; text-align: right;
+    padding: 4px 2px; /* Adjust padding */
+}
+#highscores table td::before {
+    content: attr(data-label); float: left;
+    font-weight: bold; text-transform: none; /* Remove uppercase */
+    margin-right: 8px; color: #666; /* Label color */
+}
+#highscores table th[scope="row"] { /* Rank cell */
+    display: block; font-size: 1em; text-align: left; /* Align left */
+    border-bottom: 1px solid #eee; padding-bottom: 3px; margin-bottom: 3px;
+    font-weight: bold;
+}
+/* Add label for rank cell on mobile */
+#highscores table th[scope="row"]::before {
+     display: inline-block; content:"Plek: "; font-weight: bold; margin-right: 5px; color: #666;
+}
+
+
+#timer, #score {
+    font-size: 1rem; /* Reduced size */
+    position: absolute;
+    top: 8px; /* Near top */
+    right: 8px;
+    padding: 3px 6px; /* Reduced padding */
+    border-radius: 5px;
+    z-index: 5;
+}
+#timer { top: 35px; } /* Timer below score */
+
+.emoji-fall {
+    font-size: 1.5rem; /* Adjusted size */
+    animation-duration: 3s; /* Faster fall */
+}
+/* Ensure consistent animation name 'fall' */
+@keyframes fall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+}
+.emoji-fall { animation-name: fall; }
+
+
+label {
+    padding: 2px 0; margin-left: 0; word-wrap: break-word;
+    text-wrap: balance; text-align: left;
+    font-size: 0.9rem; /* Smaller font */
+    line-height: 1.4; color: #333; /* Darker text */
+}
+#difficultySelection label { font-size: 1rem; } /* Keep difficulty slightly larger */
+
+
+input[type=checkbox] {
+    height: 1.1rem; /* Smaller checkbox */
+    width: 1.1rem;
+    vertical-align: middle; margin-right: 5px;
+}
+input[type=checkbox]:checked:after {
+    top: -2px; left: 1px; font-size: 11px; /* Adjust checkmark */
+}
+input[type="radio"] { transform: scale(0.9); margin-right: 3px;}
+
+
+#endOfGameDialog, #multiplayerEndGame, #disconnectionDialog {
+    padding: 10px; width: 90%; max-width: 90%;
+}
+#endOfGameDialog h1, #multiplayerEndGame h1, #disconnectionDialog h2 { font-size: 1.3rem; }
+dialog p { font-size: 1rem;}
+dialog label { font-size: 0.9rem; }
+dialog input[type="text"] { font-size: 1rem; width: 85%; padding: 6px;} /* Wider input */
+dialog #endGameButtons button { font-size: 0.8rem; padding: 6px 10px;}
+
+#customQuestionsManager { padding: 10px; }
+#customQuestionsManager h2 { font-size: 1.3rem; }
+#customQuestionsManager #customSheetSelection { flex-direction: column; gap: 10px; }
+#customSheetsCol, #customDifficultyCol { width: 100%; }
+#customQuestionsInput input[type="text"],
+#customQuestionsTextarea,
+#customDifficultySelection select { font-size: 0.9rem; padding: 6px; border-radius: 5px;}
+#customQuestionsTextarea { min-height: 100px; } /* Increased height slightly */
+#customDifficultySelection button { font-size: 0.9rem; padding: 8px 12px; }
+
+#multiplayerChoice { width: 95%; padding: 15px; gap: 10px; margin: 10px auto; }
+#multiplayerChoice h2 { font-size: 1.3rem; }
+.name-input-container label { font-size: 1rem; }
+.name-input-container input[type="text"] { font-size: 0.9rem; width: 90%; padding: 6px; border-radius: 8px;}
+#multiplayerChoice button { font-size: 1rem; padding: 10px; width: 90%; }
+
+#connectionStatus { padding: 10px; }
+.connectionBox { padding: 15px; width: 95%; }
+#connectionCode h3 { font-size: 1.6rem; letter-spacing: 0.05em; margin: 10px 0; }
+#joinView input[type="number"] { font-size: 1.3rem; width: 80%; padding: 6px; border-radius: 5px; }
+.help-text, .waitingText { font-size: 0.9rem; margin-top: 8px; }
+.yellow-button { font-size: 0.9rem; padding: 8px 15px;}
+
+/* Multiplayer Game Area */
+#playerScores { flex-direction: row; justify-content: space-between; align-items: center; gap: 4px; }
+.player-score-display { font-size: 0.8rem; padding: 3px 6px; margin: 0; flex: 1; border-radius: 5px; }
+#progressIndicator { font-size: 0.7rem; padding: 2px 5px; order: 1; margin: 0 3px; border-radius: 10px; flex-basis: auto; }
+#player1Score { order: 0; text-align: left;}
+#player2Score { order: 2; text-align: right;}
+/* Stack name above score for readability on small screens */
+.player-score-display .player-name { display: block; font-size: 0.7em;}
+.player-score-display .score-value { font-size: 1em;}
+
+
+/* Multiplayer End Dialog */
+.player-result { flex-direction: column; /* Stack vertically */ padding: 8px; margin: 8px 0;}
+.player-emoji { font-size: 1.8em; margin-bottom: 5px; }
+.player-name { font-size: 1em; margin-bottom: 5px; }
+.score-badge { padding: 4px 8px; }
+.score-label { font-size: 0.6em; }
+.score-value { font-size: 0.9em; }
+.winner .player-emoji::after { display: none; } /* Hide floating emoji */
+
+#question { font-size: 1.3rem; min-height: 2.5em; margin-bottom: 10px; }
+
+/* Ensure wiggle animation looks ok */
+@keyframes wiggle { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+
+/* Correct/Wrong Answer Styles */
+.correct-answer { background: rgba(144, 238, 144, 0.95); color: #006400; }
+.wrong-answer { background: rgba(255, 182, 193, 0.95); color: #8B0000; opacity: 0.8;}
