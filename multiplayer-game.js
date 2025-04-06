@@ -35,6 +35,12 @@ class MultiplayerGame {
         this.mainMenu = mainMenu;
         this.isHost = isHost;
         this.isMultiplayer = true;
+
+        // <<< DEBUGGING: Check mainMenu reference during construction >>>
+        console.log("MP Constructor DEBUG: Received mainMenu object:", this.mainMenu);
+        console.log("MP Constructor DEBUG: typeof mainMenu.saveHighScore:", typeof this.mainMenu?.saveHighScore);
+        // <<< END DEBUGGING >>>
+
         this.wasMultiplayer = true; // Flag for high scores differentiation
         this.gamePhase = GamePhases.LOBBY; // Initialize phase
 
@@ -178,7 +184,9 @@ class MultiplayerGame {
             // onHostConnected and message handling will take over
         } catch (error) {
             console.error("MP: Failed to initialize client or connect:", error);
-            this.mainMenu.multiplayerController.showJoinError(error.message || "Kon niet verbinden.", true);
+            // Corrected reference: this.mainMenuController (passed during construction)
+            // Corrected method name: showConnectionError
+            this.mainMenuController.multiplayerController.showConnectionError(error.message || "Kon niet verbinden.", true);
             this.gamePhase = 'idle'; // Reset phase on connection failure
         }
     }
@@ -321,6 +329,9 @@ class MultiplayerGame {
                     console.log(`Chat from ${message.senderName}: ${message.text}`);
                     this.mainMenu.gameAreaController.displayChatMessage(message.senderName, message.text);
                     break;
+                case MessageTypes.H_RECORD_HIGHSCORE:
+                     this.handleRecordHighscore(message);
+                     break;
             default:
                     console.warn(`MP Client: Received unexpected message type from host: ${message.type}`);
             }
@@ -408,7 +419,8 @@ class MultiplayerGame {
      */
     handleJoinRejected(reason) {
         console.warn(`MP Client: Join rejected. Reason: ${reason}`);
-        this.mainMenu.multiplayerController.showJoinError(reason, true); // Show error and back button
+        // RE-APPLYING FIX: Call showConnectionError instead of showJoinError
+        this.mainMenu.multiplayerController.showConnectionError(reason, true);
         this.webRTCManager.cleanup();
         this.gamePhase = 'idle';
     }
@@ -567,9 +579,9 @@ class MultiplayerGame {
                 this.mainMenu.multiplayerController.updateLobbyPlayerCount(this.players.size);
                 this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, this.webRTCManager.peerId);
 
-                // *** Re-check game state after disconnect ***
-                 if (this.gamePhase === 'playing') {
-                    console.log("MP Host: Player disconnected during 'playing' phase. Re-checking game end.");
+                // *** FIX: Re-check game end if player disconnected during playing OR waiting_for_finish phase ***
+                 if (this.gamePhase === 'playing' || this.gamePhase === 'waiting_for_finish') {
+                    console.log(`MP Host: Player disconnected during ${this.gamePhase} phase. Re-checking game end.`);
                     this.checkMultiplayerEnd(); // Check if remaining players are all finished
                  } else if (this.players.size === 0) {
                      // If host is alone now (e.g., last client left lobby/countdown)
@@ -1043,7 +1055,7 @@ class MultiplayerGame {
                      this.gamePhase = 'waiting_for_finish';
                      this.timer.stop(); // Stop host timer if somehow running
                      this.mainMenu.gameAreaController.showWaitingUi("Je bent klaar! Wachten op andere spelers...");
-                     this.mainMenu.gameAreaController.toggleChatVisibility(true); // Show chat while waiting
+                     
                      // Optionally hide Next button if it was somehow visible
                      this.mainMenu.gameAreaController.hideNextButton();
                      // Broadcast the waiting state so clients know the host is waiting
@@ -1077,49 +1089,83 @@ class MultiplayerGame {
      * Ends the multiplayer game session for all players. Cleans up timers, determines winner, shows results.
      * Usually called by the host when all players are finished.
      */
-    endMultiplayerGame() {
-        console.log("MP: endMultiplayerGame called.");
-        if (this.gamePhase === 'ended') {
-            console.warn("MP endMultiplayerGame: Game already ended.");
-            return;
-        }
-        this.gamePhase = 'ended';
-        if (this.timer) this.timer.stop(); // Check if timer exists before stopping
-        this.mainMenu.gameAreaController.hideTimer();
-        this.mainMenu.gameAreaController.hideNextButton();
-        this.mainMenu.gameAreaController.disableAnswers();
+    async endMultiplayerGame() { // <<< Added async
+        console.log("MP endMultiplayerGame: Ending game.");
+        this.gamePhase = 'ended'; // Explicitly set phase
+        console.log("MP endMultiplayerGame: Game phase set to ended.");
+
+        // Stop timers and cleanup UI
+        this.mainMenu.gameAreaController.hide();
 
         const playersArray = Array.from(this.players.values());
-        const localPlayerId = this.webRTCManager.peerId;
-        let winnerInfo = null; // Determine winner as before
 
+        // Determine winner(s)
+        let winnerInfo = null;
         if (playersArray.length > 0) {
-            // Find player with highest score
-            winnerInfo = playersArray.reduce((highest, current) => {
-                return current.score > highest.score ? current : highest;
-            }, playersArray[0]); // Initialize with first player
-            console.log("MP endMultiplayerGame: Determined winner:", winnerInfo);
-        } else {
-            console.warn("MP endMultiplayerGame: No players in array to determine winner.");
+            const sortedPlayers = [...playersArray].sort((a, b) => b.score - a.score);
+            const topScore = sortedPlayers[0].score;
+            const winners = sortedPlayers.filter(p => p.score === topScore);
+            // If there's a clear single winner or multiple winners (tie), use the first one for winnerInfo
+            // The DialogController will handle displaying "Gelijkspel" if winners.length > 1
+            if (winners.length > 0) {
+                winnerInfo = winners[0];
+            }
         }
 
+        // Host: Send results to clients
         if (this.isHost) {
-            console.log("MP Host: Broadcasting final results.");
-            // Broadcast results BEFORE showing locally
+            console.log("MP Host: Broadcasting final results:", playersArray, winnerInfo);
             this.webRTCManager.broadcast({
                 type: MessageTypes.H_FINAL_RESULTS,
-                playersArray: playersArray, // Send full array
+                playersArray: playersArray,
                 winnerInfo: winnerInfo // Send winner info
             });
-            // Now handle results locally for the host
-            this._handleFinalResults(playersArray, localPlayerId, winnerInfo);
-        }
-        // Client waits for H_FINAL_RESULTS message
 
-        // Perform cleanup AFTER handling results display/broadcast
-        // *** FIX: Call correct cleanup method ***
-        this.cleanup();
-        console.log("MP endMultiplayerGame: Game phase set to ended.");
+            // <<< NEW: Broadcast Highscore if applicable >>>
+            if (winnerInfo && this.players.size > 1) {
+                const gameName = this._getMultiplayerNameForHighscore();
+                console.log(`MP Host: Broadcasting highscore record for ${winnerInfo.playerName} (Score: ${winnerInfo.score})`);
+                this.webRTCManager.broadcast({
+                    type: MessageTypes.H_RECORD_HIGHSCORE,
+                    gameName: gameName,
+                    playerName: winnerInfo.playerName,
+                    score: winnerInfo.score,
+                    isMultiplayer: true,
+                    difficulty: this.difficulty
+                });
+            }
+            // <<< END NEW >>>
+
+            // HOST: Check if host won and save highscore
+            if (winnerInfo && winnerInfo.peerId === this.webRTCManager.peerId && this.players.size > 1) { // Only save if winner AND > 1 player
+                const gameName = this._getMultiplayerNameForHighscore();
+                console.log(`MP HOST WIN: Saving highscore for ${this.playerName} (Score: ${winnerInfo.score}, Game: ${gameName})`);
+                
+                // --- Defensive Logging Removed --- 
+
+                try {
+                    // <<< CORRECTED CALL: Use HighscoresManager >>>
+                    await this.mainMenu.highscoresManager.addScore(
+                        gameName, 
+                        this.playerName, 
+                        winnerInfo.score, 
+                        this.isMultiplayer, // Pass true for multiplayer
+                        this.difficulty // Pass the game difficulty
+                    );
+                    console.log("MP HOST WIN: Successfully CALLED addScore."); 
+                } catch (saveError) {
+                    console.error(`MP HOST WIN: Error calling addScore:`, saveError);
+                }
+            } else {
+                 console.log("MP HOST: Host did not win or tied, or only one player. Not saving highscore.");
+            }
+        }
+
+        // Both Host and Client show the results
+        this._handleFinalResults(playersArray, this.webRTCManager.peerId, winnerInfo);
+
+        // Perform cleanup AFTER showing results
+        //this.cleanup();
     }
 
     /**
@@ -1131,33 +1177,42 @@ class MultiplayerGame {
      * @param {Object|null} winnerInfo - Information about the winner {peerId, playerName, score, ...}.
      * @private
      */
-    _handleFinalResults(playersArray, localPlayerId, winnerInfo) {
-         console.log(`MP (${this.isHost ? 'Host' : 'Client'}): Preparing to show final results via DialogController.`);
-         if (!this.mainMenu.dialogController) {
-             console.error(`MP ${this.isHost ? 'Host' : 'Client'} _handleFinalResults: DialogController is not available.`);
-             return;
-         }
-         try {
-              // *** FIX: Pass the entire players array and winner info to the dialog controller ***
-              console.log(`MP (${this.isHost ? 'Host' : 'Client'}) _handleFinalResults: Calling displayMultiplayerResults with:`, {
-                playerCount: playersArray.length,
-                winnerName: winnerInfo ? winnerInfo.playerName : 'Niemand'
-             });
+    async _handleFinalResults(playersArray, localPlayerId, winnerInfo) { // <<< Added async
+        console.log("MP _handleFinalResults: Received final results.", { playersArray, localPlayerId, winnerInfo });
+        this.gamePhase = 'ended'; // Ensure phase is correct
+        this.mainMenu.gameAreaController.hide(); // Hide game area
 
-              // Call the refactored/new dialog method 
-              // Passing localPlayerId might be useful if the dialog wants to highlight the local player
-              this.mainMenu.dialogController.displayMultiplayerResults(playersArray, winnerInfo, localPlayerId);
-             
-              // Ensure game area is hidden or shows a clean state behind the dialog
-              this.mainMenu.gameAreaController.hideWaitingUi();
-              this.mainMenu.gameAreaController.hideGameCoreElements(); 
-         } catch (error) {
-              console.error(`MP (${this.isHost ? 'Host' : 'Client'}) _handleFinalResults: Error calling displayMultiplayerResults:`, error);
-              // Attempt to show a generic error if dialog call failed
-               try {
-                 this.mainMenu.dialogController.showError("Fout bij weergeven eindresultaten.");
-               } catch (e) { console.error("MP: Failed to even show error dialog.", e); }
-         }
+        // <<< Store results for validation >>>
+        this._lastReceivedWinnerInfo = winnerInfo; 
+
+        // CLIENT: Check if local client won and save highscore
+        if (!this.isHost && winnerInfo && winnerInfo.peerId === localPlayerId && playersArray.length > 1) { // Only save if winner AND > 1 player
+            const gameName = this._getMultiplayerNameForHighscore();
+            console.log(`MP CLIENT WIN: Saving highscore for ${this.playerName} (Score: ${winnerInfo.score}, Game: ${gameName})`);
+            
+            // --- Defensive Logging Removed --- 
+
+            try {
+                // <<< CORRECTED CALL: Use HighscoresManager >>>
+                 await this.mainMenu.highscoresManager.addScore(
+                    gameName, 
+                    this.playerName, 
+                    winnerInfo.score, 
+                    this.isMultiplayer, // Pass true for multiplayer
+                    this.difficulty // Pass the game difficulty
+                );
+                 console.log("MP CLIENT WIN: Successfully CALLED addScore.");
+            } catch (saveError) {
+                 console.error(`MP CLIENT WIN: Error calling addScore:`, saveError);
+            }
+        } else if (!this.isHost) {
+             console.log("MP CLIENT: Client did not win or tied, not saving highscore.");
+        }
+
+        // Use DialogController to show the results
+        this.mainMenu.dialogController.displayMultiplayerResults(playersArray, winnerInfo, localPlayerId);
+
+        // Cleanup is handled in endMultiplayerGame after this call returns
     }
 
     // --- State Management & Cleanup ---
@@ -1351,25 +1406,37 @@ class MultiplayerGame {
         console.log("MP Client: handleGameStateUpdate invoked with state:", state);
 
         const previousPhase = this.gamePhase;
-        this.gamePhase = state.gamePhase || this.gamePhase;
+        // --- REMOVED direct phase copy from host --- 
+        // this.gamePhase = state.gamePhase || this.gamePhase;
 
-        // *** DETAILED TIMER INIT LOGGING ***
-        console.log(`MP Client: Checking timer init. GamePhase=${this.gamePhase}, PrevPhase=${previousPhase}, Difficulty=${this.difficulty}, TimerExists=${!!this.timer}`);
-        if (this.gamePhase === 'playing' && previousPhase !== 'playing') {
-            if (!this.difficulty) {
+        // --- Check for definitive END state from host --- 
+        if (state.gamePhase === GamePhases.FINISHED) {
+            console.log("MP Client: Received FINISHED phase from host. Setting local phase.");
+            this.gamePhase = GamePhases.FINISHED;
+            this.mainMenu.gameAreaController.hideWaitingUi(); // Hide waiting if shown
+             // Let H_FINAL_RESULTS message handle showing the end dialog.
+            if (this.timer) this.timer.stop(); // Stop timer if it was somehow running
+            return; // Don't process further player updates if game is finished
+        }
+
+        // --- Timer Initialization (only if game is starting/playing locally) ---
+        // Re-evaluate condition: Initialize only if the client is moving into 'playing'
+        // and doesn't already have a timer.
+        // Note: 'playing' phase is set locally in startGameLocally
+        console.log(`MP Client: Timer check. Local Phase=${this.gamePhase}, PrevPhase=${previousPhase}, Difficulty=${this.difficulty}, TimerExists=${!!this.timer}`);
+        if (this.gamePhase === 'playing' && !this.timer) {
+             if (!this.difficulty) {
                 console.error("MP Client: Cannot initialize timer, difficulty not set!");
                 this.handleFatalError("Kon timer niet starten: Spel moeilijkheid onbekend.");
                 return;
             }
-            if (!this.timer) {
-                 console.log(`MP Client: --> INITIALIZING ScoreTimer for difficulty '${this.difficulty}'.`);
-                 this.timer = new ScoreTimer(this.difficulty);
-                 console.log(`MP Client: --> Timer object AFTER init:`, this.timer); // Log the object itself
-            } else {
-                 console.log("MP Client: Timer already exists, not re-initializing.");
-            }
+            console.log(`MP Client: --> INITIALIZING ScoreTimer for difficulty '${this.difficulty}'.`);
+            this.timer = new ScoreTimer(this.difficulty);
+            console.log(`MP Client: --> Timer object AFTER init:`, this.timer);
+        } else if (this.gamePhase !== 'playing' && this.timer) {
+             console.log("MP Client: Game not in playing phase, ensuring timer is stopped.");
+             this.timer.stop();
         }
-        // *** END DETAILED LOGGING ***
 
         // Update player data from host state
         if (state.players && Array.isArray(state.players)) {
@@ -1424,22 +1491,20 @@ class MultiplayerGame {
         }
 
         // Update UI based on local finished status or game phase
-        if (state.gamePhase === GamePhases.FINISHED) {
-            console.log("MP Client: Received FINISHED state from host. Preparing to end game.");
-            this.mainMenu.gameAreaController.hideWaitingUi(); 
-            // Consider adding a small delay or waiting for final results message
-            // this.endGame(false); // Let H_FINAL_RESULTS trigger end screen
-        } else if (this.localPlayerFinished) {
-            console.log("MP Client: Local player is marked finished. Showing waiting UI.");
+        // REMOVED: Redundant check for state.gamePhase === GamePhases.FINISHED (handled above)
+        /* if (state.gamePhase === GamePhases.FINISHED) { ... } */
+        
+        // Control Waiting UI based *only* on local finished status
+        if (this.localPlayerFinished) {
+            console.log("MP Client: Local player IS finished. Showing waiting UI.");
             this.mainMenu.gameAreaController.showWaitingUi("Wachten tot anderen klaar zijn...");
-            if (this.timer) this.timer.stop();
+            if (this.timer) this.timer.stop(); // Stop timer if local player finished
         } else if (this.gamePhase === 'playing'){
-             // Ensure waiting UI is hidden if the game is playing and we aren't finished
-             console.log("MP Client: Game ongoing, player not finished. Ensuring waiting UI is hidden.");
+             // If game is playing AND local player is NOT finished, ensure waiting UI is hidden
+             console.log("MP Client: Game ongoing, local player NOT finished. Ensuring waiting UI is hidden.");
              this.mainMenu.gameAreaController.hideWaitingUi();
         }
 
-        // --- REMOVED Client-Side Phase Handling section as it's redundant/integrated above ---
     }
 
     /**
@@ -1560,8 +1625,24 @@ class MultiplayerGame {
              }
         }
 
-        console.log(`MP handleAnswerSelection: Showing Next button for local player ${localPeerId}.`);
-        this.mainMenu.gameAreaController.showNextButton();
+        // Check if the local player just finished
+        const localPlayer = this.players.get(localPeerId);
+        if (localPlayer && localPlayer.isFinished) {
+            // Player just finished with this answer
+            console.log(`MP handleAnswerSelection: Local player ${localPeerId} finished. Calling handleLocalPlayerFinished.`);
+            this.handleLocalPlayerFinished();
+            // DO NOT show the Next button in this case
+        } else if (localPlayer) { // Only show Next if player exists and is NOT finished
+            // Player answered but is not finished yet
+            console.log(`MP handleAnswerSelection: Showing Next button for local player ${localPeerId} because they are not finished.`);
+            this.mainMenu.gameAreaController.showNextButton();
+        } else {
+            // Handle case where local player data wasn't found (shouldn't happen ideally)
+            console.error(`MP handleAnswerSelection: Cannot find local player data (${localPeerId}) after processing answer.`);
+        }
+
+        // REMOVED unconditional showNextButton from here
+        // console.log(`MP handleAnswerSelection: Showing Next button for local player ${localPeerId}.`); 
 
         console.log(`MP handleAnswerSelection: Finished processing event for answer "${selectedAnswer}".`);
     }
@@ -1667,6 +1748,94 @@ class MultiplayerGame {
         }
         console.log("MP checkIfAllFinished: All connected players are finished.");
         return true; // All players are finished
+    }
+
+    /**
+     * Handles a non-fatal connection failure during the initial client connection attempt.
+     * Updates the UI to show the error without tearing down the whole game state yet.
+     * @param {string} errorMessage - The specific connection error message.
+     */
+    handleConnectionFailed(errorMessage) {
+        console.warn("MP Game: Handling non-fatal connection failure.", errorMessage);
+        // Update UI via MultiplayerController to show the error
+        if (this.mainMenu && this.mainMenu.multiplayerController && typeof this.mainMenu.multiplayerController.showConnectionError === 'function') {
+             this.mainMenu.multiplayerController.showConnectionError(errorMessage, true); // Keep join view visible
+        } else {
+             console.error("MP Game: Cannot display connection error - MultiplayerController or showConnectionError missing.");
+             // Fallback? Maybe alert?
+             // alert(`Connection Failed: ${errorMessage}`); 
+        }
+        // Cleanup WebRTC even on non-fatal connection error to ensure clean state
+        if (this.webRTCManager) {
+             console.log("MP Game: Cleaning up WebRTCManager after connection failure.");
+             this.webRTCManager.cleanup();
+        }
+        // Don't cleanup the MultiplayerGame instance itself here, let the user decide to go back via UI
+        this.gamePhase = 'idle'; // Set phase to idle so they can retry or go back
+    }
+
+    // --- Utility & State ---
+
+    /**
+     * Creates a standardized game name string for high score saving.
+     * Uses selected sheet names and difficulty.
+     * @returns {string} The formatted game name (e.g., "Tafel van 1, Tafel van 2 (Multiplayer Medium)")
+     * @private
+     */
+    _getMultiplayerNameForHighscore() {
+        const sheetString = this.selectedSheets && this.selectedSheets.length > 0
+            ? this.selectedSheets.join(', ')
+            : "Onbekend";
+        const difficultyString = this.difficulty ? ` (Multiplayer ${this.difficulty.charAt(0).toUpperCase() + this.difficulty.slice(1)})` : " (Multiplayer)";
+        return `${sheetString}${difficultyString}`;
+    }
+
+    /**
+     * HOST/CLIENT: Handles the H_RECORD_HIGHSCORE message broadcast by the host.
+     * Saves the score to the local HighscoresManager.
+     * @param {object} message - The message containing highscore details.
+     */
+    async handleRecordHighscore(message) {
+        console.log("MP handleRecordHighscore: Received request to record highscore:", message);
+        
+        // <<< VALIDATION >>>
+        if (!this._lastReceivedWinnerInfo) {
+            console.warn("MP handleRecordHighscore: Ignoring save request - No final winner info available for validation.");
+            return;
+        }
+        if (this._lastReceivedWinnerInfo.playerName !== message.playerName || 
+            this._lastReceivedWinnerInfo.score !== message.score ||
+            !message.isMultiplayer) { // Basic check
+            console.warn("MP handleRecordHighscore: Ignoring save request - Broadcasted score details do not match validated final results.", {
+                broadcasted: message,
+                validated: this._lastReceivedWinnerInfo
+            });
+            // Optionally show a silent warning toast?
+             this.mainMenu?.toastNotification?.show("Highscore info niet gevalideerd.", 3000);
+            return;
+        }
+        console.log("MP handleRecordHighscore: Validation passed. Proceeding with save.");
+        // Clear the stored info after validation (optional, prevents re-saving from same game)
+        // this._lastReceivedWinnerInfo = null; 
+        // <<< END VALIDATION >>>
+
+        try {
+            if (!this.mainMenu || !this.mainMenu.highscoresManager) {
+                 throw new Error("HighscoresManager not available via mainMenu.");
+            }
+            await this.mainMenu.highscoresManager.addScore(
+                message.gameName, 
+                message.playerName, 
+                message.score, 
+                message.isMultiplayer, 
+                message.difficulty
+            );
+            console.log(`MP handleRecordHighscore: Successfully saved score locally for ${message.playerName}.`);
+        } catch (error) {
+            console.error(`MP handleRecordHighscore: Failed to save score locally:`, error);
+            // Maybe show a non-critical toast notification? 
+            this.mainMenu?.toastNotification?.show("Fout bij opslaan highscore.", 3000);
+        }
     }
 
 }

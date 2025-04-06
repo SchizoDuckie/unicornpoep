@@ -108,7 +108,20 @@ class MultiplayerController {
         this.backButtonConnection.addEventListener('click', () => {
             console.log("MP Connection Back button clicked.");
             this.hideConnectionDialog();
-            this.game.cancelJoin();
+            
+            // --- Robust Cleanup on Back Button --- 
+            console.warn("MP Back Button: Manually navigating back from connection dialog.");
+            // Ensure WebRTC is cleaned up if a game object somehow exists
+            if (this.mainMenuController.currentGame && this.mainMenuController.currentGame.webRTCManager) {
+                console.log("MP Back Button: Cleaning up WebRTCManager.");
+                this.mainMenuController.currentGame.webRTCManager.cleanup();
+            }
+            // Ensure the currentGame reference is cleared in MainMenuController
+            console.log("MP Back Button: Clearing currentGame reference in MainMenuController.");
+            this.mainMenuController.setControllerGameInstance(null); 
+            // REMOVED: this.game.cancelJoin(); - Not reliable here
+            // --- End Robust Cleanup --- 
+
             this.mainMenuController.showView('mainMenu');
         });
 
@@ -361,26 +374,60 @@ class MultiplayerController {
         }
     }
 
-    showJoinScreen() {
+    /**
+     * Shows the initial screen for joining a game.
+     * If isDirectJoin is true, it shows a welcome message.
+     * @param {boolean} [isDirectJoin=false] - Indicates if the user arrived via a direct join link.
+     */
+    showJoinScreen(isDirectJoin = false) {
         this.hideAllScreens();
         this.showConnectionDialog();
+
+        // Show/Hide the welcome message based on direct join
+        const welcomeMsg = document.getElementById('joinWelcomeMessage');
+        if (welcomeMsg) {
+            welcomeMsg.classList.toggle('hidden', !isDirectJoin);
+        }
+
         this.joinView.classList.remove('hidden');
         if(this.connectionCodeInput) this.connectionCodeInput.focus();
         this.showConnectionError("", true);
-        console.log("MultiplayerController: Showing join screen.");
+        console.log(`MultiplayerController: Showing join screen (Direct join: ${isDirectJoin}).`);
     }
 
+    /**
+     * Shows or hides the connection error message.
+     * @param {string} message - The error message to display, or empty string to hide.
+     * @param {boolean} [keepJoinViewVisible=false] - If true, ensures the join code input view remains visible.
+     */
     showConnectionError(message, keepJoinViewVisible = false) {
-        if (this.connectionErrorMessage) {
-            this.connectionErrorMessage.textContent = message;
-            this.connectionErrorMessage.classList.toggle('hidden', !message);
-        }
-        if (!keepJoinViewVisible) {
-            this.hideAllScreens();
-            this.joinView.classList.add('hidden');
-            if (message && keepJoinViewVisible) {
+        if (!this.connectionErrorMessage) return;
+
+        // Remove any existing text color classes first
+        this.connectionErrorMessage.classList.remove('text-danger', 'text-warning', 'text-info', 'text-success', 'text-primary'); // Add any other colors used
+
+        if (message) {
+            console.log(`MPCtrl: Showing connection error: "${message}"`);
+            // Add error icon and the message
+            this.connectionErrorMessage.innerHTML = `⚠️ ${message}`; // Using innerHTML to add the icon
+            this.connectionErrorMessage.classList.add('text-error-purple'); // Add your custom purple class
+            this.connectionErrorMessage.classList.remove('hidden');
+            // Ensure other intermediate views are hidden when showing an error
+            this.fetchingInfoView.classList.add('hidden');
+            this.joinConfirmView.classList.add('hidden');
+            this.waitingForStartView.classList.add('hidden');
+            // Keep the join input view visible if requested (e.g., for invalid code)
+            if (keepJoinViewVisible) {
                 this.joinView.classList.remove('hidden');
+                if (this.connectionCodeInput) this.connectionCodeInput.focus(); // Focus input for correction
+            } else {
+                this.joinView.classList.add('hidden');
             }
+        } else {
+            console.log("MPCtrl: Hiding connection error message.");
+            this.connectionErrorMessage.innerHTML = ''; // Clear content
+            this.connectionErrorMessage.classList.add('hidden');
+            this.connectionErrorMessage.classList.remove('text-error-purple'); // Remove purple class when hiding
         }
     }
 

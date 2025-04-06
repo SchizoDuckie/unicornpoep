@@ -249,7 +249,11 @@ class Game {
         const ctrl = this.mainMenu.gameAreaController;
         if (!ctrl.areAnswersEnabled()) return;
 
-        this.timer.stop();
+        // Only stop the timer if it exists (i.e., in test mode)
+        if (this.timer) {
+            this.timer.stop();
+        }
+
         ctrl.disableAnswers();
 
         const currentQuestion = this.currentQuestions[this.currentQuestionIndex];
@@ -325,15 +329,17 @@ class Game {
     /** Ends the single-player game session */
     async endGame() {
         console.log("SP Game: Ending game.");
-        this.timer.stop(); // Keep optional chaining for timer as it *can* be null in practice mode
+        // Only stop timer if it exists (practice mode has no timer)
+        if (this.timer) {
+            this.timer.stop();
+        }
         // REMOVED . - Expect mainMenu and gameAreaController to exist
         this.mainMenu.gameAreaController.disableAnswers();
         this.gameActive = false;
 
+        // Removed early return for practice mode. Both modes now show end dialog.
         if (!this.isTestMode) {
-            console.log("SP Game: Practice mode finished.");
-            this.backToMainMenu();
-            return;
+            console.log("SP Game: Practice mode finished. Proceeding to end dialog.");
         }
 
         // REMOVED . - Expect mainMenu, highscoresManager, and dialogController to exist
@@ -360,25 +366,49 @@ class Game {
         }
 
         try {
-             const isNew = hsManager.isNewHighScore(
-                 this.selectedSheets.join(',') || 'Onbekend',
-                 this.difficulty,
-                 this.score
-             );
+             // Check dialogCtrl exists
+             if (!dialogCtrl) {
+                console.error("SP Game: DialogController missing in endGame.");
+                this.backToMainMenu();
+                return;
+             }
 
-             // Check dialogCtrl and the method 'showSinglePlayerEnd'
-             // REMOVED . - Expect dialogCtrl to exist
-             if (dialogCtrl && typeof dialogCtrl.showSinglePlayerEnd === 'function') {
-                 dialogCtrl.showSinglePlayerEnd(this.score);
+             if (this.isTestMode) {
+                 // --- Test Mode Logic --- 
+                 if (typeof hsManager.isNewHighScore !== 'function') {
+                     throw new Error("HighscoresManager 'isNewHighScore' method missing.");
+                 }
+                 const isNew = hsManager.isNewHighScore(
+                     this.selectedSheets.join(',') || 'Onbekend',
+                     this.difficulty,
+                     this.score
+                 );
+
+                 // Use a dedicated method for test end dialog
+                 if (typeof dialogCtrl.showTestEndDialog === 'function') {
+                     dialogCtrl.showTestEndDialog(this.score, isNew);
+                 } else {
+                     console.error("SP Game: DialogController 'showTestEndDialog' method missing.");
+                     this.backToMainMenu();
+                 }
              } else {
-                  console.error("SP Game: DialogController or showSinglePlayerEnd missing after high score check.");
-                  this.backToMainMenu();
+                 // --- Practice Mode Logic --- 
+                 if (typeof dialogCtrl.showPracticeEndDialog === 'function') {
+                     dialogCtrl.showPracticeEndDialog();
+                 } else {
+                     console.error("SP Game: DialogController 'showPracticeEndDialog' method missing.");
+                     this.backToMainMenu();
+                 }
              }
         } catch (error) {
-             console.error("SP Game: Error during end game score processing (after checks):", error);
-             // REMOVED . - Expect dialogCtrl to exist if we get here
-             dialogCtrl.showError(`Fout bij verwerken van score: ${error.message}`);
-             this.backToMainMenu();
+             console.error("SP Game: Error during end game score/dialog processing:", error);
+             // Attempt to show error using the base showError if specific dialog methods failed
+             if (dialogCtrl && typeof dialogCtrl.showError === 'function') {
+                 dialogCtrl.showError(`Fout bij verwerken einde spel: ${error.message}`);
+             } else {
+                  console.error("SP Game: Cannot show error dialog, controller missing.");
+             }
+             this.backToMainMenu(); // Go back to menu on error
         }
     }
 
@@ -396,7 +426,10 @@ class Game {
     resetGameState() {
         console.log('SP Game: Resetting state');
         this.gameActive = false;
-        this.timer.stop(); // Keep for timer
+        // Only stop the timer if it exists
+        if (this.timer) {
+            this.timer.stop();
+        }
         this.timer = null;
         this.selectedSheets = [];
         this.currentQuestions = [];
@@ -462,7 +495,10 @@ class Game {
      */
     stopGame() {
         console.log("SP Game: Stopping game via stop button.");
-        this.timer.stop();
+        // Only stop timer if it exists
+        if (this.timer) {
+            this.timer.stop();
+        }
         this.resetGameState(); // Reset state and UI
         // Navigate first
         this.mainMenu.showView('mainMenu', 'backward');
@@ -483,6 +519,15 @@ class Game {
         console.log("Game: Multiplayer selected. Triggering MP initialization via MainMenuController.");
         // REMOVED . - Expect mainMenu to exist
         this.mainMenu.startMultiplayer(MultiplayerModes.CHOICE);
+    }
+
+    /**
+     * Cleans up the game state and resources.
+     * Currently delegates to resetGameState.
+     */
+    cleanup() {
+        console.log("SP Game: cleanup() called. Delegating to resetGameState.");
+        this.resetGameState();
     }
 }
 

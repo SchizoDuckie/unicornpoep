@@ -21,7 +21,8 @@ const MessageTypes = Object.freeze({
     H_GAME_STATE_UPDATE: 'h_gameStateUpdate',
     // H_PLAYER_FINISHED_UPDATE: 'h_playerFinishedUpdate', // Merged into gameStateUpdate
     H_FINAL_RESULTS: 'h_finalResults',
-    H_CHAT_MESSAGE: 'h_chatMessage'
+    H_CHAT_MESSAGE: 'h_chatMessage',
+    H_RECORD_HIGHSCORE: 'h_recordHighscore' // <<< NEW: For broadcasting winner details to save
 });
 
 // Make available globally if not using modules

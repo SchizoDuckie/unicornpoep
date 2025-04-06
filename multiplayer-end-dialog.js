@@ -4,27 +4,30 @@
  */
 class MultiplayerEndDialog extends BaseDialog {
     /**
-     * @param {MainMenu} mainMenuController - The central orchestrator instance.
+     * @param {string} dialogId - The HTML ID of the dialog element.
      */
-    constructor(mainMenuController) {
-        super('multiplayerEndDialog', mainMenuController);
+    constructor(dialogId) {
+        super(dialogId);
 
         this.titleElement = this.querySelector('#multiplayerEndTitle');
         this.resultsElement = this.querySelector('#multiplayerEndResults');
         this.backButton = this.querySelector('#multiplayerEndBackButton'); // Specific back button ID
 
+        if (!this.titleElement || !this.resultsElement || !this.backButton) {
+            console.error("MultiplayerEndDialog: Missing required elements (title, results, or back button).");
+        }
+
         this._setupEventListeners();
     }
 
     _setupEventListeners() {
-        this.backButton.addEventListener('click', () => {
-            this.hide(); // Close dialog
-            // Multiplayer game cleanup is handled by the game instance itself
-            // Just navigate back
-            this.mainMenuController.showView('mainMenu', 'backward'); // Add direction
-        });
-        // Note: Restart is handled by onclick="location.reload()" in HTML
-        // Note: Save score button was removed in previous iterations, logic handled differently now.
+        // Back button just closes the dialog
+        this.backButton.addEventListener('click', () => this.hide());
+
+        // Add listener for the dialog's close event (for ESC key)
+        // Ensure onClose is bound correctly if it uses 'this'
+        // No longer need onClose logic here, base 'close' event is enough
+        // this.dialogElement.addEventListener('close', this.onClose.bind(this)); 
     }
 
     /** Sets the dialog title. */
@@ -91,24 +94,16 @@ class MultiplayerEndDialog extends BaseDialog {
 
     /** Handles the Back button click. */
     handleBack() {
-        console.log("MultiplayerEndDialog: Back clicked.");
-        this.hide();
-        // Let the MultiplayerGame know the dialog is closed if needed
-        this.mainMenuController.currentGame.onMultiplayerEndDialogClose();
-        // Navigate via the main controller
-        this.mainMenuController.showView('mainMenu');
+        // OBSOLETE / REMOVED - Listener directly calls hide()
+        console.log("MultiplayerEndDialog: Back button clicked (calling hide).");
+        this.hide(); 
     }
 
-    /** Override onClose if needed, e.g., to notify game state */
+    /** Override onClose for ESC key or programmatic close */
     onClose() {
-        super.onClose();
+        // OBSOLETE / REMOVED - Base 'close' event is used by DialogController
+        // This is called AFTER the dialog is hidden by browser/super.hide()
+        super.onClose(); // Call base class onClose if it exists/does anything
         console.log("MultiplayerEndDialog: Closed via ESC or programmatically.");
-        // Ensure navigation happens even if closed via ESC
-        // Avoid double navigation if handleBack already triggered it
-        if (this.mainMenuController.viewElements.mainMenu && !this.mainMenuController.viewElements.mainMenu.classList.contains('hidden')) {
-             // Already on main menu, do nothing
-        } else {
-            this.mainMenuController.showView('mainMenu');
-        }
     }
 } 

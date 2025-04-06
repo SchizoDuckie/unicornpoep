@@ -4,10 +4,13 @@
  */
 class SinglePlayerEndDialog extends BaseDialog {
     /**
-     * @param {MainMenu} mainMenuController - The central orchestrator instance.
+     * @param {string} dialogId - The HTML ID of the dialog element.
+     * @param {DialogController} dialogController - The DialogController instance.
      */
-    constructor(mainMenuController) {
-        super('endOfGameDialog', mainMenuController); // Call parent constructor with ID
+    constructor(dialogId, dialogController) {
+        // RE-APPLYING FIX: Ensure dialogId is passed correctly to super()
+        super(dialogId, null);
+        this.dialogController = dialogController; // Store the actual DialogController
 
         // Get specific elements within this dialog
         this.finalScoreSpan = this.querySelector('#finalScore');
@@ -15,36 +18,92 @@ class SinglePlayerEndDialog extends BaseDialog {
         this.saveScoreButton = this.querySelector('#saveHighscore');
         this.restartButton = this.querySelector('#restartGame');
         this.menuButton = this.querySelector('.backToMain.menuButton');
+        // New buttons for non-highscore scenario
+        this.viewHighscoresButton = this.querySelector('#viewHighscoresButton'); // Added selector
+        this.tryAgainButton = this.querySelector('#tryAgainButton'); // Added selector
 
         this._setupEventListeners();
     }
 
     /** Sets up listeners specific to this dialog's buttons. */
     _setupEventListeners() {
-        this.saveScoreButton.addEventListener('click', () => this.handleSave());
-        this.restartButton.addEventListener('click', () => this.handleRestart());
-        this.menuButton.addEventListener('click', () => {
-            this.hide(); // Close dialog
-            this.mainMenuController.showView('mainMenu', 'backward'); // Navigate back with direction
-        });
+        // Helper to get the actual MainMenuController
+        const getMainMenu = () => this.dialogController.mainMenuController;
+
+        if (this.saveScoreButton) {
+            this.saveScoreButton.addEventListener('click', () => this.handleSave());
+        }
+        if (this.restartButton) {
+            this.restartButton.addEventListener('click', () => this.handleRestart());
+        }
+        if (this.menuButton) {
+            this.menuButton.addEventListener('click', async () => {
+                this.hide();
+                await getMainMenu().showView('mainMenu', 'backward');
+                getMainMenu()._handleEndOfGameCleanup();
+            });
+        }
+        if (this.viewHighscoresButton) {
+            this.viewHighscoresButton.addEventListener('click', async () => {
+                this.hide();
+                await getMainMenu().showView('highscores');
+                getMainMenu()._handleEndOfGameCleanup();
+            });
+        }
+        if (this.tryAgainButton) {
+            this.tryAgainButton.addEventListener('click', () => this.handleRestart());
+        }
     }
 
     /**
-     * Shows the dialog and populates it with the final score and player name.
+     * Shows the dialog, populates it with the score, and configures buttons based on high score status.
      * @param {number} score - The final score achieved.
+     * @param {boolean} isNewHighScore - Whether the score is a new high score.
      */
-    show(score) {
+    show(score, isNewHighScore) {
         if (this.finalScoreSpan) {
             this.finalScoreSpan.textContent = score;
         }
-        if (this.playerNameInput && this.mainMenuController.currentGame) {
-             // Pre-fill name from the current game instance via the mainMenuController
-             this.playerNameInput.value = this.mainMenuController.currentGame.playerName || '';
+
+        const nameInputContainer = this.playerNameInput ? this.playerNameInput.closest('.form-group') : null;
+        // Assume button containers might be direct children or specific divs
+        const getContainer = (btn) => btn ? (btn.closest('div') || btn.parentElement) : null;
+
+        const saveContainer = getContainer(this.saveScoreButton);
+        const restartContainer = getContainer(this.restartButton);
+        const viewHsContainer = getContainer(this.viewHighscoresButton);
+        const tryAgainContainer = getContainer(this.tryAgainButton);
+        // Assuming menu button is always visible or handled separately
+
+        // Reset visibility and disabled states
+        [this.saveScoreButton, this.restartButton, this.menuButton, this.viewHighscoresButton, this.tryAgainButton].forEach(btn => {
+            if(btn) btn.disabled = false;
+        });
+        [nameInputContainer, saveContainer, restartContainer, viewHsContainer, tryAgainContainer].forEach(cont => {
+             if (cont) cont.classList.add('hidden'); // Hide all initially
+         });
+
+        const getMainMenu = () => this.dialogController.mainMenuController;
+
+        if (isNewHighScore) {
+            console.log("SinglePlayerEndDialog: New high score, showing Save/Restart/Menu.");
+            // Show elements for new high score
+            if (nameInputContainer) nameInputContainer.classList.remove('hidden');
+            if (saveContainer) saveContainer.classList.remove('hidden');
+            if (restartContainer) restartContainer.classList.remove('hidden');
+            // Assuming menuButton is always visible or its container doesn't need hiding/showing
+
+            if (this.playerNameInput && getMainMenu().currentGame) {
+                this.playerNameInput.value = getMainMenu().currentGame.playerName || '';
+                requestAnimationFrame(() => this.playerNameInput.focus());
+            }
+        } else {
+            console.log("SinglePlayerEndDialog: Not a new high score, showing ViewScores/TryAgain/Menu.");
+            // Show elements for non-highscore
+            if (viewHsContainer) viewHsContainer.classList.remove('hidden');
+            if (tryAgainContainer) tryAgainContainer.classList.remove('hidden');
+            // Assuming menuButton is always visible
         }
-        // Reset button states
-        if(this.saveScoreButton) this.saveScoreButton.disabled = false;
-        if(this.restartButton) this.restartButton.disabled = false;
-        if(this.menuButton) this.menuButton.disabled = false;
 
         super.show(); // Call BaseDialog's show method
     }
@@ -53,44 +112,48 @@ class SinglePlayerEndDialog extends BaseDialog {
     async handleSave() {
         if (!this.playerNameInput) return;
         const name = this.playerNameInput.value;
+        const getMainMenu = () => this.dialogController.mainMenuController;
+
         if (!name.trim()) {
-            // Delegate error showing to the main controller or a dedicated error dialog instance
-            this.mainMenuController.dialogController.showError("Vul je naam in om op te slaan!");
+            // Access dialogController directly as it's stored on this
+            this.dialogController.showError("Vul je naam in om op te slaan!"); 
             return;
         }
 
-        // Disable buttons
-        if(this.saveScoreButton) this.saveScoreButton.disabled = true;
-        if(this.restartButton) this.restartButton.disabled = true;
-        if(this.menuButton) this.menuButton.disabled = true;
+        // Disable buttons during save
+        [this.saveScoreButton, this.restartButton, this.menuButton].forEach(btn => {
+             if(btn) btn.disabled = true;
+         });
 
         try {
-            // Update name and trigger save via the game instance
-            if (!this.mainMenuController.currentGame) {
+            if (!getMainMenu().currentGame) {
                 throw new Error("Current game instance not found.");
             }
-            await this.mainMenuController.currentGame.saveHighscore(name); // Await save
-            console.log("SinglePlayerEndDialog: game.saveHighscore finished successfully.");
-
-            this.mainMenuController.toastNotification.show("Highscore opgeslagen!");
-            this.hide(); // Hide this dialog
-            // Navigate via the main controller AFTER successful save
-            this.mainMenuController.showView('mainMenu', 'backward'); // Use backward for returning
-            console.log("SinglePlayerEndDialog: Navigated to main menu.");
-
+            await getMainMenu().currentGame.saveHighscore(name);
+            getMainMenu().toastNotification.show("Highscore opgeslagen!");
+            this.hide();
+            // Await navigation, THEN cleanup
+            await getMainMenu().showView('highscores');
+            await this.mainMenuController.showView('highscores');
+            this.mainMenuController._handleEndOfGameCleanup();
         } catch (error) {
              console.error("SinglePlayerEndDialog: Error during save:", error);
-             this.mainMenuController.dialogController.showError(`Fout bij opslaan score: ${error.message || error}`);
+             // Ensure dialogController exists before showing error
+             if (this.mainMenuController && this.mainMenuController.dialogController) {
+                this.mainMenuController.dialogController.showError(`Fout bij opslaan score: ${error.message || error}`);
+             } else {
+                 console.error("Cannot show error dialog, mainMenuController or dialogController missing.")
+             }
              // Re-enable buttons on error
-             if(this.saveScoreButton) this.saveScoreButton.disabled = false;
-             if(this.restartButton) this.restartButton.disabled = false;
-             if(this.menuButton) this.menuButton.disabled = false;
+            [this.saveScoreButton, this.restartButton, this.menuButton].forEach(btn => {
+                 if(btn) btn.disabled = false;
+             });
         }
     }
 
-    /** Handles the Restart button click. */
+    /** Handles the Restart and Try Again button clicks. */
     handleRestart() {
-        console.log("SinglePlayerEndDialog: Restart clicked.");
+        console.log("SinglePlayerEndDialog: Restart/Try Again clicked.");
         this.hide(); // Hide this dialog
         // Trigger restart via the game instance
         this.mainMenuController.currentGame.restartGame();
@@ -99,9 +162,9 @@ class SinglePlayerEndDialog extends BaseDialog {
     /** Override onClose to ensure buttons are re-enabled if closed via ESC */
     onClose() {
         super.onClose(); // Call base method
-        // Re-enable buttons in case dialog was closed via ESC during save attempt etc.
-        if (this.saveScoreButton) this.saveScoreButton.disabled = false;
-        if (this.restartButton) this.restartButton.disabled = false;
-        if (this.menuButton) this.menuButton.disabled = false;
+        // Re-enable all potentially active buttons
+        [this.saveScoreButton, this.restartButton, this.menuButton, this.viewHighscoresButton, this.tryAgainButton].forEach(btn => {
+            if(btn) btn.disabled = false;
+        });
     }
 } 

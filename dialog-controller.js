@@ -7,31 +7,34 @@ class DialogController {
      * @param {MainMenu} mainMenuController - The central orchestrator instance.
      */
     constructor(mainMenuController) {
-        this.mainMenuController = mainMenuController;
-
-        // --- Instantiate Specific Dialog Handlers ---
-        try {
-            this.singlePlayerEndDialog = new SinglePlayerEndDialog(mainMenuController);
-            this.multiplayerEndDialog = new MultiplayerEndDialog(mainMenuController);
-            this.disconnectionDialog = new DisconnectionDialog(mainMenuController);
-            this.errorDialog = new ErrorDialog(mainMenuController); // Instantiate ErrorDialog
-            this.namePromptDialog = new NamePromptDialog(mainMenuController); // Instantiate NamePromptDialog
-
-            // Store instances for hideAll
-            this.dialogInstances = [
-                this.singlePlayerEndDialog,
-                this.multiplayerEndDialog,
-                this.disconnectionDialog,
-                this.errorDialog,
-                this.namePromptDialog
-            ].filter(instance => instance); // Filter out any potentially failed instantiations
-
-        } catch (error) {
-            console.error("DialogController FATAL: Failed to instantiate dialog classes.", error);
-            this.dialogInstances = [];
-             alert("FATAL ERROR: Could not initialize application dialogs.");
+        if (!mainMenuController) {
+            throw new Error("DialogController requires a MainMenuController instance!");
         }
-        // --- End Instantiation ---
+        this.mainMenuController = mainMenuController;
+        this.game = null; // Game instance will be set via MainMenu
+
+        // --- Dialog Instances ---
+        this.singlePlayerEndDialog = new SinglePlayerEndDialog('endOfGameDialog', this);
+        this.multiplayerEndDialog = new MultiplayerEndDialog('multiplayerEndDialog', this);
+        this.disconnectionDialog = new DisconnectionDialog('disconnectionDialog', this);
+        this.errorDialog = new ErrorDialog('errorDialog', this);
+        this.namePromptDialog = new NamePromptDialog('namePromptDialog', this);
+        this.practiceEndDialog = new PracticeEndDialog('practiceEndDialog', this); // Use specific class
+
+        // Rebuild dialogInstances array with existing dialogs
+        this.dialogInstances = [
+            this.singlePlayerEndDialog,
+            this.multiplayerEndDialog,
+            this.disconnectionDialog,
+            this.errorDialog,
+            this.namePromptDialog,
+            this.practiceEndDialog // Add the new specific dialog instance
+        ].filter(instance => instance); // Filter out any nulls
+
+        // Initial hide of all managed dialogs
+        this.hideAll();
+
+        // Setup listeners (handled by dialog classes or show methods)
     }
 
     /**
@@ -39,32 +42,57 @@ class DialogController {
      * @returns {boolean} True if any dialog is open, false otherwise.
      */
     isDialogVisible() {
-        return this.dialogInstances.some(instance => instance.isOpen());
+        // Ensure dialogInstances exists and is an array
+        if (!Array.isArray(this.dialogInstances)) {
+            console.error("DialogController: dialogInstances is not an array!");
+            return false;
+        }
+        return this.dialogInstances.some(instance => instance && typeof instance.isOpen === 'function' && instance.isOpen());
     }
 
     /**
      * Hides all managed dialog instances.
      */
     hideAll() {
+        // Ensure dialogInstances exists and is an array
+         if (!Array.isArray(this.dialogInstances)) {
+            console.warn("DialogController: Cannot hideAll, dialogInstances is not an array.");
+            return;
+        }
         console.log("DialogController: Hiding all managed dialog instances.");
-        this.dialogInstances.forEach(instance => instance.hide());
+        this.dialogInstances.forEach(instance => {
+            if (instance && typeof instance.hide === 'function') {
+                instance.hide();
+            }
+        });
     }
 
     // --- Facade Methods ---
 
     /**
-     * Shows the end-of-game dialog for single player.
-     * @param {number} score - The final score.
+     * Shows the end game dialog for TEST MODE, displaying score and handling high score input.
+     * @param {number} score - The final score achieved.
+     * @param {boolean} isNewHighScore - Whether the score is a new high score.
      */
-    showSinglePlayerEnd(score) {
-        this.hideAll();
-        this.singlePlayerEndDialog.show(score);
+    showTestEndDialog(score, isNewHighScore) {
+        console.log(`DialogController: Showing TEST end dialog. Score: ${score}, New Highscore: ${isNewHighScore}`);
+        this.hideAll(); // Hide others before showing
+        // Pass isNewHighScore to the specific dialog's show method
+        this.singlePlayerEndDialog.show(score, isNewHighScore);
     }
 
     /**
-     * Shows the end-of-game dialog for multiplayer matches.
-     * Dynamically displays results for all players.
-     * @param {Array<Object>} playersArray - Array of player objects {peerId, playerName, score, ...}.
+     * Shows a simple dialog indicating practice mode is finished.
+     */
+    showPracticeEndDialog() {
+        console.log("DialogController: Showing PRACTICE end dialog.");
+        this.hideAll(); // Hide others before showing
+        this.practiceEndDialog.show(); // Call show on the specific PracticeEndDialog instance
+    }
+
+    /**
+     * Displays the results of a multiplayer game using a dedicated dialog.
+     * @param {Array<Object>} playersArray - Array of all player objects {peerId, playerName, score, isFinished}.
      * @param {Object|null} winnerInfo - Information about the winner {peerId, playerName, score, ...} or null for a tie.
      * @param {string} localPlayerId - The PeerJS ID of the local player.
      */
@@ -78,28 +106,29 @@ class DialogController {
 
         const dialogInstance = this.multiplayerEndDialog;
 
-        // --- Set Title --- 
-        let titleText = "Gelijkspel!"; // Default to tie
-        if (winnerInfo && playersArray.length > 1 && playersArray.every(p => p.score !== winnerInfo.score)) {
-             // Check if there is a clear winner (not everyone has the same score as the winner)
-            titleText = `${winnerInfo.playerName} wint!`;
-        } else if (!winnerInfo && playersArray.length > 0) {
-            // Handle case where winnerInfo is null but players exist (might be error or unexpected state)
-            console.warn("displayMultiplayerResults: winnerInfo is null, but players exist. Defaulting title.");
-            titleText = "Spel voorbij!";
-        } else if (playersArray.length <= 1) {
-             titleText = "Spel voorbij!"; // Game over if only one player
-        }
-        // Tie logic: If winnerInfo exists but multiple players have the same top score
-        if (winnerInfo) {
-            const topScore = winnerInfo.score;
-            const winners = playersArray.filter(p => p.score === topScore);
-            if (winners.length > 1) {
-                titleText = "Gelijkspel!";
+        // --- Set Title (Corrected Logic) --- 
+        let titleText = "Spel voorbij!"; // Default title
+
+        if (playersArray.length > 1) {
+            if (winnerInfo) {
+                // Assume winner first
+                titleText = `${winnerInfo.playerName} wint!`;
+                
+                // Now check for a tie among top scorers
+                const topScore = winnerInfo.score;
+                const winners = playersArray.filter(p => p.score === topScore);
+                if (winners.length > 1) {
+                    titleText = "Gelijkspel!"; // It's a tie
+                }
+            } else {
+                 // No winner info from host, but multiple players -> Assume tie
+                 console.warn("displayMultiplayerResults: No winnerInfo provided by host for multi-player game. Declaring a tie.");
+                 titleText = "Gelijkspel!";
             }
-        }
+        } 
+        // If only one player, "Spel voorbij!" remains correct.
         
-        dialogInstance.setTitle(titleText); // Assuming a method to set title
+        dialogInstance.setTitle(titleText);
 
         // --- Populate Results List --- 
         dialogInstance.clearResults(); // Assuming a method to clear previous results
@@ -114,9 +143,19 @@ class DialogController {
             dialogInstance.addPlayerResult(player.playerName, player.score, isLocal, isWinner);
         });
 
+        // --- Attach Close Listener for Navigation --- 
+        dialogInstance.dialogElement.addEventListener('close', () => {
+            console.log(`DialogController: '${dialogInstance.dialogId}' closed, navigating back to main menu.`);
+            if (this.mainMenuController && typeof this.mainMenuController.showView === 'function') {
+                 // Ensure cleanup happens *after* navigation is requested
+                 // Navigation should handle cleanup of the game instance.
+                 this.mainMenuController.showView('mainMenu', 'backward');
+            } else {
+                console.error("DialogController: Cannot navigate back after dialog close - mainMenuController or showView missing.");
+            }
+        }, { once: true }); // Use 'once' so the listener cleans itself up
+
         dialogInstance.show(); // Show the populated dialog
-        // Ensure listeners are set up (might be done in the Dialog class's show method)
-        // this._setupMultiplayerEndListeners(); // This might need refactoring depending on where listeners are managed
     }
 
     /**

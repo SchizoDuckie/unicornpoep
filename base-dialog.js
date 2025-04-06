@@ -17,6 +17,8 @@ class BaseDialog {
             console.warn(`BaseDialog: mainMenuController not provided for dialog '${dialogId}'. Interactions requiring it will fail.`);
         }
 
+        console.log(`BaseDialog Constructor: Attempting to find element with ID: '${dialogId}'`);
+        
         this.dialogElement = document.getElementById(dialogId);
         this.mainMenuController = mainMenuController; // Use a consistent name
 

@@ -2131,3 +2131,18 @@ html.transitioning-backward::view-transition-new(difficulty-column) {
 #countdownDisplay.active { /* Apply pulse when class is added by JS */
     animation: countdownPulse 0.8s ease-in-out;
 }
+
+/* --- Custom Error Message Style --- */
+.text-error-purple {
+  color: #6a0dad !important; /* Vibrant purple */
+  font-weight: bold;
+  font-size: 1.4em; /* Increased size */
+  background-color: transparent; /* Ensure no background override */
+  margin-top: 15px;
+  text-shadow: none; /* Removed text shadow */
+}
+
+/* Ensure it overrides styles within the dialog if necessary */
+#connectionStatus .text-error-purple {
+    color: #6a0dad !important; /* Reiterate color with more specificity */
+}

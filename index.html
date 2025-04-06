@@ -177,11 +177,11 @@
 
                 <!-- Client Join View -->
                 <div id="joinView" class="connectionBox hidden">
-                    <div class="input-wrapper">
-                        <input type="number" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Voer 6-cijferige code in" id="connectionCodeInput">
-                        <button id="submitCode" class="menuButton yellow-button">Verbinden</button>
-                        <p class="help-text">Vraag de andere speler om de code</p>
-                    </div>
+                    <p id="joinWelcomeMessage" class="help-text" style="font-size: 1.2em; margin-bottom: 20px;">Hoi! Iemand heeft je uitgenodigd om Unicorn Poep te spelen! Voer hieronder de code in die je hebt gekregen.</p>
+                    <input type="number" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Voer 6-cijferige code in" id="connectionCodeInput">
+                    <button id="submitCode" class="menuButton yellow-button">Verbinden</button>
+                    <p class="help-text">Vraag de andere speler om de code</p>
+                    <p id="connectionErrorMessage" class="hidden"></p>
                 </div>
 
                 <!-- Client Fetching Info View -->
@@ -215,7 +215,7 @@
                  </div>
 
                  <!-- Error Message Display Area -->
-                 <div id="connectionErrorMessage" class="hidden" style="color: red; margin-top: 15px; font-weight: bold;"></div>
+                 <p id="connectionErrorMessage" class="hidden"></p>
 
             </dialog> <!-- End #connectionStatus Dialog -->
 
@@ -304,7 +304,7 @@
 
         </div> <!-- End #gameContainer -->
 
-         <!-- Dialogs (visibility controlled by JS showModal/close, no change needed) -->
+         <!-- Dialogs (visibility controlled by JS showModal/close) -->
          <dialog id="endOfGameDialog" class="unicorn-theme hidden">
             <h1>Goed gedaan!</h1>
             <p>Je score is: <strong id="finalScore"></strong>!</p>
@@ -355,6 +355,20 @@
            <button id="multiplayerEndBackButton" class="menuButton yellow-button">Terug naar menu</button> <!-- Styled button -->
          </dialog>
 
+         <!-- New Practice End Dialog HTML -->
+         <dialog id="practiceEndDialog" class="unicorn-theme hidden">
+            <div class="dialog-container">
+                <h2 class="dialog-title">Oefening Klaar!</h2>
+                <div class="dialog-content content">
+                    <p>Lekker bezig met oefenen! Denk je dat je klaar bent voor een toets?</p>
+                </div>
+                <div class="dialog-buttons buttons">
+                    <button id="practiceTryAgainButton" class="button button-secondary">Probeer Opnieuw</button> 
+                    <button id="practiceMenuButton" class="button button-primary">Hoofdmenu</button>
+                </div>
+            </div>
+         </dialog>
+
          <!-- Toast Notification -->
          <div id="toastNotification" class="hidden" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 5px; z-index: 100;"></div>
 
@@ -379,6 +393,7 @@
     <script src="disconnection-dialog.js"></script>
     <script src="error-dialog.js"></script>
     <script src="name-prompt-dialog.js"></script>
+    <script src="practice-end-dialog.js"></script> <!-- Added script tag -->
 
     <!-- Controllers (Depend on Managers/Dialogs) -->
     <script src="loading-controller.js"></script>
@@ -398,11 +413,8 @@
     <script>
         // Entry point: Initialize the Main Menu orchestrator on DOM load
         window.addEventListener('DOMContentLoaded', () => {
-            console.log("INIT: DOM Loaded. Initializing MainMenu."); // Renamed log
-            // Create the central orchestrator (using the renamed class)
+            console.log("INIT: DOM Loaded. Initializing MainMenu.");
             const mainMenu = new MainMenu();
-            // NO window assignment needed unless absolutely required elsewhere (try to avoid)
-            // window.mainMenu = mainMenu;
             mainMenu.init(); // Start the application initialization
         });
     </script>

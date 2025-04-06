@@ -210,13 +210,23 @@ class WebRTCManager {
         
         this.peer.on('error', (err) => {
              console.error('PeerJS Error:', err);
-             // Determine if it's a fatal error (e.g., network, server, config)
-             if (['network', 'server-error', 'socket-error', 'unavailable-id', 'invalid-key'].includes(err.type)) {
-                 this.cleanup(); // Cleanup on fatal errors
-                 reject(new Error(`PeerJS fatal error: ${err.message || err.type}`)); // Reject init promise if applicable
-                  this.multiplayerGame.handleFatalError(`Multiplayer connection failed: ${err.message || err.type}`);
+             // Distinguish connection errors from other errors
+             if (!this.isHost && !this.isConnected && err.type !== 'peer-unavailable') {
+                 // Client failed to establish initial connection
+                 console.warn("WebRTCManager: Client connection error before fully connected. Calling game.handleConnectionFailed.");
+                 this.multiplayerGame.handleConnectionFailed(`Kon niet verbinden: ${err.message || err.type || 'Onbekende fout'}`);
+                 // Don't call fatal error here
+             } else if (err.type === 'peer-unavailable') {
+                 // Specific error for non-existent peer ID
+                 console.warn("WebRTCManager: Host peer ID unavailable. Calling game.handleConnectionFailed.");
+                 this.multiplayerGame.handleConnectionFailed(`Spelletje niet gevonden. Controleer de code?`);
+             } else {
+                 // Treat other errors as potentially fatal (e.g., network issues after connection)
+                 console.error("WebRTCManager: Treating PeerJS error as potentially fatal.");
+                 this.multiplayerGame.handleFatalError(`Multiplayer connection failed: ${err.message || err.type}`);
              }
-             // Non-fatal errors might be related to specific connections, handled by connection listeners
+             // Cleanup might still be needed depending on the error
+             // this.cleanup(); // Moved cleanup decision into game handlers
          });
 
          this.peer.on('disconnected', () => {
@@ -365,11 +375,10 @@ class WebRTCManager {
                 if (conn && conn.open) {
                     console.log(`WebRTCManager: Attempting to close connection to client ${peerId}`);
                     try {
-                        conn.close(); // Wrap close() in try...catch
+                        conn.close(); // Already wrapped
                         console.log(`WebRTCManager: Successfully called close() for ${peerId}`);
                     } catch (error) {
                         console.error(`WebRTCManager: Error closing connection to client ${peerId}:`, error);
-                        // Continue cleanup even if one connection fails to close gracefully
                     }
                 } else {
                     console.log(`WebRTCManager: Connection to client ${peerId} already closed or invalid, skipping close().`);
@@ -377,15 +386,13 @@ class WebRTCManager {
             });
             this.connections.clear();
         } else if (!this.isHost && this.hostConnection) {
-            // Check connection exists and seems open before attempting to close
             if (this.hostConnection && this.hostConnection.open) {
                 console.log(`WebRTCManager: Attempting to close connection to host ${this.hostId}`);
                 try {
-                    this.hostConnection.close(); // Wrap close() in try...catch
+                    this.hostConnection.close(); // Already wrapped
                     console.log(`WebRTCManager: Successfully called close() for host ${this.hostId}`);
                 } catch (error) {
                     console.error(`WebRTCManager: Error closing connection to host ${this.hostId}:`, error);
-                    // Continue cleanup
                 }
             } else {
                  console.log(`WebRTCManager: Connection to host ${this.hostId} already closed or invalid, skipping close().`);
@@ -395,11 +402,13 @@ class WebRTCManager {
 
         // Destroy the main peer object
         if (this.peer && !this.peer.destroyed) {
-            console.log(`WebRTCManager: Destroying PeerJS instance ${this.peer.id}`);
+            const peerIdToDestroy = this.peer.id;
+            console.log(`WebRTCManager: Destroying PeerJS instance ${peerIdToDestroy}`);
             try {
                 this.peer.destroy();
+                console.log(`WebRTCManager: Successfully called destroy() for peer ${peerIdToDestroy}`);
             } catch (error) {
-                 console.error("WebRTCManager: Error destroying peer instance:", error);
+                 console.error(`WebRTCManager: Error destroying peer instance ${peerIdToDestroy}:`, error);
             }
         }
 

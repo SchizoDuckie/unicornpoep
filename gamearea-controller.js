@@ -217,10 +217,29 @@ class GameAreaController {
     }
 
     /**
-     * Displays the question text.
+     * Updates the displayed player name in the game UI.
+     * @param {string} playerName - The name to display.
+     */
+    updatePlayerNameDisplay(playerName) {
+        if (this.playerNameElement) {
+            this.playerNameElement.textContent = playerName || 'Speler'; // Default if empty
+            this.playerNameElement.classList.remove('hidden'); // Ensure it's visible
+            console.log(`GameAreaCtrl: Updated player name display to: ${playerName}`);
+        } else {
+            console.warn("GameAreaController: playerNameElement not found, cannot update display.");
+        }
+    }
+
+    /**
+     * Displays the question text and ensures the element is visible.
      * @param {string} questionText - The text of the question.
      */
-    displayQuestion(questionText) { if (this.questionElement) this.questionElement.textContent = questionText; }
+    displayQuestion(questionText) {
+        if (this.questionElement) {
+            this.questionElement.textContent = questionText;
+            this.questionElement.classList.remove('hidden'); // Ensure visible
+        }
+    }
 
     /**
      * Creates and displays answer buttons, attaching click listeners.

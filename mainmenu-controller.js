@@ -429,14 +429,33 @@ class MainMenu {
         if (this.multiplayerController) {
             console.log(`MainMenu: MultiplayerController exists. Accessing it for joining.`);
             // Update UI *before* the async connection attempt
-            this.multiplayerController.showFetchingGameInfo(); // Show "Connecting..." message
+            // Pass true to indicate it's a direct join from a link
+            this.multiplayerController.showJoinScreen(true); // Show the join screen *with* welcome message
 
             // Attempt connection (async). requestToJoin handles subsequent UI updates
             // via MultiplayerController based on connection success/failure or messages.
-            await this.currentGame.requestToJoin(hostId);
+            try {
+                await this.currentGame.requestToJoin(hostId);
 
-            // ---- NO showView('gameArea') here. ---
-            // The game joining process dictates UI flow from here based on host communication.
+                // ... post-connection logic (not reached on error) ...
+            } catch (error) {
+                // --- Robust Error Handling --- 
+                console.error(`MainMenu: Error during initiateJoiningFlow for hostId ${hostId}:`, error);
+                // Ensure WebRTC is cleaned up in the game instance if it exists
+                if (this.currentGame && this.currentGame.webRTCManager) {
+                    console.log("MainMenu initiateJoiningFlow CATCH: Cleaning up WebRTCManager.");
+                    this.currentGame.webRTCManager.cleanup();
+                }
+                // Use DialogController directly to show a generic error
+                if (this.dialogController) {
+                    this.dialogController.showError("Kon niet verbinden met het spel. Probeer het opnieuw.");
+                } else {
+                    console.error("MainMenu initiateJoiningFlow CATCH: DialogController not found!");
+                }
+                // Always ensure the game instance reference is cleared on error
+                this.setControllerGameInstance(null); 
+                // --- End Robust Error Handling ---
+            }
         } else {
             console.error("MainMenu: MultiplayerController not found. Cannot join game.");
             this.dialogController.showError("Multiplayer controller not found. Cannot join game.");
@@ -458,7 +477,7 @@ class MainMenu {
              return;
          }
 
-        console.log(`MainMenu: Navigating to ${viewId} (Direction: ${direction})`);
+        console.log(`MainMenu: Navigating from ${this.currentViewId} to ${viewId} (Direction: ${direction})`); // Log current view
         const targetView = this.viewElements[viewId]; // Use mapped elements
         const targetController = this.controllers[viewId];
 
@@ -467,8 +486,9 @@ class MainMenu {
             return;
         }
 
-        // Remember the view we are leaving
-        const oldViewId = this.currentViewId;
+        // REMOVED Cleanup logic from here
+        // const oldViewId = this.currentViewId;
+        // if (oldViewId === 'gameArea' && viewId !== 'gameArea') { ... }
 
         const transitionClass = direction === 'forward' ? 'transitioning-forward' : (direction === 'backward' ? 'transitioning-backward' : '');
         const transitionName = viewId === 'mainMenu' ? 'main-content' : (targetView.style.viewTransitionName || 'main-content');
@@ -479,7 +499,8 @@ class MainMenu {
             document.documentElement.classList.add(transitionClass);
         }
 
-        let transition;
+        let transitionPromise = Promise.resolve(); // Default to resolved promise
+
         try {
             /**
              * Helper function within showView to update DOM visibility and potentially schedule controller.show().
@@ -526,28 +547,59 @@ class MainMenu {
                 }
             }
 
-            const transition = document.startViewTransition(async () => {
-                console.log(`MainMenu: Starting view transition to ${viewId}`);
-                // Pass the controller instance, but updateDOMAndCallShow now handles scheduling show()
-                await updateDOMAndCallShow.call(this, viewId, targetController); // Ensure 'this' context
-                console.log(`MainMenu: View transition ready for ${viewId}.`);
-            });
+            // Check if View Transitions API is supported
+            if (document.startViewTransition) {
+                const transition = document.startViewTransition(async () => {
+                    console.log(`MainMenu: Starting view transition to ${viewId}`);
+                    // Pass the controller instance, but updateDOMAndCallShow now handles scheduling show()
+                    await updateDOMAndCallShow.call(this, viewId, targetController); // Ensure 'this' context
+                    console.log(`MainMenu: View transition ready for ${viewId}.`);
+                });
 
-            transition.finished.then(() => {
-                console.log(`MainMenu: View transition to ${viewId} finished.`);
-                this.isTransitioning = false;
-                document.documentElement.classList.remove('transitioning-forward', 'transitioning-backward');
+                // Store the finished promise to return it
+                transitionPromise = transition.finished;
 
-                console.log(`MainMenu: showView for ${viewId} completed (transition/update phase).`);
-                 // Call view-specific logic AFTER transition finishes
-                 this._handleViewSpecificLogic(viewId, oldViewId);
+                transition.finished.then(() => {
+                    console.log(`MainMenu: View transition to ${viewId} finished.`);
+                    this.isTransitioning = false;
+                    document.documentElement.classList.remove('transitioning-forward', 'transitioning-backward');
 
-                 // Ask controller to observe resize AFTER view transition is fully done
-                 if (targetController && typeof targetController.observeResize === 'function' && viewId !== 'mainMenu' && viewId !== 'sheetSelection') {
-                    console.log(`MainMenu: Asking ${targetController.constructor.name} to observe after transition.`);
-                    targetController.observeResize();
+                    console.log(`MainMenu: showView for ${viewId} completed (transition/update phase).`);
+                     // Call view-specific logic AFTER transition finishes
+                     this._handleViewSpecificLogic(viewId, this.currentViewId);
+
+                     // Ask controller to observe resize AFTER view transition is fully done
+                     if (targetController && typeof targetController.observeResize === 'function' && viewId !== 'mainMenu' && viewId !== 'sheetSelection') {
+                        console.log(`MainMenu: Asking ${targetController.constructor.name} to observe after transition.`);
+                        targetController.observeResize();
+                     }
+                });
+            } else {
+                 // View Transitions not supported, update DOM directly
+                 console.log(`MainMenu: View Transitions not supported. Updating DOM directly for ${viewId}.`);
+                 // Await the direct call to ensure completion before resolving the promise
+                 try {
+                     await updateDOMAndCallShow.call(this, viewId, targetController);
+                     console.log(`MainMenu: Direct DOM update for ${viewId} completed.`);
+                     this.isTransitioning = false; // Still need to reset this flag
+                     document.documentElement.classList.remove('transitioning-forward', 'transitioning-backward'); // Clean up classes
+
+                     // Call view-specific logic AFTER direct update
+                     this._handleViewSpecificLogic(viewId, this.currentViewId);
+
+                     // Ask controller to observe resize AFTER direct update
+                     if (targetController && typeof targetController.observeResize === 'function' && viewId !== 'mainMenu' && viewId !== 'sheetSelection') {
+                         console.log(`MainMenu: Asking ${targetController.constructor.name} to observe after direct update.`);
+                         targetController.observeResize();
+                     }
+                      transitionPromise = Promise.resolve(); // Resolve immediately as there's no transition
+                 } catch (domUpdateError) {
+                      console.error(`MainMenu: Error during direct DOM update for ${viewId}:`, domUpdateError);
+                      this.isTransitioning = false; // Reset flag even on error
+                      document.documentElement.classList.remove('transitioning-forward', 'transitioning-backward'); // Clean up
+                      transitionPromise = Promise.reject(domUpdateError); // Reject the promise
                  }
-            });
+            }
 
         } catch (e) {
             console.error("MainMenu: Error during showView execution:", e);
@@ -557,11 +609,14 @@ class MainMenu {
             this.currentViewId = viewId;
              // Attempt deferred show even on error? Risky, maybe just log.
              console.error(`MainMenu: Failed to show ${viewId} due to error. Controller show() not called.`);
+            transitionPromise = Promise.reject(e); // Reject on error
 
         } finally {
             if (transitionClass) { document.documentElement.classList.remove(transitionClass); }
             document.documentElement.classList.remove('animating');
         }
+
+        return transitionPromise; // Return the promise
     }
 
     /** Helper to hide a specific view by ID */
