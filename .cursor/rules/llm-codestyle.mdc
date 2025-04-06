@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# codestyle
+
+- *do not* resort to defensive programming by wrapping every javascript property accessor in `.` this is a sign of ugly code that doesnt trust it's own architecture. If you encounter this, refactor it away. Do not add useless null checks for non existing elements if theyre predefined in html

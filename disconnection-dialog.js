@@ -17,7 +17,7 @@ class DisconnectionDialog extends BaseDialog {
     }
 
     _setupEventListeners() {
-        this.backButton?.addEventListener('click', () => {
+        this.backButton.addEventListener('click', () => {
             this.hide();
             this.mainMenuController.showView('mainMenu', 'backward');
         });
@@ -43,7 +43,7 @@ class DisconnectionDialog extends BaseDialog {
         console.log("DisconnectionDialog: Back clicked.");
         this.hide();
         // Navigate via the main controller
-        this.mainMenuController?.showView('mainMenu');
+        this.mainMenuController.showView('mainMenu');
     }
 
     /** Override onClose to ensure navigation */
@@ -52,10 +52,10 @@ class DisconnectionDialog extends BaseDialog {
         // Always go to main menu when this dialog is closed
         console.log("DisconnectionDialog: Closed via ESC or programmatically, navigating to menu.");
          // Avoid double navigation if handleBack already triggered it
-         if (this.mainMenuController?.viewElements?.mainMenu && !this.mainMenuController.viewElements.mainMenu.classList.contains('hidden')) {
+         if (this.mainMenuController.viewElements.mainMenu && !this.mainMenuController.viewElements.mainMenu.classList.contains('hidden')) {
               // Already on main menu, do nothing
          } else {
-             this.mainMenuController?.showView('mainMenu');
+             this.mainMenuController.showView('mainMenu');
          }
     }
 } 

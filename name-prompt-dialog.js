@@ -21,9 +21,9 @@ class NamePromptDialog extends BaseDialog {
     }
 
     _setupEventListeners() {
-        this.confirmButton?.addEventListener('click', () => this.handleConfirm());
+        this.confirmButton.addEventListener('click', () => this.handleConfirm());
         // Add listener for Enter key on input
-        this.inputElement?.addEventListener('keydown', (event) => {
+        this.inputElement.addEventListener('keydown', (event) => {
             if (event.key === 'Enter') {
                 event.preventDefault(); // Prevent potential form submission
                 this.handleConfirm();
@@ -45,13 +45,13 @@ class NamePromptDialog extends BaseDialog {
                 this.inputElement.value = ''; // Clear previous input
             }
             super.show(); // Show the dialog using base class method
-            this.inputElement?.focus(); // Focus the input field
+            this.inputElement.focus(); // Focus the input field
         });
     }
 
     /** Handles the Confirm button click. */
     handleConfirm() {
-        const name = this.inputElement?.value.trim();
+        const name = this.inputElement.value.trim();
         if (name) {
             this.hide(); // Hide the dialog first
             if (this.resolvePromise) {
@@ -62,7 +62,7 @@ class NamePromptDialog extends BaseDialog {
             // Provide feedback - potentially delegate to showError
             // Use alert for now as DialogController might not be fully available depending on usage context
             alert("Voer alsjeblieft een naam in.");
-            this.inputElement?.focus();
+            this.inputElement.focus();
         }
     }
 

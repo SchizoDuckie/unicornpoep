@@ -18,7 +18,7 @@ class ErrorDialog extends BaseDialog {
     }
 
     _setupEventListeners() {
-        this.okButton?.addEventListener('click', () => this.hide());
+        this.okButton.addEventListener('click', () => this.hide());
         // No specific onClose needed unless state needs reset
     }
 

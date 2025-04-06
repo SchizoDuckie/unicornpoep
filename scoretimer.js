@@ -11,6 +11,7 @@ class ScoreTimer extends Timer {
     constructor(difficulty) {
         // *** REVERT: Call base Timer constructor ***
         super();
+        this.lastElapsedMs = 0; // Initialize storage for elapsed time
 
         // *** REVERT: Set durationMs using the original difficulty logic ***
         this.durationMs = this.getTimerDuration(difficulty);
@@ -38,26 +39,42 @@ class ScoreTimer extends Timer {
     }
 
     /**
-     * Calculates the score based on elapsed time and difficulty.
-     * Needs to be called *after* the timer has stopped.
-     * @param {string} difficulty - Difficulty level ('easy', 'medium', 'hard').
+     * Stops the timer, capturing the elapsed time just before stopping.
+     * @override
+     */
+    stop() {
+        if (this.isRunning && this.startTime) {
+             this.lastElapsedMs = Date.now() - this.startTime;
+             console.log(`ScoreTimer: Captured lastElapsedMs = ${this.lastElapsedMs} before stopping.`);
+        } else {
+            this.lastElapsedMs = 0; // Reset if stopped prematurely or wasn't running
+        }
+        super.stop(); // Call the base class stop method (clears interval, sets isRunning=false, startTime=null)
+        // console.log("ScoreTimer: Stopped (called super.stop())."); // Optional logging
+    }
+
+    /**
+     * Calculates the score based on the elapsed time captured by the stop() method.
+     * Needs to be called *immediately after* the timer has stopped.
      * @returns {number} Calculated score.
      */
-    calculateScore(difficulty) { // Keep difficulty param if needed here
-        // Use this.durationMs if the base timer accurately stops startTime
-        if (!this.isRunning && this.startTime) {
-            const elapsedMs = Date.now() - this.startTime;
-            // Use seconds duration for calculation if easier
-            const elapsedSec = elapsedMs / 1000;
-            const baseScore = 10;
-            const maxTimeBonus = 50;
-            // Use this.duration (seconds) for calculation clarity
-            const timeFactor = this.duration > 0 ? Math.max(0, 1 - (elapsedSec / this.duration)) : 0;
-            const timeBonus = Math.round(maxTimeBonus * timeFactor);
+    calculateScore() {
+        // Check if stop() was called and captured a valid elapsed time
+        if (this.lastElapsedMs > 0 && this.durationMs > 0) {
+             const elapsedMs = this.lastElapsedMs;
+             const elapsedSec = elapsedMs / 1000;
+             const baseScore = 10;
+             const maxTimeBonus = 50;
+             // Use this.duration (seconds) for calculation clarity
+             const timeFactor = Math.max(0, 1 - (elapsedSec / this.duration));
+             const timeBonus = Math.round(maxTimeBonus * timeFactor);
 
-            console.log(`Score calc: elapsedSec=${elapsedSec}, durationSec=${this.duration}, timeFactor=${timeFactor}, timeBonus=${timeBonus}`);
-            return baseScore + timeBonus;
+             console.log(`Score calc: Using lastElapsedMs=${elapsedMs} -> elapsedSec=${elapsedSec}, durationSec=${this.duration}, timeFactor=${timeFactor}, timeBonus=${timeBonus}`);
+             // Reset lastElapsedMs after use? Maybe not necessary.
+             return baseScore + timeBonus;
+        } else {
+            console.warn(`Score calc: Condition failed. lastElapsedMs=${this.lastElapsedMs}, durationMs=${this.durationMs}. Returning 0.`);
+            return 0;
         }
-        return 0;
     }
 }

@@ -120,7 +120,7 @@ class HighscoresManager {
                 const keys = Object.keys(localStorage);
                 for (const key of keys) {
                     // Check if key exists and matches prefix using optional chaining
-                    if (key?.startsWith(this.storageKeyPrefix)) {
+                    if (key.startsWith(this.storageKeyPrefix)) {
                         const storedData = localStorage.getItem(key);
                         if (storedData) {
                             try {
@@ -170,7 +170,7 @@ class HighscoresManager {
             }
 
             // If the list is full, check against the lowest score
-            const lowestScore = currentScores[currentScores.length - 1]?.score ?? 0;
+            const lowestScore = currentScores[currentScores.length - 1].score ?? 0;
             return score > lowestScore;
 
         } catch (error) {

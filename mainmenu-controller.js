@@ -42,14 +42,15 @@ class MainMenu {
         this.sheetNames = [];
         this.selectedSheets = [];
         this.difficulty = 'medium'; // Default difficulty
-        this.gameMode = null; // 'practice', 'test', or MultiplayerModes.PREPARE_HOST
+        // ** REMOVED: this.gameMode set here, will be set by flows **
+        // this.gameMode = null;
 
         // Map view IDs to their elements for navigation
         this.viewElements = {
             'mainMenu': this.mainMenuElement,
             'sheetSelection': this.sheetSelectionElement,
             'gameArea': document.getElementById('gameArea'),
-            'multiplayerChoice': document.getElementById('multiplayerChoice'),
+            'multiplayerChoice': document.getElementById('multiplayerChoice'), // Added
             'highscores': document.getElementById('highscores'),
             'customQuestionsManager': document.getElementById('customQuestionsManager'),
             'about': document.getElementById('about'),
@@ -82,23 +83,26 @@ class MainMenu {
         this.aboutController = new AboutController(this);
         this.setControllerGameInstance(null);
 
-        // *** ADD CONTROLLER MAP INITIALIZATION ***
+        // *** Controller Map Initialization (keep this here) ***
         this.controllers = {
-            'mainMenu': this, // MainMenu acts as controller for its own view
-            'sheetSelection': this, // MainMenu also handles sheet selection logic
+            'mainMenu': this,
+            'sheetSelection': this,
             'gameArea': this.gameAreaController,
-            'multiplayerChoice': this.multiplayerController, // Assuming MP controller handles this choice view
+            'multiplayerChoice': this.multiplayerController,
             'highscores': this.highscoresController,
             'customQuestionsManager': this.customQuestionsController,
             'about': this.aboutController,
             'loading': this.loadingController
-            // Add other viewId -> controller mappings if needed
         };
         console.log("MainMenu: Controllers map initialized.");
-        // *** END ADDITION ***
+
+        // *** MOVED FROM EARLIER ***
+        // Setup listeners only AFTER controllers/managers exist
+        this.setupEventListeners();
+        console.log("MainMenu: Event listeners set up.");
+        // *** END MOVE ***
 
         this.loadingController.show("App laden...");
-        this.setupEventListeners();
 
         try {
             // 1. Load configuration first
@@ -113,12 +117,12 @@ class MainMenu {
             } catch (e) {
                  console.error("MainMenu: Failed to load config.json", e);
                  config.sheets = []; // Default to empty array on error
-                 this.toastNotification?.show("Waarschuwing: Kon config niet laden.", 5000);
+                 this.toastNotification.show("Waarschuwing: Kon config niet laden.", 5000);
             }
 
             // 2. Initialize QuestionsManager WITH sheets from config
             // THIS IS THE FIX: Pass the file paths array to init
-            await this.questionsManager.init(config?.sheets || []);
+            await this.questionsManager.init(config.sheets || []);
             await this.questionsManager.waitForInitialisation(); // Ensure it's fully ready
 
             // Now retrieve the sheet names *after* init has processed the files/categories
@@ -131,22 +135,32 @@ class MainMenu {
 
             if (joinCode && /^[0-9]{6}$/.test(joinCode)) {
                 console.log("INIT: Join code found in URL:", joinCode);
-                this.startMultiplayer(MultiplayerModes.JOIN, { hostId: joinCode });
-                // Multiplayer flow will handle showing connection UI
+                // *** Directly initiate joining flow ***
+                await this.initiateJoiningFlow(joinCode);
+                // Joining flow handles showing connection UI, not show()
             } else {
                 // Default: Show Main Menu
-                this.show();
+                this.showView('mainMenu'); // Navigate to main menu
             }
 
         } catch (error) {
             console.error("MainMenu: Failed during initial setup:", error);
             this.loadingController.hide();
-            this.dialogController?.showError(`Kon app niet initialiseren: ${error.message}`);
+            this.dialogController.showError(`Kon app niet initialiseren: ${error.message}`);
             // Attempt to show main menu even on error? Or display fatal error?
-            // this.showView('mainMenu'); // Maybe omit this on fatal init error
+            this.showView('mainMenu'); // Show menu on error
 
         } finally {
             this.loadingController.hide();
+        }
+    }
+
+    /** Cleans up any existing game instance */
+    _cleanupCurrentGame() {
+        if (this.currentGame) {
+            console.log(`MainMenu: Cleaning up existing game instance (Type: ${this.currentGame.constructor.name})`);
+            this.currentGame.cleanup(); // Let the game instance clean its internal state/resources
+            this.setControllerGameInstance(null); // Remove reference in MainMenu and linked controllers
         }
     }
 
@@ -167,19 +181,18 @@ class MainMenu {
     /** Sets up main menu and global navigation event listeners */
     setupEventListeners() {
         console.log("MainMenu: Setting up event listeners.");
-        this.practiceButton?.addEventListener('click', () => this.showSheetSelectionView('practice'));
-        this.testButton?.addEventListener('click', () => this.showSheetSelectionView('test'));
-        this.startGameButton?.addEventListener('click', () => this.startGame());
-        this.sheetSelectBackButton?.addEventListener('click', () => this.showView('mainMenu', 'backward'));
+        this.practiceButton.addEventListener('click', () => this.showSheetSelectionView('practice'));
+        this.testButton.addEventListener('click', () => this.showSheetSelectionView('test'));
+        this.startGameButton.addEventListener('click', () => this.startGame());
+        this.sheetSelectBackButton.addEventListener('click', () => this.showView('mainMenu', 'backward'));
 
         // Listeners for other main sections, handled by this controller now
-        document.getElementById('viewHighscores')?.addEventListener('click', () => this.showView('highscores'));
-        document.getElementById('myQuestions')?.addEventListener('click', () => this.showView('customQuestionsManager'));
-        document.getElementById('hoeDan')?.addEventListener('click', () => this.showView('about'));
-        document.getElementById('multiplayer')?.addEventListener('click', () => {
-            // When user clicks "Samen spelen", create MP game instance first
-            // Then show the choice screen. The MP Game instance is needed for the choice screen actions.
-            this.startMultiplayer(MultiplayerModes.CHOICE);
+        document.getElementById('viewHighscores').addEventListener('click', () => this.showView('highscores'));
+        document.getElementById('myQuestions').addEventListener('click', () => this.showView('customQuestionsManager'));
+        document.getElementById('hoeDan').addEventListener('click', () => this.showView('about'));
+        document.getElementById('multiplayer').addEventListener('click', () => {
+            // *** Change: Just navigate to the choice screen ***
+            this.startMultiplayerEntry();
         });
 
         // Listeners for back buttons within other views need to be set up in *their* controllers,
@@ -189,7 +202,7 @@ class MainMenu {
         // setupListeners() { this.backButton.onclick = () => this.mainMenuController.showView('mainMenu'); }
 
         // Difficulty selection change
-        this.sheetSelectionElement?.querySelectorAll('input[name="difficulty"]').forEach(radio => {
+        this.sheetSelectionElement.querySelectorAll('input[name="difficulty"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 this.difficulty = e.target.value;
                 console.log(`Difficulty set to: ${this.difficulty}`);
@@ -244,8 +257,8 @@ class MainMenu {
         // this.showView('mainMenu'); // <<< DO NOT call showView here
 
         // Just ensure the main menu items are visible if needed
-        this.mainMenuElement?.classList.remove('hidden');
-        this.menuItemsElement?.classList.remove('hidden');
+        this.mainMenuElement.classList.remove('hidden');
+        this.menuItemsElement.classList.remove('hidden');
         console.log("MainMenu.show(): Ensuring mainMenuElement/menuItemsElement are visible.");
 
         // Optionally ensure other views are hidden (although showView handles this)
@@ -255,13 +268,13 @@ class MainMenu {
     /** Hides the main menu view */
     hide() {
         // This might not even be needed if showView handles hiding correctly
-        this.mainMenuElement?.classList.add('hidden');
+        this.mainMenuElement.classList.add('hidden');
         console.log("MainMenu.hide(): Hiding mainMenuElement.");
     }
 
-    /** Shows the sheet selection VIEW */
+    /** Shows the sheet selection VIEW and prepares its UI state */
     showSheetSelectionView(mode) {
-        console.log(`MainMenu: Showing sheet selection view via wrapper for mode: ${mode}`);
+        console.log(`MainMenu: Preparing and showing sheet selection view for mode: ${mode}`);
         this.prepareSheetSelectionUI(mode); // Prepare state first
         this.showView('sheetSelection');   // Then navigate
     }
@@ -271,22 +284,22 @@ class MainMenu {
      * Does NOT navigate. Navigation is handled by showView.
      * @param {string} mode - 'practice', 'test', or MultiplayerModes.PREPARE_HOST
      */
-    prepareSheetSelectionUI(mode) { // Renamed from showSheetSelection to clarify purpose
-        this.gameMode = mode;
-        console.log(`MainMenu: Preparing sheet selection UI state for mode: ${mode}`);
+    prepareSheetSelectionUI(mode) {
+        // *** Store the mode for later use in startGame ***
+        this.currentGameMode = mode;
+        console.log(`MainMenu: Preparing sheet selection UI state for mode: ${this.currentGameMode}`);
 
-        // Reset selection state
-        this.sheetsCheckboxesElement?.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        this.sheetsCheckboxesElement.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
         this.selectedSheets = [];
-        const defaultDifficulty = this.sheetSelectionElement?.querySelector(`input[name="difficulty"][value="${this.difficulty}"]`);
+        const defaultDifficulty = this.sheetSelectionElement.querySelector(`input[name="difficulty"][value="${this.difficulty}"]`);
         if (defaultDifficulty) defaultDifficulty.checked = true;
 
         // Hide difficulty column in practice mode
-        this.difficultyColElement?.classList.toggle('hidden', mode === 'practice');
+        this.difficultyColElement.classList.toggle('hidden', mode === 'practice');
 
         // Reset and validate the start button state
         const sheetNavigationElement = document.getElementById('sheetNavigation');
-        sheetNavigationElement?.classList.remove('active'); // Start inactive
+        if (sheetNavigationElement) sheetNavigationElement.classList.remove('active'); // Start inactive
         this.validateSelection(); // Set initial button state (disabled)
 
         // *** REMOVE Navigation Call from here ***
@@ -308,99 +321,127 @@ class MainMenu {
             console.log("MainMenu: Start button clicked but disabled.");
             return;
         }
-        console.log(`MainMenu: startGame() called. Mode: ${this.gameMode}`);
+        // Use the stored mode from prepareSheetSelectionUI
+        const mode = this.currentGameMode;
+        console.log(`MainMenu: startGame() called. Mode: ${mode}`);
 
-        // Explicitly hide the sheet selection UI elements before proceeding
-        this.hideSheetSelection();
+        // No need to hide sheet selection explicitly, showView will handle it
 
-        if (this.gameMode === 'practice' || this.gameMode === 'test') {
-            // --- Start Single Player Game ---
-            const difficultyToUse = this.gameMode === 'test' ? this.difficulty : null;
-            console.log(`MainMenu: Starting SP Game. Mode: ${this.gameMode}, Sheets: ${this.selectedSheets}, Difficulty: ${difficultyToUse}`);
-            this.loadingController?.show("Spel starten...");
-            try {
-                if (this.currentGame) { this.currentGame.cleanup?.(); this.setControllerGameInstance(null); }
-                const game = new Game(this);
+        try {
+            if (mode === 'practice' || mode === 'test') {
+                this._cleanupCurrentGame(); // Cleanup before creating new
+                const game = new Game(this); // Pass main menu controller reference
                 this.setControllerGameInstance(game);
-                console.log("MainMenu: SP Game instance created. Calling startNewGame...");
-                await game.startNewGame(this.selectedSheets, difficultyToUse); // Wait for game setup
-                console.log("MainMenu: SP game.startNewGame finished.");
-                this.loadingController?.hide();
-                this.showView('gameArea'); // NOW transition to the game area
-                console.log("MainMenu: Navigated to gameArea.");
-            } catch (error) {
-                this.loadingController?.hide();
-                console.error("MainMenu: Error during SP startGame:", error);
-                this.dialogController?.showError(`Kon spel niet starten: ${error.message}`);
-                this.showView('mainMenu'); // Go back to main menu on error
-            }
+                const difficultyToUse = mode === 'test' ? this.difficulty : null;
+                console.log(`MainMenu: Starting SP Game. Sheets: ${this.selectedSheets}, Difficulty: ${difficultyToUse}`);
+                this.loadingController.show("Spel starten...");
+                await game.startNewGame(this.selectedSheets, difficultyToUse);
+                this.loadingController.hide();
+                this.showView('gameArea');
 
-        } else if (this.gameMode === MultiplayerModes.PREPARE_HOST) {
-            // --- Start Multiplayer Host Game ---
-            // hideSheetSelection() was called above
-            console.log(`MainMenu: Starting MP Host Game. Sheets: ${this.selectedSheets}, Difficulty: ${this.difficulty}`);
-            if (this.currentGame && this.currentGame.isMultiplayer) {
-                console.log("MainMenu: Calling startMultiplayerHost...");
-                // This method likely handles its own navigation/UI updates (e.g., showing connection code)
-                await this.currentGame.startMultiplayerHost(this.selectedSheets, this.difficulty);
-                console.log("MainMenu: startMultiplayerHost finished.");
-                // Typically, we don't call showView here, the host flow manages UI
+            } else if (mode === MultiplayerModes.PREPARE_HOST) {
+                // Check if a valid *host* MP game instance already exists (created by initiateHostingFlow)
+                if (this.currentGame && this.currentGame.isMultiplayer && this.currentGame.isHost) {
+                    console.log(`MainMenu: Starting MP Host Game Phase. Sheets: ${this.selectedSheets}, Difficulty: ${this.difficulty}`);
+                    // Loading/UI during host setup is handled within startMultiplayerHost
+                    // It will show loading, then connection code screen, not 'gameArea' yet.
+                    await this.currentGame.startMultiplayerHost(this.selectedSheets, this.difficulty);
+                } else {
+                    console.error("MainMenu: Cannot start MP host, currentGame is not a valid Host MultiplayerGame instance. This indicates a flow error.");
+                    this.dialogController.showError("Multiplayer host setup fout. Probeer opnieuw.");
+                    this._cleanupCurrentGame(); // Cleanup invalid state
+                    this.showView('mainMenu'); // Go back to safety
+                }
             } else {
-                console.error("MainMenu: Cannot start MP host, currentGame is not a MultiplayerGame instance.");
+                console.error(`MainMenu: Unknown game mode "${mode}" in startGame.`);
+                 this._cleanupCurrentGame(); // Cleanup potentially broken state
                 this.showView('mainMenu');
             }
-         } else {
-            console.error(`MainMenu: Unknown game mode "${this.gameMode}" in startGame.`);
-            // hideSheetSelection() was called above
-            this.showView('mainMenu'); // Go back to menu if mode was weird
+        } catch (error) {
+            this.loadingController.hide();
+            console.error(`MainMenu: Error during startGame for mode ${mode}:`, error);
+            this.dialogController.showError(`Kon spel niet starten: ${error.message}`);
+            this._cleanupCurrentGame(); // Cleanup on error
+            this.showView('mainMenu');
+        } finally {
+            // Reset mode after attempt
+             this.currentGameMode = null;
         }
     }
 
-    /** Initiates the multiplayer flow OR prepares for hosting */
-    startMultiplayer(mode, options = {}) {
-        console.log(`MainMenu: Handling Multiplayer Mode: ${mode}`, options);
+    /**
+     * Entry point when user clicks the main "Samen Spelen" button.
+     * Navigates to the multiplayer choice screen.
+     */
+    startMultiplayerEntry() {
+        console.log(`MainMenu: Multiplayer entry point clicked.`);
+        this._cleanupCurrentGame(); // Clean up any previous game before showing choice screen
+        this.showView('multiplayerChoice');
+        // MultiplayerController's showChoiceScreen (called via showView mechanism)
+        // will now handle resetting its UI and setting the name.
+    }
 
-        // Create MP game instance if needed (choice/join or if no game exists)
-        if (mode === MultiplayerModes.CHOICE || mode === MultiplayerModes.JOIN || !this.currentGame?.isMultiplayer) {
-             if (this.currentGame) { this.currentGame.cleanup?.(); this.setControllerGameInstance(null); }
-             // Prepare host also needs an MP instance ready
-             const isHostInstance = (mode === MultiplayerModes.JOIN) ? false : true;
-             const mpGame = new MultiplayerGame(isHostInstance, this);
-             this.setControllerGameInstance(mpGame);
-             mpGame.loadPlayerName();
+    /**
+     * Initiates the flow for hosting a multiplayer game.
+     * Creates a host MP Game instance and navigates to sheet selection.
+     * This should be called by the MultiplayerController when 'Host' is selected.
+     */
+    initiateHostingFlow() {
+        console.log("MainMenu: Initiating Hosting Flow.");
+        this._cleanupCurrentGame(); // Ensure clean state
+        try {
+            // Create a HOST instance. Sheet/difficulty are set later via sheet selection.
+            const mpGame = new MultiplayerGame(this, true); // isHost=true
+            this.setControllerGameInstance(mpGame);
+            mpGame.loadPlayerName(); // Load name early
+
+            // Prepare sheet selection UI for hosting mode
+            // This also sets this.currentGameMode = MultiplayerModes.PREPARE_HOST
+            this.prepareSheetSelectionUI(MultiplayerModes.PREPARE_HOST);
+            // Navigate to sheet selection
+            this.showView('sheetSelection');
+        } catch (error) {
+             console.error("MainMenu: Error initiating hosting flow:", error);
+             this.dialogController.showError(`Kon multiplayer host niet starten: ${error.message}`);
+             this.setControllerGameInstance(null); // Ensure cleanup on error
+             this.showView('mainMenu');
         }
+    }
 
-        // Handle the specific mode
-        switch(mode) {
-            case MultiplayerModes.JOIN:
-                if (options.hostId) {
-                    // Navigation/UI handled by MP flow
-                    this.multiplayerController?.showFetchingGameInfo();
-                    this.currentGame.requestToJoin(options.hostId);
-                } else {
-                    console.error("MainMenu: Join mode requires hostId.");
-                    this.showView('mainMenu');
-                }
-                break;
-            case MultiplayerModes.CHOICE:
-                // Navigate and let controller show its screen
-                this.showView('multiplayerChoice');
-                this.multiplayerController?.showChoiceScreen(this.currentGame.playerName);
-                break;
-            case MultiplayerModes.PREPARE_HOST:
-                // *** FIX: Prepare state FIRST, then navigate DIRECTLY ***
-                console.log("MainMenu: PREPARE_HOST - Preparing sheet selection state.");
-                // 1. Prepare the sheet selection UI state
-                this.prepareSheetSelectionUI(MultiplayerModes.PREPARE_HOST);
-                // 2. Navigate directly to the sheet selection view
-                console.log("MainMenu: PREPARE_HOST - Navigating to sheetSelection view.");
-                this.showView('sheetSelection');
-                // *** END FIX ***
-                break;
-            default:
-                 console.error("MainMenu: Invalid multiplayer mode:", mode);
-                 this.showView('mainMenu');
-                 this.setControllerGameInstance(null);
+    /**
+     * Initiates the flow for joining a multiplayer game via host ID.
+     * Creates a client MP Game instance and attempts connection.
+     * This should be called by MultiplayerController or init (URL).
+     * @param {string} hostId - The 6-digit host code.
+     */
+    async initiateJoiningFlow(hostId) {
+        if (this.currentGame) {
+            console.warn("MainMenu: Trying to join while a game is active. Cleaning up old game.");
+            this.currentGame.cleanup();
+        }
+        console.log("MainMenu: Creating MULTIPLAYER game instance for JOINING.");
+        this.currentGame = new MultiplayerGame(this, false); // isHost = false
+
+        // *** ADDED: Load player name explicitly after creating instance ***
+        this.currentGame.loadPlayerName();
+
+        // Access MultiplayerController via the hub
+        if (this.multiplayerController) {
+            console.log(`MainMenu: MultiplayerController exists. Accessing it for joining.`);
+            // Update UI *before* the async connection attempt
+            this.multiplayerController.showFetchingGameInfo(); // Show "Connecting..." message
+
+            // Attempt connection (async). requestToJoin handles subsequent UI updates
+            // via MultiplayerController based on connection success/failure or messages.
+            await this.currentGame.requestToJoin(hostId);
+
+            // ---- NO showView('gameArea') here. ---
+            // The game joining process dictates UI flow from here based on host communication.
+        } else {
+            console.error("MainMenu: MultiplayerController not found. Cannot join game.");
+            this.dialogController.showError("Multiplayer controller not found. Cannot join game.");
+            this.setControllerGameInstance(null); // Ensure cleanup on error
+            // Don't navigate away, showJoinError handles the UI state.
         }
     }
 
@@ -412,17 +453,17 @@ class MainMenu {
      */
     async showView(viewId, direction = 'forward') {
         // Add a guard against navigating to the same view unnecessarily
-        if (this.currentViewId === viewId && document.getElementById(viewId)?.classList.contains('hidden') === false) {
+         if (this.currentViewId === viewId && this.viewElements[viewId] && !this.viewElements[viewId].classList.contains('hidden')) {
              console.warn(`MainMenu: showView called for already active view "${viewId}". Skipping.`);
              return;
          }
 
         console.log(`MainMenu: Navigating to ${viewId} (Direction: ${direction})`);
-        const targetView = document.getElementById(viewId);
+        const targetView = this.viewElements[viewId]; // Use mapped elements
         const targetController = this.controllers[viewId];
 
         if (!targetView) {
-            console.error(`MainMenu: View with ID "${viewId}" not found.`);
+            console.error(`MainMenu: View element for ID "${viewId}" not found in viewElements map.`);
             return;
         }
 
@@ -448,35 +489,40 @@ class MainMenu {
              */
             async function updateDOMAndCallShow(viewId, controller) {
                 console.log(`MainMenu: Updating DOM for ${viewId}`);
-                // Hide all top-level views first
-                Object.values(this.viewElements).forEach(el => el.classList.add('hidden'));
+                // Hide all top-level views first using the map
+                Object.values(this.viewElements).forEach(el => {
+                    if (el) el.classList.add('hidden'); // Check if element exists
+                });
 
                 // Show the target view
-                const targetView = this.viewElements[viewId];
-                if (targetView) {
-                    targetView.classList.remove('hidden');
+                const targetViewToShow = this.viewElements[viewId]; // Get from map again
+                if (targetViewToShow) {
+                    targetViewToShow.classList.remove('hidden');
                     this.currentViewId = viewId; // Update current view tracking
 
-                    // *** REVERT: Schedule controller.show() using requestAnimationFrame ***
-                    if (controller && typeof controller.show === 'function' && viewId !== 'mainMenu' && viewId !== 'sheetSelection') {
+                    // Schedule controller.show() using requestAnimationFrame AFTER DOM update
+                    if (controller && typeof controller.show === 'function' && controller !== this) { // Exclude self (MainMenu)
                         console.log(`MainMenu: Scheduling show() method call via rAF for controller ${viewId} (Type: ${controller.constructor.name}).`);
-                        // Use requestAnimationFrame to defer the show call slightly after DOM updates
                         requestAnimationFrame(() => {
                             console.log(`MainMenu: Executing scheduled show() for ${viewId}`);
                             try {
-                                controller.show();
+                                // Ensure the view is still the active one before calling show
+                                if (this.currentViewId === viewId) {
+                                    controller.show();
+                                } else {
+                                    console.warn(`MainMenu: Aborted scheduled show() for ${viewId} as view changed before execution.`);
+                                }
                             } catch (error) {
                                  console.error(`MainMenu: Error executing scheduled show() for ${viewId}:`, error);
                             }
                         });
-                    } else if (viewId === 'sheetSelection' || viewId === 'mainMenu') {
+                    } else if (controller === this) {
                          console.log(`MainMenu: View is '${viewId}', managed by MainMenu, no specific controller.show() needed during DOM update.`);
                     } else if (!controller || typeof controller.show !== 'function') {
                          console.warn(`MainMenu: No controller or show() method found for view ${viewId}, or unhandled case.`);
                     }
-                    // *** END REVERT ***
                 } else {
-                    console.error(`MainMenu: View element with ID ${viewId} not found.`);
+                    console.error(`MainMenu: View element with ID ${viewId} not found during DOM update.`);
                 }
             }
 
@@ -552,35 +598,52 @@ class MainMenu {
         // Logic to set titles based on viewId
         switch (viewId) {
             case 'mainMenu':
-                // Keep defaults or set specific menu title
+                // Keep defaults
+                break;
+            case 'sheetSelection': // Add title for sheet selection
+                 // Title depends on the mode stored when prepareSheetSelectionUI was called
+                 const mode = this.currentGameMode;
+                 if (mode === 'practice') {
+                     titleText = 'Oefenen: Kies Onderwerp(en)';
+                     subTitleText = '';
+                 } else if (mode === 'test') {
+                     titleText = 'Toets: Kies Onderwerp(en) & Niveau';
+                     subTitleText = '';
+                 } else if (mode === MultiplayerModes.PREPARE_HOST) {
+                     titleText = 'Host Spel: Kies Onderwerp(en) & Niveau';
+                     subTitleText = '';
+                 } else {
+                     titleText = 'Kies Onderwerp(en)'; // Fallback
+                     subTitleText = '';
+                 }
                 break;
             case 'gameArea':
-                // Construct title based on MainMenu state instead of calling game.getTitle()
-                if (this.currentGame) { // Check if a game is actually active
-                    if (this.gameMode === 'practice') {
-                        titleText = 'Oefenen';
-                    } else if (this.gameMode === 'test') {
-                        titleText = 'Toets';
-                    } else if (this.currentGame.isMultiplayer) { // Check if it's an MP game
-                         titleText = 'Multiplayer Spel';
-                    } else {
-                        titleText = 'Spel'; // Generic fallback
-                    }
-                     // Optionally add sheet names if available and not too long
-                     if (this.selectedSheets && this.selectedSheets.length > 0 && this.selectedSheets.length <= 2) {
-                         // Corrected: Directly use the selected sheet names as they are the display names
-                         subTitleText = this.selectedSheets.join(' & ');
-                     } else if (this.selectedSheets && this.selectedSheets.length > 2) {
-                         subTitleText = `${this.selectedSheets.length} Tafels/Onderwerpen`;
-                     } else {
-                        subTitleText = ''; // Clear subtitle if no specific info
-                     }
+                // Construct title based on MainMenu state (or currentGame if needed)
+                if (this.currentGame) {
+                    // Determine if SP or MP based on instance type
+                    const isMp = this.currentGame.isMultiplayer;
+                    const gameDifficulty = this.currentGame.difficulty; // Get difficulty from game instance
+                    const gameSheets = this.currentGame.selectedSheets; // Get sheets from game instance
 
+                    if (isMp) {
+                         titleText = 'Multiplayer Spel';
+                         subTitleText = gameSheets && gameSheets.length > 0
+                             ? `${gameSheets.join(' & ')} (${gameDifficulty || '??'})`
+                             : `(${gameDifficulty || '??'})`;
+                    } else {
+                         // Single Player (check if practice or test via constructor or property if set)
+                         // Assuming SP Game sets a property like 'mode' or relies on difficulty being null for practice
+                         const isPractice = !gameDifficulty; // Infer practice if difficulty is null/undefined
+                         titleText = isPractice ? 'Oefenen' : 'Toets';
+                         subTitleText = gameSheets && gameSheets.length > 0
+                             ? `${gameSheets.join(' & ')}${isPractice ? '' : ` (${gameDifficulty})`}`
+                             : (isPractice ? '' : `(${gameDifficulty})`);
+                    }
                 } else {
                      titleText = 'Spel'; // Fallback title if no currentGame
                      subTitleText = '';
                 }
-                break; // *** IMPORTANT: Added missing break statement ***
+                break;
             case 'highscores':
                 titleText = 'High Scores';
                 subTitleText = '';
@@ -593,14 +656,11 @@ class MainMenu {
                  titleText = 'Over Unicorn Poep';
                  subTitleText = '';
                  break;
-            case 'multiplayer':
-                 // Title for pre-game MP screens (Host/Join choice, code display etc.)
-                 // This might be handled more specifically by MultiplayerController updates,
-                 // but set a default here.
+            case 'multiplayerChoice': // Add title for the choice screen
                  titleText = 'Samen Spelen';
-                 subTitleText = '';
+                 subTitleText = 'Kies hosten of joinen';
                  break;
-            // Add other cases as needed
+            // Add other cases as needed (e.g., multiplayer connection status screens if they are separate views)
         }
 
          const titleElement = document.querySelector('#app > h1');
@@ -631,11 +691,11 @@ class MainMenu {
     _handleViewSpecificLogic(newViewId, oldViewId) {
         // Example: Reset multiplayer UI when leaving it
         if (oldViewId === 'multiplayer' && newViewId !== 'multiplayer') {
-            this.multiplayerController?.resetUI();
+            this.multiplayerController.resetUI();
         }
         // Example: Initialize something when entering a view
         if (newViewId === 'highscores') {
-            this.highscoresController?.render(); // Call render() instead
+            this.highscoresController.render(); // Call render() instead
         }
          if (newViewId === 'customQuestionsManager') {
              this.customQuestionsController.populateSheetList(); // Refresh custom sheets
@@ -653,11 +713,11 @@ class MainMenu {
         if (viewId === 'gameArea') {
             // Assuming the method is named 'observe' in GameAreaController
             console.log("MainMenu: Asking GameAreaController to observe.");
-            this.gameAreaController.observe?.(); // Use optional chaining on the method itself too
+            this.gameAreaController.observe(); // Use optional chaining on the method itself too
         } else {
             // Assuming the method is named 'unobserve' in GameAreaController
             console.log("MainMenu: Asking GameAreaController to unobserve.");
-            this.gameAreaController.unobserve?.(); // Use optional chaining on the method itself too
+            this.gameAreaController.unobserve(); // Use optional chaining on the method itself too
         }
     }
 
@@ -736,16 +796,9 @@ class MainMenu {
      */
     _handleEndOfGameCleanup() {
         console.log("MainMenu: Performing end-of-game cleanup.");
-        if (this.currentGame) {
-            // Optional: Call a specific cleanup on the game instance if needed,
-            // but Game/MultiplayerGame cleanup methods handle internal state.
-            // this.currentGame.cleanupInternalState(); // Example if needed
-
-            console.log("MainMenu: Setting currentGame to null.");
-            this.currentGame = null;
-        } else {
-             console.log("MainMenu: End-of-game cleanup called, but currentGame was already null.");
-        }
+        // Call the cleanup helper
+        this._cleanupCurrentGame();
         // Reset any related UI state managed by MainMenu if necessary
+        this.currentGameMode = null; // Reset game mode tracking
     }
 }

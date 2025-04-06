@@ -1609,7 +1609,7 @@ th {
 
 .host-code-text {
     font-family: 'Fredoka One', cursive;
-    font-size: 4rem; 
+    font-size: 0.8rem; 
     font-weight: bold;
     color: #614ae2; /* Use theme colors? Maybe keep specific for contrast */
     letter-spacing: 5px;

@@ -74,7 +74,7 @@ class BaseDialog {
     onClose() {
         console.log(`BaseDialog: Dialog '${this.dialogElement.id}' closed.`);
         // Ensure hidden class is added on any close event
-        this.dialogElement?.classList.add('hidden');
+        this.dialogElement.classList.add('hidden');
     }
 
     /**
@@ -82,7 +82,7 @@ class BaseDialog {
      * @returns {boolean}
      */
     isOpen() {
-        return this.dialogElement?.open ?? false;
+        return this.dialogElement.open ?? false;
     }
 
     /**
@@ -91,7 +91,7 @@ class BaseDialog {
      * @returns {HTMLElement|null}
      */
     querySelector(selector) {
-        return this.dialogElement?.querySelector(selector);
+        return this.dialogElement.querySelector(selector);
     }
 
     /**
@@ -100,6 +100,6 @@ class BaseDialog {
      * @returns {NodeListOf<HTMLElement>}
      */
     querySelectorAll(selector) {
-        return this.dialogElement?.querySelectorAll(selector);
+        return this.dialogElement.querySelectorAll(selector);
     }
 } 

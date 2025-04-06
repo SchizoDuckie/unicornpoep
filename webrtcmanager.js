@@ -99,13 +99,13 @@ class WebRTCManager {
         connection.on('close', () => {
             console.log(`Connection closed with ${connection.peer}`);
             this.connections.delete(connection.peer);
-            this.multiplayerGame?.handleDisconnect(connection.peer);
+            this.multiplayerGame.handleDisconnect(connection.peer);
         });
 
         connection.on('error', (err) => {
             console.error(`Connection error with ${connection.peer}:`, err);
             this.connections.delete(connection.peer);
-            this.multiplayerGame?.handleDisconnect(connection.peer, err);
+            this.multiplayerGame.handleDisconnect(connection.peer, err);
         });
     }
 
@@ -172,7 +172,7 @@ class WebRTCManager {
             this.isConnected = true;
             resolve(); // Indicate connection attempt successful (message exchange follows)
              // Client should now send c_requestJoin
-             this.multiplayerGame?.onHostConnected();
+             this.multiplayerGame.onHostConnected();
         });
 
         connection.on('data', (data) => {
@@ -184,7 +184,7 @@ class WebRTCManager {
             console.log(`Connection closed with Host ${connection.peer}`);
             this.isConnected = false;
             this.hostConnection = null;
-            this.multiplayerGame?.handleHostDisconnect("Connection closed by host.");
+            this.multiplayerGame.handleHostDisconnect("Connection closed by host.");
             this.cleanup(); // Clean up peer object too
         });
 
@@ -195,7 +195,7 @@ class WebRTCManager {
             this.hostConnection = null;
              // Reject the promise if it hasn't resolved yet (initial connection failed)
             reject(new Error(`Connection error: ${err.message || err.type || 'Unknown error'}`));
-            this.multiplayerGame?.handleHostDisconnect(`Connection error: ${err.message || err.type || 'Unknown error'}`);
+            this.multiplayerGame.handleHostDisconnect(`Connection error: ${err.message || err.type || 'Unknown error'}`);
             this.cleanup();
         });
     }
@@ -214,7 +214,7 @@ class WebRTCManager {
              if (['network', 'server-error', 'socket-error', 'unavailable-id', 'invalid-key'].includes(err.type)) {
                  this.cleanup(); // Cleanup on fatal errors
                  reject(new Error(`PeerJS fatal error: ${err.message || err.type}`)); // Reject init promise if applicable
-                  this.multiplayerGame?.handleFatalError(`Multiplayer connection failed: ${err.message || err.type}`);
+                  this.multiplayerGame.handleFatalError(`Multiplayer connection failed: ${err.message || err.type}`);
              }
              // Non-fatal errors might be related to specific connections, handled by connection listeners
          });
@@ -355,31 +355,59 @@ class WebRTCManager {
      * Cleans up all connections and destroys the PeerJS instance.
      */
     cleanup() {
-        console.log("Cleaning up WebRTCManager...");
-        if (this.isHost) {
-            console.log(`Closing ${this.connections.size} client connections.`);
+        console.log("WebRTCManager: Starting cleanup...");
+        // const wasActive = this.isActive(); // Check if we were active before cleanup - Not currently used
+
+        if (this.isHost && this.connections) {
+            console.log(`WebRTCManager: Closing ${this.connections.size} client connections.`);
             this.connections.forEach((conn, peerId) => {
-                console.log(`Closing connection to ${peerId}`);
-                conn.close();
+                // Check connection exists and seems open before attempting to close
+                if (conn && conn.open) {
+                    console.log(`WebRTCManager: Attempting to close connection to client ${peerId}`);
+                    try {
+                        conn.close(); // Wrap close() in try...catch
+                        console.log(`WebRTCManager: Successfully called close() for ${peerId}`);
+                    } catch (error) {
+                        console.error(`WebRTCManager: Error closing connection to client ${peerId}:`, error);
+                        // Continue cleanup even if one connection fails to close gracefully
+                    }
+                } else {
+                    console.log(`WebRTCManager: Connection to client ${peerId} already closed or invalid, skipping close().`);
+                }
             });
             this.connections.clear();
-        } else if (this.hostConnection) {
-            console.log(`Closing connection to host ${this.hostId}`);
-            this.hostConnection.close();
+        } else if (!this.isHost && this.hostConnection) {
+            // Check connection exists and seems open before attempting to close
+            if (this.hostConnection && this.hostConnection.open) {
+                console.log(`WebRTCManager: Attempting to close connection to host ${this.hostId}`);
+                try {
+                    this.hostConnection.close(); // Wrap close() in try...catch
+                    console.log(`WebRTCManager: Successfully called close() for host ${this.hostId}`);
+                } catch (error) {
+                    console.error(`WebRTCManager: Error closing connection to host ${this.hostId}:`, error);
+                    // Continue cleanup
+                }
+            } else {
+                 console.log(`WebRTCManager: Connection to host ${this.hostId} already closed or invalid, skipping close().`);
+            }
             this.hostConnection = null;
         }
 
+        // Destroy the main peer object
         if (this.peer && !this.peer.destroyed) {
-            console.log(`Destroying PeerJS instance ${this.peer.id}`);
+            console.log(`WebRTCManager: Destroying PeerJS instance ${this.peer.id}`);
+            try {
                 this.peer.destroy();
+            } catch (error) {
+                 console.error("WebRTCManager: Error destroying peer instance:", error);
+            }
         }
 
         this.peer = null;
         this.peerId = null;
         this.hostId = null;
         this.isConnected = false;
-        // isHost remains as it was, doesn't reset on cleanup
-        console.log("WebRTCManager cleanup complete.");
+        console.log("WebRTCManager: Cleanup complete.");
     }
 }
 

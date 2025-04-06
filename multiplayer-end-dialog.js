@@ -17,7 +17,7 @@ class MultiplayerEndDialog extends BaseDialog {
     }
 
     _setupEventListeners() {
-        this.backButton?.addEventListener('click', () => {
+        this.backButton.addEventListener('click', () => {
             this.hide(); // Close dialog
             // Multiplayer game cleanup is handled by the game instance itself
             // Just navigate back
@@ -27,51 +27,66 @@ class MultiplayerEndDialog extends BaseDialog {
         // Note: Save score button was removed in previous iterations, logic handled differently now.
     }
 
-    /**
-     * Shows the dialog and populates it with the game results.
-     * @param {string} hostName
-     * @param {number} hostScore
-     * @param {string} clientName
-     * @param {number} clientScore
-     */
-    show(hostName, hostScore, clientName, clientScore) {
-        if (!this.titleElement || !this.resultsElement) {
-            console.error("MultiplayerEndDialog: Title or results element not found!");
-            return;
-        }
-
-        let winnerName = '';
-        let loserName = '';
-        let winnerScore = 0;
-        let loserScore = 0;
-        let title = '';
-
-        if (hostScore > clientScore) {
-            winnerName = hostName; winnerScore = hostScore;
-            loserName = clientName; loserScore = clientScore;
-            title = `${winnerName} wint!`;
-        } else if (clientScore > hostScore) {
-            winnerName = clientName; winnerScore = clientScore;
-            loserName = hostName; loserScore = hostScore;
-            title = `${winnerName} wint!`;
+    /** Sets the dialog title. */
+    setTitle(text) {
+        if (this.titleElement) {
+            this.titleElement.textContent = text;
         } else {
-            winnerName = hostName; winnerScore = hostScore;
-            loserName = clientName; loserScore = clientScore;
-            title = "Gelijkspel!";
+            console.error("MultiplayerEndDialog: Title element not found!");
+        }
+    }
+
+    /** Clears the results list area. */
+    clearResults() {
+        if (this.resultsElement) {
+            this.resultsElement.innerHTML = ''; // Clear previous results
+        } else {
+            console.error("MultiplayerEndDialog: Results element not found!");
+        }
+    }
+
+    /**
+     * Adds a single player's result line to the dialog.
+     * @param {string} name - Player's name.
+     * @param {number} score - Player's score.
+     * @param {boolean} isLocal - Whether this is the local player.
+     * @param {boolean} isWinner - Whether this player is the winner (and it wasn't a tie).
+     */
+    addPlayerResult(name, score, isLocal, isWinner) {
+        if (!this.resultsElement) return; // Guard clause
+
+        const resultP = document.createElement('p');
+        resultP.classList.add('player-result'); // Base class for styling
+
+        let nameText = name;
+        if (isLocal) {
+            nameText += " (Jij)";
+            resultP.classList.add('local-player');
+        }
+        if (isWinner) {
+            resultP.classList.add('winner'); // Add winner class for styling
+            nameText = `🏆 ${nameText}`; // Add trophy emoji
         }
 
-        this.titleElement.textContent = title;
-        this.resultsElement.innerHTML = `
-            <p><strong>${winnerName}:</strong> ${winnerScore} punten</p>
-            <p><strong>${loserName}:</strong> ${loserScore} punten</p>
-        `;
+        resultP.innerHTML = `<strong>${nameText}:</strong> ${score} punten`; // Use innerHTML for emoji
 
-        // Trigger confetti (can keep this simple logic here or move to BaseDialog/controller)
+        this.resultsElement.appendChild(resultP);
+    }
+
+    /**
+     * Shows the dialog. Assumes content (title, results) has been populated beforehand
+     * by the DialogController.
+     * REMOVED old parameters: hostName, hostScore, clientName, clientScore
+     */
+    show() { 
+        // Content population is now done by DialogController before calling this show method.
+        console.log("MultiplayerEndDialog: show() called.");
+        // Optional: Trigger confetti here if desired
         if (typeof confetti === 'function') {
+            console.log("MultiplayerEndDialog: Triggering confetti.");
             confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
         }
-
-        super.show(); // Call BaseDialog's show method
+        super.show(); // Call BaseDialog's show method to make it visible
     }
 
     /** Handles the Back button click. */
@@ -79,9 +94,9 @@ class MultiplayerEndDialog extends BaseDialog {
         console.log("MultiplayerEndDialog: Back clicked.");
         this.hide();
         // Let the MultiplayerGame know the dialog is closed if needed
-        this.mainMenuController?.currentGame?.onMultiplayerEndDialogClose?.();
+        this.mainMenuController.currentGame.onMultiplayerEndDialogClose();
         // Navigate via the main controller
-        this.mainMenuController?.showView('mainMenu');
+        this.mainMenuController.showView('mainMenu');
     }
 
     /** Override onClose if needed, e.g., to notify game state */
@@ -90,10 +105,10 @@ class MultiplayerEndDialog extends BaseDialog {
         console.log("MultiplayerEndDialog: Closed via ESC or programmatically.");
         // Ensure navigation happens even if closed via ESC
         // Avoid double navigation if handleBack already triggered it
-        if (this.mainMenuController?.viewElements?.mainMenu && !this.mainMenuController.viewElements.mainMenu.classList.contains('hidden')) {
+        if (this.mainMenuController.viewElements.mainMenu && !this.mainMenuController.viewElements.mainMenu.classList.contains('hidden')) {
              // Already on main menu, do nothing
         } else {
-            this.mainMenuController?.showView('mainMenu');
+            this.mainMenuController.showView('mainMenu');
         }
     }
 } 

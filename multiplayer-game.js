@@ -8,30 +8,43 @@
 // Assume MessageTypes is loaded globally from messagetypes.js
 // const MessageTypes = { ... };
 
+// Define possible game phases (adjust as needed)
+const GamePhases = {
+    LOBBY: 'lobby',
+    COUNTDOWN: 'countdown',
+    PLAYING: 'playing',
+    FINISHED: 'finished' // Added for end-game state
+};
+
 class MultiplayerGame {
     /**
      * Initializes a new MultiplayerGame instance.
-     * @param {boolean} isHost - Whether this instance is hosting or joining.
      * @param {MainMenu} mainMenu - The central orchestrator instance.
+     * @param {boolean} isHost - Whether this instance is hosting or joining. MUST be provided.
+     * @param {string[]} [initialSheetKeys=[]] - Initial sheet keys (primarily for host setup later).
+     * @param {string} [initialDifficulty='medium'] - Initial difficulty (primarily for host setup later).
      */
-    constructor(isHost = false, mainMenu) {
+    constructor(mainMenu, isHost, initialSheetKeys = [], initialDifficulty = 'medium') {
         console.log(`MP: Initializing MultiplayerGame (isHost: ${isHost}) - Accessing via MainMenu.`);
         if (!mainMenu) {
              throw new Error("MultiplayerGame requires a MainMenu instance!");
+        }
+        if (typeof isHost !== 'boolean') {
+            throw new Error("MultiplayerGame constructor requires isHost (boolean) argument.");
         }
         this.mainMenu = mainMenu;
         this.isHost = isHost;
         this.isMultiplayer = true;
         this.wasMultiplayer = true; // Flag for high scores differentiation
+        this.gamePhase = GamePhases.LOBBY; // Initialize phase
 
         // --- State ---
         /** @type {Map<string, { peerId: string, playerName: string, score: number, isFinished: boolean }>} */
         this.players = new Map(); // Key: peerId, Value: player info object
-        this.gamePhase = 'idle'; // 'idle', 'lobby', 'connecting', 'joining', 'countdown', 'playing', 'waiting', 'results'
         this.localPlayerFinished = false;
         this.playerName = localStorage.getItem('unicornPoepPlayerName') || 'MP Player';
-        this.selectedSheets = [];
-        this.difficulty = null;
+        this.selectedSheets = initialSheetKeys;
+        this.difficulty = initialDifficulty;
         this.currentQuestionIndex = 0;
         this.currentQuestions = [];
         this.timer = null; // Will be ScoreTimer instance
@@ -44,7 +57,7 @@ class MultiplayerGame {
         this.webRTCManager = new WebRTCManager(this); // Manages WebRTC, passes THIS instance
 
         // Validate essential dependencies are available via the hub
-        if (!this.mainMenu?.questionsManager || !this.mainMenu?.gameAreaController || !this.mainMenu?.multiplayerController || !this.mainMenu?.dialogController || !this.mainMenu?.loadingController) {
+        if (!this.mainMenu.questionsManager || !this.mainMenu.gameAreaController || !this.mainMenu.multiplayerController || !this.mainMenu.dialogController || !this.mainMenu.loadingController) {
             console.error("MP Game: Essential managers/controllers not found via MainMenu!");
         }
     }
@@ -66,7 +79,7 @@ class MultiplayerGame {
      */
     async loadQuestionsForMultiplayer() {
         console.log("MP Game: Calling loadQuestionsForMultiplayer...");
-        if (!this.mainMenu?.questionsManager) {
+        if (!this.mainMenu.questionsManager) {
             throw new Error("MP Game: QuestionsManager not available via mainMenu.");
         }
         if (!this.selectedSheets || this.selectedSheets.length === 0) {
@@ -82,7 +95,7 @@ class MultiplayerGame {
 
         } catch (error) {
             console.error("MP Game: Error loading questions via QuestionsManager:", error);
-            this.mainMenu.dialogController?.showError(`Fout bij laden vragen: ${error.message}`);
+            this.mainMenu.dialogController.showError(`Fout bij laden vragen: ${error.message}`);
             this.currentQuestions = []; // Ensure state is clean on error
             throw error; // Re-throw to be caught by startMultiplayerHost
         }
@@ -116,7 +129,7 @@ class MultiplayerGame {
         this.selectedSheets = sheetKeys;
         this.difficulty = difficulty;
 
-        this.mainMenu.loadingController?.show("Hosting starten...");
+        this.mainMenu.loadingController.show("Hosting starten...");
 
         try {
             await this.loadQuestionsForMultiplayer();
@@ -133,16 +146,16 @@ class MultiplayerGame {
                 isFinished: false
             });
 
-            this.mainMenu.loadingController?.hide();
-            this.mainMenu.multiplayerController?.showHostScreen(hostPeerId); // Show code, waiting message
+            this.mainMenu.loadingController.hide();
+            this.mainMenu.multiplayerController.showHostScreen(hostPeerId); // Show code, waiting message
             // Do not show game area yet
 
         } catch (error) {
-            this.mainMenu.loadingController?.hide();
+            this.mainMenu.loadingController.hide();
             console.error("MP: Failed to initialize host:", error);
             this.handleFatalError(`Host init error: ${error.message || 'Unknown'}`);
             // Consider navigating back to main menu or showing error dialog
-            this.mainMenu?.showView('mainMenu'); // Example fallback
+            this.mainMenu.showView('mainMenu'); // Example fallback
         }
     }
 
@@ -156,7 +169,7 @@ class MultiplayerGame {
         this.resetMultiplayerState();
         this.isHost = false;
         this.gamePhase = 'connecting';
-        this.mainMenu.multiplayerController?.showFetchingGameInfo(); // Update UI
+        this.mainMenu.multiplayerController.showFetchingGameInfo(); // Update UI
 
         try {
             await this.webRTCManager.initializeClient(hostId);
@@ -165,7 +178,7 @@ class MultiplayerGame {
             // onHostConnected and message handling will take over
         } catch (error) {
             console.error("MP: Failed to initialize client or connect:", error);
-            this.mainMenu.multiplayerController?.showJoinError(error.message || "Kon niet verbinden.", true);
+            this.mainMenu.multiplayerController.showJoinError(error.message || "Kon niet verbinden.", true);
             this.gamePhase = 'idle'; // Reset phase on connection failure
         }
     }
@@ -177,7 +190,7 @@ class MultiplayerGame {
     onHostConnected() {
         console.log("MP Client: Connection to host established. Sending join request.");
         // Phase remains 'connecting' until game info is received
-        this.webRTCManager?.send({
+        this.webRTCManager.send({
             type: MessageTypes.C_REQUEST_JOIN,
             playerName: this.playerName
         });
@@ -188,14 +201,14 @@ class MultiplayerGame {
      * Sends confirmation to the host.
      */
     confirmJoin() {
-        if (!this.isHost && this.webRTCManager?.isActive() && this.gamePhase === 'joining') {
+        if (!this.isHost && this.webRTCManager.isActive() && this.gamePhase === 'joining') {
             console.log("MP Client: Sending join confirmation.");
-            this.webRTCManager?.send({
+            this.webRTCManager.send({
                 type: MessageTypes.C_CONFIRM_JOIN,
                 playerName: this.playerName
             });
             this.gamePhase = 'lobby'; // Move to lobby state, waiting for host to start
-            this.mainMenu.multiplayerController?.showWaitingForGameStart();
+            this.mainMenu.multiplayerController.showWaitingForGameStart();
         } else {
             console.warn("MP: ConfirmJoin called in invalid state:", this.gamePhase);
         }
@@ -207,10 +220,10 @@ class MultiplayerGame {
     cancelJoin() {
         if (!this.isHost) {
             console.log("MP Client: Cancelling join / Disconnecting.");
-            this.webRTCManager?.cleanup();
+            this.webRTCManager.cleanup();
             this.gamePhase = 'idle';
             // Navigate back via the central controller
-            this.mainMenu?.showView('mainMenu');
+            this.mainMenu.showView('mainMenu');
         }
     }
 
@@ -239,7 +252,12 @@ class MultiplayerGame {
                     this.finalizePlayerJoin(senderId, message.playerName);
                     break;
                 case MessageTypes.C_SUBMIT_ANSWER:
-                    this.handleClientAnswer(senderId, message.questionIndex, message.answer);
+                    // *** FIX: Pass correct parameters to handleClientAnswer ***
+                    this.handleClientAnswer(senderId,
+                         message.clientQuestionIndex, // Use client's index
+                         message.questionText,        // Use question text
+                         message.answer,              // Submitted answer
+                         message.scoreToAdd);         // Claimed score
                     break;
                 case MessageTypes.C_PLAYER_FINISHED:
                     this.handleClientFinished(senderId, message.finalScore);
@@ -247,7 +265,7 @@ class MultiplayerGame {
                 case MessageTypes.C_CHAT_MESSAGE:
                     // Placeholder: Handle chat message forwarding
                     console.log(`Chat from ${senderId}: ${message.text}`);
-                    this.broadcastChatMessage(senderId, this.players.get(senderId)?.playerName || 'Unknown', message.text);
+                    this.broadcastChatMessage(senderId, this.players.get(senderId).playerName || 'Unknown', message.text);
                     break;
                 case MessageTypes.C_UPDATE_NAME:
                     this.handleClientNameUpdate(senderId, message.newName);
@@ -273,7 +291,7 @@ class MultiplayerGame {
                 break;
             case MessageTypes.H_PLAYER_JOINED:
                     // Add player unless it's the local player joining confirmation
-                    if(message.playerInfo.peerId !== this.webRTCManager?.peerId) {
+                    if(message.playerInfo.peerId !== this.webRTCManager.peerId) {
                        this.updatePlayerListAdd(message.playerInfo);
                     }
                 break;
@@ -291,13 +309,17 @@ class MultiplayerGame {
                     console.log(`MP Route Client: Routing H_GAME_STATE_UPDATE to handleGameStateUpdate.`);
                     this.handleGameStateUpdate(message.state);
                  break;
-            case MessageTypes.H_FINAL_RESULTS:
-                 this.handleFinalResults(message);
-                 break;
+                case MessageTypes.H_FINAL_RESULTS:
+                    console.log("MP Client: Received final results from host.");
+                     this.gamePhase = 'ended'; // Ensure phase is set
+                     this._handleFinalResults(message.playersArray, this.webRTCManager.peerId, message.winnerInfo);
+                     // Perform client-side cleanup if needed AFTER showing results
+                     // this.cleanupMultiplayer(); // Be cautious if this navigates away
+                     break;
                 case MessageTypes.H_CHAT_MESSAGE:
                     // Placeholder: Display chat message in UI
                     console.log(`Chat from ${message.senderName}: ${message.text}`);
-                    this.mainMenu.gameAreaController?.displayChatMessage(message.senderName, message.text);
+                    this.mainMenu.gameAreaController.displayChatMessage(message.senderName, message.text);
                     break;
             default:
                     console.warn(`MP Client: Received unexpected message type from host: ${message.type}`);
@@ -365,13 +387,13 @@ class MultiplayerGame {
 
                 // Now show confirmation screen
                 this.gamePhase = 'joining';
-            this.mainMenu.multiplayerController?.showJoinConfirmationScreen(gameInfo);
+            this.mainMenu.multiplayerController.showJoinConfirmationScreen(gameInfo);
 
             } catch (error) {
                  console.error("MP Client: Failed to load questions based on game info:", error);
                  this.handleFatalError(`Kon spelvragen niet laden: ${error.message}`);
                  // Ensure connection cleanup on error
-                 this.webRTCManager?.cleanup();
+                 this.webRTCManager.cleanup();
                  this.gamePhase = 'idle';
             }
 
@@ -386,8 +408,8 @@ class MultiplayerGame {
      */
     handleJoinRejected(reason) {
         console.warn(`MP Client: Join rejected. Reason: ${reason}`);
-        this.mainMenu.multiplayerController?.showJoinError(reason, true); // Show error and back button
-        this.webRTCManager?.cleanup();
+        this.mainMenu.multiplayerController.showJoinError(reason, true); // Show error and back button
+        this.webRTCManager.cleanup();
         this.gamePhase = 'idle';
     }
 
@@ -412,7 +434,8 @@ class MultiplayerGame {
             peerId: clientId,
             playerName: clientName || `Player${Math.floor(Math.random() * 1000)}`,
             score: 0,
-            isFinished: false
+            isFinished: false,
+            currentQuestionIndex: -1 // *** Initialize progress tracker ***
         };
         this.players.set(clientId, newPlayerInfo);
 
@@ -431,8 +454,8 @@ class MultiplayerGame {
         }, [clientId]); // Exclude the new client itself
 
         // 3. Update Host UI (e.g., player count)
-        this.mainMenu.multiplayerController?.updateLobbyPlayerCount(this.players.size);
-        this.mainMenu.gameAreaController?.updateOpponentDisplay(this.players, this.webRTCManager?.peerId); // Update host's game area if visible
+        this.mainMenu.multiplayerController.updateLobbyPlayerCount(this.players.size);
+        this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, this.webRTCManager.peerId); // Update host's game area if visible
          console.log("MP Host: Player list updated:", Array.from(this.players.values()));
     }
 
@@ -449,7 +472,7 @@ class MultiplayerGame {
              });
             console.log("MP Client: Player list initialized:", Array.from(this.players.values()));
             // UI already shows "Waiting for game start" from confirmJoin()
-            this.mainMenu.gameAreaController?.updateOpponentDisplay(this.players, this.webRTCManager?.peerId); // Update game area if visible
+            this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, this.webRTCManager.peerId); // Update game area if visible
         } else {
              console.warn("MP Client: Received welcome message in unexpected phase:", this.gamePhase);
         }
@@ -457,13 +480,58 @@ class MultiplayerGame {
 
     /**
      * HOST: Handles an answer submitted by a client.
-     * Processes it and broadcasts state. Does NOT check round completion.
+     * Verifies the answer and score based on host data (found via questionText) and client submission.
+     * @param {string} senderId - The PeerJS ID of the submitting client.
+     * @param {number} clientQuestionIndex - The index of the question *in the client's list*.
+     * @param {string} questionText - The actual text of the question answered.
+     * @param {string} submittedAnswer - The answer submitted by the client.
+     * @param {number} [claimedScoreToAdd=0] - The score calculated and sent by the client.
      */
-    handleClientAnswer(clientId, questionIndex, answer) {
+    handleClientAnswer(senderId, clientQuestionIndex, questionText, submittedAnswer, claimedScoreToAdd = 0) {
         if (!this.isHost) return;
-        console.log(`MP Host: Received answer submission from ${clientId} for Q${questionIndex}.`);
-        this.processAnswerLocally(clientId, questionIndex, answer, false, null);
-        this.broadcastGameState(); // Broadcast state update (score changes etc.)
+        console.log(`MP Host: Received answer submission from ${senderId} for QText='${questionText}' (ClientIndex=${clientQuestionIndex}): Answer='${submittedAnswer}', ClaimedScore=${claimedScoreToAdd}`);
+
+        // --- Verification ---
+        // 1. Find Host's Correct Answer (using questionText)
+        const hostQuestionData = this.currentQuestions.find(q => q.question === questionText);
+        if (!hostQuestionData) {
+            console.error(`MP Host handleClientAnswer: Cannot find question data for text: "${questionText}". Ignoring.`);
+            // Consider sending an error back to the client?
+            return;
+        }
+        const correctAnswer = hostQuestionData.answer;
+        console.log(`MP Host handleClientAnswer: Found matching question on host. Correct answer is: "${correctAnswer}"`);
+
+        // 2. Verify Client's Answer Correctness (using host data)
+        const isCorrect = (submittedAnswer === correctAnswer);
+        console.log(`MP Host handleClientAnswer: Client answer correct (verified by host) = ${isCorrect}`);
+
+        // 3. Validate Client's Score
+        let validatedScoreToAdd = 0;
+        const MAX_POSSIBLE_SCORE = 60; // Based on ScoreTimer (10 base + 50 max bonus)
+        if (isCorrect) {
+            if (typeof claimedScoreToAdd === 'number' && claimedScoreToAdd >= 0 && claimedScoreToAdd <= MAX_POSSIBLE_SCORE) {
+                validatedScoreToAdd = claimedScoreToAdd;
+                console.log(`MP Host handleClientAnswer: Client score ${claimedScoreToAdd} accepted.`);
+            } else {
+                console.warn(`MP Host handleClientAnswer: Client ${senderId} sent invalid score ${claimedScoreToAdd} for a correct answer. Awarding 0.`);
+                validatedScoreToAdd = 0; // Award 0 if score seems invalid/cheated
+            }
+        } else {
+            // If answer was incorrect, score MUST be 0, regardless of what client sent
+            validatedScoreToAdd = 0;
+             if (claimedScoreToAdd !== 0) {
+                 console.warn(`MP Host handleClientAnswer: Client ${senderId} sent score ${claimedScoreToAdd} for an INCORRECT answer. Setting score to 0.`);
+             }
+        }
+
+        // --- Processing ---
+        // 4. Call the main processing function with VERIFIED data and CLIENT'S index
+        // processAnswer(peerId, questionIndex, selectedAnswer, isCorrect, scoreToAdd, targetButton)
+        this.processAnswer(senderId, clientQuestionIndex, submittedAnswer, isCorrect, validatedScoreToAdd, null);
+
+        // Host broadcasts state AFTER processing the client's answer
+        this.broadcastGameState();
     }
 
     /**
@@ -474,9 +542,9 @@ class MultiplayerGame {
          if (!this.players.has(playerInfo.peerId)) {
              console.log(`MP Client: Player ${playerInfo.playerName} (${playerInfo.peerId}) joined.`);
              this.players.set(playerInfo.peerId, playerInfo);
-             this.mainMenu.gameAreaController?.updateOpponentDisplay(this.players, this.webRTCManager?.peerId);
+             this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, this.webRTCManager.peerId);
               // Update lobby count if client UI shows it
-             this.mainMenu.multiplayerController?.updateLobbyPlayerCount(this.players.size);
+             this.mainMenu.multiplayerController.updateLobbyPlayerCount(this.players.size);
          }
     }
 
@@ -496,8 +564,8 @@ class MultiplayerGame {
                 console.log(`MP Host: Client ${disconnectedPlayerName} (${peerId}) disconnected.`);
                 this.players.delete(peerId);
                 this.webRTCManager.broadcast({ type: MessageTypes.H_PLAYER_DISCONNECTED, peerId: peerId });
-                this.mainMenu.multiplayerController?.updateLobbyPlayerCount(this.players.size);
-                this.mainMenu.gameAreaController?.updateOpponentDisplay(this.players, this.webRTCManager?.peerId);
+                this.mainMenu.multiplayerController.updateLobbyPlayerCount(this.players.size);
+                this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, this.webRTCManager.peerId);
 
                 // *** Re-check game state after disconnect ***
                  if (this.gamePhase === 'playing') {
@@ -515,7 +583,7 @@ class MultiplayerGame {
             }
         } else {
             // Client only connects to host. If host disconnects, game is over.
-            if (peerId === this.webRTCManager?.hostId) {
+            if (peerId === this.webRTCManager.hostId) {
                 this.handleHostDisconnect("Host heeft de verbinding verbroken.");
             } else {
                  console.warn(`MP Client: Received disconnect for unexpected peer ID: ${peerId}`);
@@ -531,11 +599,11 @@ class MultiplayerGame {
              const disconnectedPlayerName = this.players.get(peerId).playerName;
              console.log(`MP Client: Player ${disconnectedPlayerName} (${peerId}) disconnected.`);
              this.players.delete(peerId);
-             this.mainMenu.gameAreaController?.updateOpponentDisplay(this.players, this.webRTCManager?.peerId);
+             this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, this.webRTCManager.peerId);
              // Optional: Show toast message "Player X left" using injected instance
-             this.mainMenu.toastNotification?.show(`${disconnectedPlayerName} heeft het spel verlaten.`);
+             this.mainMenu.toastNotification.show(`${disconnectedPlayerName} heeft het spel verlaten.`);
               // Update lobby count if client UI shows it
-             this.mainMenu.multiplayerController?.updateLobbyPlayerCount(this.players.size);
+             this.mainMenu.multiplayerController.updateLobbyPlayerCount(this.players.size);
          }
      }
 
@@ -546,7 +614,7 @@ class MultiplayerGame {
     handleHostDisconnect(reason) {
         console.error("MP Client: Host disconnected.");
         if (this.gamePhase !== 'idle' && this.gamePhase !== 'results') {
-             this.mainMenu.dialogController?.showDisconnectionDialog(reason);
+             this.mainMenu.dialogController.showDisconnectionDialog(reason);
              this.cleanup(); // Clean up WebRTC connection and state
              this.gamePhase = 'idle';
         } else {
@@ -563,17 +631,17 @@ class MultiplayerGame {
         console.error("MP: Fatal Error:", errorMessage);
         this.cleanup(); // Clean up connections and state
 
-        // This was causing the error: No showErrorDialog method exists.
-        // this.mainMenu.dialogController?.showErrorDialog(errorMessage);
-        // Correct: Call the specific method on DialogController meant for showing errors.
-        this.mainMenu.dialogController?.showError(errorMessage); // Show error
+        // Explicitly check if mainMenu and its dialogController AND the showError method exist before calling.
+        // NO optional chaining.
+        if (this.mainMenu && this.mainMenu.dialogController && typeof this.mainMenu.dialogController.showError === 'function') {
+            this.mainMenu.dialogController.showError(errorMessage); // Show error
+        } else {
+            console.error("MP: Cannot show fatal error dialog - MainMenu, DialogController, or showError method not available.");
+            // Fallback? Maybe alert, but rules say no alerts.
+            // Relying on console error for now.
+        }
 
-        // Navigate back via the central controller - Moved this after showing the error
-        // so the user actually sees the message before navigation might hide it.
-        // Consider if cleanup() should navigate or if it should happen here.
-        // cleanup() currently calls showView, so this might be redundant or cause issues.
-        // Let's keep the navigation within cleanup() for consistency for now.
-        // this.mainMenu?.showView('mainMenu');
+        // Navigation is handled within cleanup()
     }
 
     // --- Countdown/Start ---
@@ -594,7 +662,7 @@ class MultiplayerGame {
 
         console.log("MP Host: Requesting game start. Hiding dialog and navigating.");
         // *** FIX: Hide dialog BEFORE navigating ***
-        this.mainMenu.multiplayerController?.hideConnectionDialog();
+        this.mainMenu.multiplayerController.hideConnectionDialog();
         // Navigate to the game area view
         this.mainMenu.showView('gameArea');
 
@@ -619,33 +687,34 @@ class MultiplayerGame {
 
         if (!this.isHost) {
             this.mainMenu.showView('gameArea');
-            this.mainMenu.multiplayerController?.hideConnectionDialog();
+            this.mainMenu.multiplayerController.hideConnectionDialog();
         }
 
         // Prepare Game Area UI (hide elements, show countdown overlay)
-        this.mainMenu.gameAreaController?.hideAnswers();
-        this.mainMenu.gameAreaController?.hideQuestion();
-        this.mainMenu.gameAreaController?.hideTimer();
-        this.mainMenu.gameAreaController?.hideNextButton();
-        this.mainMenu.gameAreaController?.hideWaitingUi();
-        this.mainMenu.gameAreaController?.showCountdownOverlay();
-        this.mainMenu.gameAreaController?.showOpponentList();
-        this.mainMenu.gameAreaController?.updateOpponentDisplay(this.players, this.webRTCManager?.peerId);
+        this.mainMenu.gameAreaController.hideAnswers();
+        this.mainMenu.gameAreaController.hideQuestion();
+        this.mainMenu.gameAreaController.hideTimer();
+        this.mainMenu.gameAreaController.hideNextButton();
+        this.mainMenu.gameAreaController.hideWaitingUi();
+        this.mainMenu.gameAreaController.showCountdownOverlay();
+        this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, this.webRTCManager.peerId);
 
         let remaining = duration;
-        this.mainMenu.gameAreaController?.updateCountdown(remaining);
+        this.mainMenu.gameAreaController.updateCountdown(remaining);
         clearInterval(this._countdownInterval);
         this._countdownInterval = setInterval(() => {
             remaining--;
-            this.mainMenu.gameAreaController?.updateCountdown(remaining);
+            this.mainMenu.gameAreaController.updateCountdown(remaining);
             if (remaining <= 0) {
                 clearInterval(this._countdownInterval);
-                this.mainMenu.gameAreaController?.hideCountdownOverlay();
-                // *** FIX: Only HOST calls startGameLocally here ***
-                if (this.isHost) {
-                    this.startGameLocally();
-                }
-                 // Client waits for the first game state update message
+                this.mainMenu.gameAreaController.hideCountdownOverlay();
+                // *** FIX: BOTH Host and Client call startGameLocally after countdown ***
+                this.startGameLocally();
+                // Removed incorrect conditional logic:
+                // if (this.isHost) {
+                //     this.startGameLocally();
+                // }
+                 // // Client waits for the first game state update message // Incorrect
             }
         }, 1000);
     }
@@ -655,37 +724,42 @@ class MultiplayerGame {
      * Initializes timer, resets scores, displays first question, and shows the main game UI.
      */
     startGameLocally() {
-        console.log(`MP: Starting game locally (Phase: ${this.gamePhase}). Questions loaded: ${this.currentQuestions?.length}`);
-        // Ensure this only runs if countdown completed properly
-        if (this.gamePhase !== 'countdown') {
-             console.warn(`MP: startGameLocally called in unexpected phase: ${this.gamePhase}. Aborting.`);
-            // If called incorrectly, might need to reset state or log more info
-             return;
-        }
-         // Check if questions are actually loaded (especially for client)
-         if (!this.currentQuestions || this.currentQuestions.length === 0) {
+        console.log(`MP: Starting game locally (Current Phase: ${this.gamePhase}). Current Index: ${this.currentQuestionIndex}. Questions loaded: ${this.currentQuestions.length}`);
+
+        // Check if questions are loaded
+        if (!this.currentQuestions || this.currentQuestions.length === 0) {
              console.error("MP: Cannot start game locally, questions not loaded!");
              this.handleFatalError("Spel kon niet starten: Vragen niet geladen.");
              return;
          }
 
-        this.gamePhase = 'playing';
-        this.currentQuestionIndex = 0;
-        this.localPlayerFinished = false;
-        this.players.forEach(player => { player.score = 0; player.isFinished = false; });
-        this.mainMenu.gameAreaController?.updateOpponentDisplay(this.players, this.webRTCManager?.peerId);
-        this.mainMenu.gameAreaController?.showGameCoreElements(); // Show elements container
+        // *** MODIFIED CHECK: Only perform initial setup if index is not yet 0 ***
+        // This prevents race conditions if H_GAME_STATE_UPDATE arrives before countdown finishes.
+        if (this.currentQuestionIndex < 0) {
+            console.log("MP startGameLocally: Performing initial setup (Index < 0).");
+            this.gamePhase = 'playing'; // Ensure phase is set correctly
+            this.currentQuestionIndex = 0;
+            this.localPlayerFinished = false;
+            // Reset scores for all players at the start
+            this.players.forEach(player => { player.score = 0; player.isFinished = false; });
 
-        if (!this.difficulty) console.warn(`MP ${this.isHost ? 'Host' : 'Client'}: Difficulty not set before initializing timer!`);
-        this.timer = new ScoreTimer(this.difficulty);
+            this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, this.webRTCManager.peerId);
+            this.mainMenu.gameAreaController.showGameCoreElements(); // Ensure core elements are visible
 
-        this.displayCurrentQuestion(); // Displays question locally
+            if (!this.difficulty) console.warn(`MP ${this.isHost ? 'Host' : 'Client'}: Difficulty not set before initializing timer!`);
+            this.timer = new ScoreTimer(this.difficulty);
 
-        // *** HOST FIX: Broadcast the very first game state ***
-        if (this.isHost) {
-            console.log("MP Host: Broadcasting initial game state.");
-            this.broadcastGameState();
-            console.log("MP Host: Initial game state broadcast attempted.");
+            this.displayCurrentQuestion(); // Display Q0
+
+            // Host broadcasts initial state AFTER setting its own index to 0 and displaying Q0
+            if (this.isHost) {
+                console.log("MP Host: Broadcasting initial game state from startGameLocally.");
+                this.broadcastGameState();
+                console.log("MP Host: Initial game state broadcast attempted.");
+            }
+        } else {
+            // If index is already 0 or more, game has likely started, maybe log a warning.
+            console.warn(`MP startGameLocally: Called when game seems already started (Index: ${this.currentQuestionIndex}). No setup action taken.`);
         }
     }
 
@@ -700,7 +774,7 @@ class MultiplayerGame {
         // Check if player is already marked finished
         if (this.localPlayerFinished) {
             console.log("MP displayCurrentQuestion: EXIT - Player already marked finished. Showing waiting UI.");
-            this.mainMenu.gameAreaController?.showWaitingUi("Wachten op andere spelers...");
+            this.mainMenu.gameAreaController.showWaitingUi("Wachten op andere spelers...");
             return;
         }
 
@@ -728,28 +802,28 @@ class MultiplayerGame {
         const ctrl = this.mainMenu.gameAreaController; // Alias for brevity
 
         // 1. Ensure core elements are visible and waiting UI is hidden
-        ctrl?.hideWaitingUi();
-        ctrl?.showGameCoreElements(); // Shows container, handles basic score/timer visibility
+        ctrl.hideWaitingUi();
+        ctrl.showGameCoreElements(); // Shows container, handles basic score/timer visibility
 
         // 2. Update Question
-        ctrl?.displayQuestion(currentQuestion.question); // This MUST update the text content
-        ctrl?.showQuestion();
+        ctrl.displayQuestion(currentQuestion.question); // This MUST update the text content
+        ctrl.showQuestion();
 
         // 3. Update Answers
-        ctrl?.displayAnswers(answers); // This MUST update the innerHTML
-        ctrl?.showAnswers();
+        ctrl.displayAnswers(answers); // This MUST update the innerHTML
+        ctrl.showAnswers();
 
         // 4. Enable interaction
-        ctrl?.enableAnswers();
+        ctrl.enableAnswers();
 
         // 5. Update Progress Indicator
-        ctrl?.updateProgress(indexToShow + 1, this.currentQuestions.length);
+        ctrl.updateProgress(indexToShow + 1, this.currentQuestions.length);
 
         // 6. Hide "Next" button (it was just clicked)
-        ctrl?.hideNextButton();
+        ctrl.hideNextButton();
 
         // 7. Show Timer Element
-        ctrl?.showTimer();
+        ctrl.showTimer();
 
         // *** FIX: Reset interaction block AFTER UI is ready ***
         console.log("MP displayCurrentQuestion: Resetting blockInteraction flag.");
@@ -760,7 +834,7 @@ class MultiplayerGame {
         if (this.timer) {
             this.timer.stop();
             const initialSeconds = Math.ceil(this.timer.durationMs / 1000);
-            ctrl?.updateTimerDisplay(initialSeconds); // Update timer text
+            ctrl.updateTimerDisplay(initialSeconds); // Update timer text
             console.log(`MP displayCurrentQuestion: Starting timer for Q${indexToShow} duration ${this.timer.durationMs}ms`);
             this.timer.start(this.onTimerTick.bind(this));
         } else {
@@ -833,38 +907,57 @@ class MultiplayerGame {
         // *** Check 'this' context immediately ***
         if (!(this instanceof MultiplayerGame)) {
             console.error("MP onTimerTick: CRITICAL - 'this' is NOT a MultiplayerGame instance!", this);
-            this.timer?.stop(); // Attempt to stop timer to prevent loops
+            this.timer.stop(); // Attempt to stop timer to prevent loops
              return;
         }
         // Optional: Log confirms 'this' is correct
         // console.log(`MP onTimerTick: Context 'this' OK. Remaining MS: ${remainingTimeMs}`);
 
         if (this.gamePhase !== 'playing' || this.localPlayerFinished) {
-            this.timer?.stop(); return;
+            this.timer.stop(); return;
         }
 
         const remainingSeconds = Math.max(0, Math.ceil(remainingTimeMs / 1000));
-        this.mainMenu.gameAreaController?.updateTimerDisplay(remainingSeconds);
+        this.mainMenu.gameAreaController.updateTimerDisplay(remainingSeconds);
 
-        if (remainingTimeMs <= 0) {
-            console.log("MP: Time ran out for local player!");
-            this.timer?.stop();
-            this.mainMenu.gameAreaController?.disableAnswers();
-            const currentQuestion = this.currentQuestions?.[this.currentQuestionIndex];
+        if (remainingTimeMs <= 0 && !this.blockInteraction) { // Only process timeout if interaction isn't already blocked (i.e., answer wasn't just selected)
+             console.log("MP: Time ran out for local player!");
+             this.blockInteraction = true; // Block further interaction
+             this.timer.stop();
+             this.mainMenu.gameAreaController.disableAnswers();
+             const currentQuestion = this.currentQuestions[this.currentQuestionIndex];
 
-            if (this.isHost) {
-                // *** Explicitly verify method existence on 'this' ***
-                if (typeof this.processAnswerLocally === 'function') {
-                    this.processAnswerLocally(this.webRTCManager?.peerId, this.currentQuestionIndex, null, true, null);
-                    this.mainMenu.gameAreaController?.showFeedback(false, currentQuestion?.answer);
-         this.broadcastGameState();
-            } else {
-                    console.error("MP onTimerTick: 'this.processAnswerLocally' is NOT a function!", this);
-                }
+             // *** FIX: Call 'processAnswer' instead of 'processAnswerLocally' ***
+             const localPeerId = this.webRTCManager.peerId;
+             if (localPeerId) {
+                 console.log(`MP onTimerTick: Processing timeout locally for player ${localPeerId}.`);
+                 // Arguments for timeout: peerId, index, selectedAnswer=null, isCorrect=false, scoreToAdd=0, button=null
+                 this.processAnswer(localPeerId, this.currentQuestionIndex, null, false, 0, null);
              } else {
-                this.mainMenu.gameAreaController?.showFeedback(false, currentQuestion?.answer);
-                this.handleLocalPlayerFinished();
-            }
+                  console.error("MP onTimerTick: Cannot process timeout - local PeerID is missing.");
+                 // Handle error state? Maybe just show feedback locally?
+                  this.mainMenu.gameAreaController.showFeedback(false, currentQuestion.answer); // Show feedback anyway
+             }
+             // *** END FIX ***
+
+             // Show feedback *after* processing (processAnswer handles local feedback now)
+             // this.mainMenu.gameAreaController.showFeedback(false, currentQuestion.answer); // Moved into processAnswer
+
+             // If HOST, broadcast the updated state (player's score didn't change, but index might have in processAnswer)
+             if (this.isHost) {
+                 console.log("MP Host: Broadcasting game state after timeout processing.");
+                 this.broadcastGameState();
+                 // Show next button after processing timeout on host? Maybe not needed if it moves to next Q.
+                 // Let's assume the regular flow (Next button shows after processAnswer) handles this via broadcast.
+                 // Or, maybe timeout should automatically trigger next question for host?
+                 // For now, let's keep it simple: process timeout, broadcast, host must click Next.
+                 // Host needs to see the Next button though.
+                 this.mainMenu.gameAreaController.showNextButton();
+             } else {
+                 // Client: Timeout occurred locally. State will be updated by host broadcast eventually.
+                 // Show the next button so client can proceed if host already did.
+                 this.mainMenu.gameAreaController.showNextButton();
+             }
          }
     }
 
@@ -877,17 +970,17 @@ class MultiplayerGame {
 
         console.log("MP: Local player finished all questions.");
         this.localPlayerFinished = true;
-        this.timer?.stop(); // Stop timer if running
+        this.timer.stop(); // Stop timer if running
 
-        const localId = this.webRTCManager?.peerId;
+        const localId = this.webRTCManager.peerId;
         if (localId && this.players.has(localId)) {
              this.players.get(localId).isFinished = true; // <<< Mark as finished in the map
         } else {
              console.warn("MP: Could not find local player in map to mark as finished.");
         }
 
-        this.mainMenu.gameAreaController?.showWaitingUi("Goed gedaan! Wachten op de anderen...");
-        this.mainMenu.gameAreaController?.disableAnswers();
+        this.mainMenu.gameAreaController.showWaitingUi("Goed gedaan! Wachten op de anderen...");
+        this.mainMenu.gameAreaController.disableAnswers();
 
         if (this.isHost) {
             // Host broadcasts state change and checks if game ended
@@ -897,9 +990,9 @@ class MultiplayerGame {
         } else {
             // Client notifies host they are finished
             console.log("MP Client: Notifying host of finish.");
-            this.webRTCManager?.send({
+            this.webRTCManager.send({
                 type: MessageTypes.C_PLAYER_FINISHED,
-                 finalScore: this.players.get(localId)?.score || 0 // Send final score
+                 finalScore: this.players.get(localId).score || 0 // Send final score
             });
         }
     }
@@ -916,10 +1009,10 @@ class MultiplayerGame {
         if (player && !player.isFinished) {
             console.log(`MP Host: Client ${player.playerName} (${clientId}) reported finished with score ${finalScore}.`);
             player.isFinished = true;
-            // Optionally verify/use client's reported score or rely on host's tracking
-            // player.score = finalScore; // Example: Trust client score report
+            // *** FIX: Uncomment this line to store the client's reported final score ***
+            player.score = finalScore; 
 
-            // Broadcast the updated state (player finished)
+            // Broadcast the updated state (player finished, score updated)
              this.broadcastGameState();
             // Check if this completion ends the game
             this.checkMultiplayerEnd();
@@ -929,89 +1022,142 @@ class MultiplayerGame {
     }
 
     /**
-     * HOST: Checks if all currently connected players are marked as finished with the *whole game*.
-     * Primarily used when a player disconnects or reports finishing the game.
+     * Checks if all players have finished. If so, ends the game.
+     * If the local player (host) finishes but others haven't, shows a waiting state.
+     * Should typically only trigger end game logic on the HOST.
      */
     checkMultiplayerEnd() {
-        if (!this.isHost) return; // Should not be called by client
+        if (this.gamePhase === 'ended') return; // Already ended
 
-        // Only perform check if game is potentially ending or player left
-        if (this.gamePhase !== 'playing' && this.gamePhase !== 'lobby') {
-             console.log("MP Host checkMultiplayerEnd: Check skipped, game phase is", this.gamePhase);
-            return;
-        }
+        const allPlayersFinished = Array.from(this.players.values()).every(p => p.isFinished);
+        const localPlayerId = this.webRTCManager.peerId;
+        const localPlayer = this.players.get(localPlayerId);
 
-        // *** FIX: Get connected peer IDs from the connections map keys ***
-        let connectedPeerIds = [];
-        if (this.webRTCManager && this.webRTCManager.connections instanceof Map) {
-            connectedPeerIds = Array.from(this.webRTCManager.connections.keys());
+        console.log(`MP checkMultiplayerEnd: All finished: ${allPlayersFinished}. Local player (${localPlayer.playerName}) finished: ${localPlayer.isFinished}`);
+
+        if (this.isHost) {
+            if (localPlayer.isFinished && !allPlayersFinished) {
+                // Host is finished, but others are still playing
+                if (this.gamePhase !== 'waiting_for_finish') {
+                     console.log("MP Host: Finished, but waiting for other players. Showing waiting UI.");
+                     this.gamePhase = 'waiting_for_finish';
+                     this.timer.stop(); // Stop host timer if somehow running
+                     this.mainMenu.gameAreaController.showWaitingUi("Je bent klaar! Wachten op andere spelers...");
+                     this.mainMenu.gameAreaController.toggleChatVisibility(true); // Show chat while waiting
+                     // Optionally hide Next button if it was somehow visible
+                     this.mainMenu.gameAreaController.hideNextButton();
+                     // Broadcast the waiting state so clients know the host is waiting
+                     this.broadcastGameState();
+                }
+                // Don't end the game yet, host needs to wait.
+                return; // Exit the check early
+            } else if (allPlayersFinished) {
+                // All players are finished, host ends the game for everyone
+                console.log("MP Host: All players finished. Ending the game.");
+                this.endMultiplayerGame();
+            } else {
+                // Host is not finished, game continues
+                console.log("MP Host: Still playing, game continues.");
+            }
         } else {
-            console.warn("MP Host checkMultiplayerEnd: WebRTCManager or connections map not found/invalid.");
+            // Client logic: Game end is triggered by host message/state update.
+            // Clients might check allPlayersFinished locally to update their own UI status if needed.
+            if (allPlayersFinished) {
+                 console.log("MP Client: Detected all players finished based on local state.");
+                 // Can optionally show a preliminary "waiting for results" state here
+                 if (this.gamePhase !== 'ended' && this.gamePhase !== 'waiting_for_finish') {
+                      // Avoid overwriting host's waiting message if client finishes last
+                       // this.mainMenu.gameAreaController.showWaitingUi("Game finished! Waiting for results...");
+                 }
+            }
         }
-
-        // Include host's own ID
-        const hostId = this.webRTCManager?.peerId;
-        if (hostId && !connectedPeerIds.includes(hostId)) {
-            connectedPeerIds.push(hostId);
-        }
-        const uniqueConnectedIds = [...new Set(connectedPeerIds)];
-
-        // Filter players map to only include connected ones
-        const connectedPlayers = uniqueConnectedIds
-                                    .map(id => this.players.get(id))
-                                    .filter(p => p); // Filter out undefined if IDs don't match map
-
-        // If no players are connected (e.g., last client left), end might be handled by disconnect logic.
-        if (connectedPlayers.length === 0) {
-             console.log("MP Host checkMultiplayerEnd: No connected players found in list.");
-             // Consider ending if host is alone? Depends on desired logic.
-             return;
-         }
-
-        // Check if ALL connected players have the main 'isFinished' flag set
-        const allGameFinished = connectedPlayers.every(p => p.isFinished);
-
-        if (allGameFinished) {
-            console.log("MP Host: checkMultiplayerEnd - All connected players are finished! Ending game.");
-            this.endMultiplayerGame(); // Trigger final results
-         } else {
-            console.log("MP Host: checkMultiplayerEnd - Not all connected players finished yet.");
-         }
-    }
-
-     /**
-     * HOST: Ends the multiplayer game, calculates final results, and broadcasts them.
-     */
-    endMultiplayerGame() {
-        if (!this.isHost) return;
-        console.log("MP Host: Calculating and broadcasting final results.");
-        this.gamePhase = 'results';
-        this.timer?.stop(); // Stop host timer if running
-
-        const finalResults = {
-            type: MessageTypes.H_FINAL_RESULTS,
-            scores: Array.from(this.players.values()).map(p => ({
-                playerName: p.playerName,
-                score: p.score
-            })).sort((a, b) => b.score - a.score) // Sort descending by score
-        };
-
-        this.webRTCManager.broadcast(finalResults);
-        // Handle results locally for the host too
-        this.handleFinalResults(finalResults);
     }
 
     /**
-     * HOST/CLIENT: Handles the final results message. Shows the results dialog.
-     * @param {object} resultsMessage - The H_FINAL_RESULTS message data.
+     * Ends the multiplayer game session for all players. Cleans up timers, determines winner, shows results.
+     * Usually called by the host when all players are finished.
      */
-    handleFinalResults(resultsMessage) {
-        console.log("MP: Handling final results.", resultsMessage);
-        this.gamePhase = 'results'; // Ensure phase is correct
-        this.timer?.stop(); // Stop local timer
-        this.mainMenu.gameAreaController?.hide(); // Hide game area UI elements
-        // Use DialogController to show the results
-        this.mainMenu.dialogController?.showMultiplayerEndResults(resultsMessage.scores);
+    endMultiplayerGame() {
+        console.log("MP: endMultiplayerGame called.");
+        if (this.gamePhase === 'ended') {
+            console.warn("MP endMultiplayerGame: Game already ended.");
+            return;
+        }
+        this.gamePhase = 'ended';
+        if (this.timer) this.timer.stop(); // Check if timer exists before stopping
+        this.mainMenu.gameAreaController.hideTimer();
+        this.mainMenu.gameAreaController.hideNextButton();
+        this.mainMenu.gameAreaController.disableAnswers();
+
+        const playersArray = Array.from(this.players.values());
+        const localPlayerId = this.webRTCManager.peerId;
+        let winnerInfo = null; // Determine winner as before
+
+        if (playersArray.length > 0) {
+            // Find player with highest score
+            winnerInfo = playersArray.reduce((highest, current) => {
+                return current.score > highest.score ? current : highest;
+            }, playersArray[0]); // Initialize with first player
+            console.log("MP endMultiplayerGame: Determined winner:", winnerInfo);
+        } else {
+            console.warn("MP endMultiplayerGame: No players in array to determine winner.");
+        }
+
+        if (this.isHost) {
+            console.log("MP Host: Broadcasting final results.");
+            // Broadcast results BEFORE showing locally
+            this.webRTCManager.broadcast({
+                type: MessageTypes.H_FINAL_RESULTS,
+                playersArray: playersArray, // Send full array
+                winnerInfo: winnerInfo // Send winner info
+            });
+            // Now handle results locally for the host
+            this._handleFinalResults(playersArray, localPlayerId, winnerInfo);
+        }
+        // Client waits for H_FINAL_RESULTS message
+
+        // Perform cleanup AFTER handling results display/broadcast
+        // *** FIX: Call correct cleanup method ***
+        this.cleanup();
+        console.log("MP endMultiplayerGame: Game phase set to ended.");
+    }
+
+    /**
+     * Handles displaying the final results using the DialogController.
+     * Called locally by host/client after receiving necessary data.
+     * Passes the full player list to the dialog controller for dynamic display.
+     * @param {Array<Object>} playersArray - Array of ALL player objects {peerId, playerName, score, isFinished}.
+     * @param {string} localPlayerId - The peer ID of the local player (potentially useful for highlighting).
+     * @param {Object|null} winnerInfo - Information about the winner {peerId, playerName, score, ...}.
+     * @private
+     */
+    _handleFinalResults(playersArray, localPlayerId, winnerInfo) {
+         console.log(`MP (${this.isHost ? 'Host' : 'Client'}): Preparing to show final results via DialogController.`);
+         if (!this.mainMenu.dialogController) {
+             console.error(`MP ${this.isHost ? 'Host' : 'Client'} _handleFinalResults: DialogController is not available.`);
+             return;
+         }
+         try {
+              // *** FIX: Pass the entire players array and winner info to the dialog controller ***
+              console.log(`MP (${this.isHost ? 'Host' : 'Client'}) _handleFinalResults: Calling displayMultiplayerResults with:`, {
+                playerCount: playersArray.length,
+                winnerName: winnerInfo ? winnerInfo.playerName : 'Niemand'
+             });
+
+              // Call the refactored/new dialog method 
+              // Passing localPlayerId might be useful if the dialog wants to highlight the local player
+              this.mainMenu.dialogController.displayMultiplayerResults(playersArray, winnerInfo, localPlayerId);
+             
+              // Ensure game area is hidden or shows a clean state behind the dialog
+              this.mainMenu.gameAreaController.hideWaitingUi();
+              this.mainMenu.gameAreaController.hideGameCoreElements(); 
+         } catch (error) {
+              console.error(`MP (${this.isHost ? 'Host' : 'Client'}) _handleFinalResults: Error calling displayMultiplayerResults:`, error);
+              // Attempt to show a generic error if dialog call failed
+               try {
+                 this.mainMenu.dialogController.showError("Fout bij weergeven eindresultaten.");
+               } catch (e) { console.error("MP: Failed to even show error dialog.", e); }
+         }
     }
 
     // --- State Management & Cleanup ---
@@ -1023,7 +1169,7 @@ class MultiplayerGame {
      */
     resetMultiplayerState() {
         console.log("MP: Resetting multiplayer state");
-        this.mainMenu.gameAreaController?.resetUI();
+        this.mainMenu.gameAreaController.resetUI();
 
         // *** REVERT/CONFIRM: Stop 'this.timer' and nullify ***
          if (this.timer) {
@@ -1032,12 +1178,12 @@ class MultiplayerGame {
         }
         this.timer = null; // Explicitly nullify
 
-        this.webRTCManager?.cleanup();
+        this.webRTCManager.cleanup();
         this.players = new Map();
         this.gamePhase = 'lobby';
         this.currentQuestionIndex = -1;
         this.currentQuestions = [];
-        this.mainMenu.multiplayerController?.resetUI();
+        this.mainMenu.multiplayerController.resetUI();
     }
 
      /**
@@ -1047,8 +1193,13 @@ class MultiplayerGame {
      cleanup() {
          console.log("MP: Cleaning up multiplayer game session.");
          this.resetMultiplayerState(); // Stops timer, cleans WebRTC, resets state
-         // Navigate back to the main menu
-         this.mainMenu?.showView('mainMenu'); // Navigation happens here
+
+         // Explicitly check if mainMenu and showView method are available before navigating
+         if (this.mainMenu && typeof this.mainMenu.showView === 'function') {
+            this.mainMenu.showView('mainMenu'); // Navigation happens here
+         } else {
+              console.warn("MP: Cannot navigate back to main menu - MainMenu or showView not available during cleanup.");
+         }
      }
 
     // --- Player Name ---
@@ -1058,7 +1209,7 @@ class MultiplayerGame {
      * @param {string} newName - The new player name.
      */
     updatePlayerName(newName) {
-         const trimmedName = newName?.trim();
+         const trimmedName = newName.trim();
          if (!trimmedName) {
              console.warn("MP: Attempted to update player name to empty string. Ignoring.");
              return; // Don't allow empty names
@@ -1070,11 +1221,11 @@ class MultiplayerGame {
              localStorage.setItem('unicornPoepPlayerName', trimmedName); // Persist name
 
              // Update own entry in players map if it exists
-             const localId = this.webRTCManager?.peerId;
+             const localId = this.webRTCManager.peerId;
              if (localId && this.players.has(localId)) {
                   this.players.get(localId).playerName = this.playerName;
                   // Update local UI immediately (e.g., opponent list if shown)
-                  this.mainMenu.gameAreaController?.updateOpponentDisplay(this.players, localId);
+                  this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, localId);
              }
 
                  // If HOST, broadcast the change so others update their lists
@@ -1084,7 +1235,7 @@ class MultiplayerGame {
                      this.broadcastGameState();
                  }
              // *** If CLIENT, notify the host ***
-             else if (this.webRTCManager?.isActive()) {
+             else if (this.webRTCManager.isActive()) {
                  console.log("MP Client: Sending name update to host.");
                  this.webRTCManager.send({
                      type: MessageTypes.C_UPDATE_NAME, // Ensure this type exists in MessageTypes
@@ -1103,7 +1254,7 @@ class MultiplayerGame {
      sendChatMessage(text) {
          if (this.isHost || !text.trim()) return;
          console.log("MP Client: Sending chat message:", text);
-         this.webRTCManager?.send({
+         this.webRTCManager.send({
              type: MessageTypes.C_CHAT_MESSAGE,
              text: text.trim()
          });
@@ -1125,7 +1276,7 @@ class MultiplayerGame {
              text: text
          });
          // Display chat message for host locally too
-         this.mainMenu.gameAreaController?.displayChatMessage(senderName, text);
+         this.mainMenu.gameAreaController.displayChatMessage(senderName, text);
      }
 
     /**
@@ -1146,7 +1297,7 @@ class MultiplayerGame {
      * @param {string} newName - The new name provided by the client.
      */
     handleClientNameUpdate(clientId, newName) {
-         const trimmedName = newName?.trim();
+         const trimmedName = newName.trim();
          if (!trimmedName) {
              console.warn(`MP Host: Received empty name update from ${clientId}. Ignoring.`);
              return;
@@ -1172,7 +1323,7 @@ class MultiplayerGame {
             console.warn("MP: Client attempted to call broadcastGameState.");
             return;
         }
-        if (!this.webRTCManager?.isActive()) {
+        if (!this.webRTCManager.isActive()) {
             console.warn("MP Host: Cannot broadcast state, WebRTC not active.");
             return;
         }
@@ -1220,163 +1371,152 @@ class MultiplayerGame {
         }
         // *** END DETAILED LOGGING ***
 
-        // Update player data first
+        // Update player data from host state
         if (state.players && Array.isArray(state.players)) {
+             const localPlayerId = this.webRTCManager.peerId;
              state.players.forEach(pInfo => {
-                if (this.players.has(pInfo.peerId)) {
-                    Object.assign(this.players.get(pInfo.peerId), pInfo); // Update existing player data
-                } else {
-                    // Should not happen often if welcome/join logic is correct
-                    console.warn("MP Client: Received state for unknown player:", pInfo.peerId);
-                    this.players.set(pInfo.peerId, pInfo);
-                }
+                const existingPlayer = this.players.get(pInfo.peerId);
+                 if (existingPlayer) {
+                    // *** FIX: Only update score/status for OTHER players from host state ***
+                    if (pInfo.peerId !== localPlayerId) {
+                        console.log(`MP Client handleGameStateUpdate: Updating opponent (${pInfo.playerName}) score to ${pInfo.score}, finished to ${pInfo.isFinished}`);
+                        existingPlayer.score = pInfo.score;
+                        existingPlayer.isFinished = pInfo.isFinished;
+                        existingPlayer.currentQuestionIndex = pInfo.currentQuestionIndex; 
+                    } else {
+                        // For the local player, only update isFinished status and maybe index if needed?
+                        // Score is managed locally by client's processAnswer.
+                        console.log(`MP Client handleGameStateUpdate: Updating local player finished status to ${pInfo.isFinished} (Score is managed locally)`);
+                        existingPlayer.isFinished = pInfo.isFinished;
+                        // Should we sync local player index from host? Maybe not, client progresses independently.
+                        // existingPlayer.currentQuestionIndex = pInfo.currentQuestionIndex; 
+                    }
+                 } else {
+                     console.warn("MP Client: Received state for unknown player:", pInfo.peerId);
+                     this.players.set(pInfo.peerId, pInfo); // Add if missing (will get full info)
+                 }
+
+                 // Logging received scores (no change here)
+                 if (pInfo.peerId === localPlayerId) {
+                      console.log(`MP Client handleGameStateUpdate: Local score (${pInfo.playerName}) is ${pInfo.score}. updateOpponentDisplay will handle UI.`);
+                      // *** REMOVED: Redundant updateScore call ***
+                      // this.mainMenu.gameAreaController.updateScore(pInfo.score);
+                 } else {
+                      console.log(`MP Client handleGameStateUpdate: Opponent score (${pInfo.playerName}) is ${pInfo.score}. updateOpponentDisplay will handle UI.`);
+                      // *** REMOVED: Redundant call ***
+                      // this.mainMenu.gameAreaController.updateOpponentScore(pInfo.score);
+                      // Check if opponent got score update to show confetti (compare previous vs current)
+                      // This might be complex, maybe confetti only on local correct answer is enough.
+                 }
              });
-             this.mainMenu.gameAreaController?.updateOpponentDisplay(this.players, this.webRTCManager?.peerId);
+             // Update the opponent list display which shows names/status/scores together
+             console.log("MP Client handleGameStateUpdate: Calling updateOpponentDisplay to refresh all scores.");
+             this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, localPlayerId);
         }
 
-        const localPlayerData = this.players.get(this.webRTCManager?.peerId);
-        this.localPlayerFinished = localPlayerData?.isFinished || false;
-
-        console.log("MP Client: Calling showGameCoreElements() from handleGameStateUpdate.");
-        this.mainMenu.gameAreaController?.showGameCoreElements();
-
-        // Now handle question display or waiting UI based on state
-        if (this.localPlayerFinished) {
-            console.log("MP Client: Player is finished, showing waiting UI.");
-             this.mainMenu.gameAreaController?.showWaitingUi();
-             this.timer?.stop();
-        } else if (state.currentQuestionIndex !== this.currentQuestionIndex || previousPhase !== 'playing') {
-             console.log(`MP Client: Question index changed/initial (or phase changed to playing). Index: ${state.currentQuestionIndex}. Preparing to display question.`);
-             this.currentQuestionIndex = state.currentQuestionIndex;
-             // *** Log timer existence right before display call ***
-             console.log(`MP Client: Timer object BEFORE calling displayCurrentQuestion:`, this.timer);
-             this.displayCurrentQuestion(); // <<< This is where the error occurs
+        // Update local finished flag based on received state
+        const localPlayerData = this.players.get(this.webRTCManager.peerId);
+        if (localPlayerData) { // Check if local player data exists
+            this.localPlayerFinished = localPlayerData.isFinished || false;
         } else {
-             console.log("MP Client: Game state update received, but index unchanged and player not finished.");
+            console.warn("MP Client handleGameStateUpdate: Could not find local player data to update finished flag.");
+            this.localPlayerFinished = false; // Default if not found
         }
 
-        if (this.gamePhase === 'results') { /* ... */ }
-    }
-
-    /**
-     * Processes an answer for a given player (updates player state, shows feedback).
-     * Called by both host (for self and client) and client (for self feedback).
-     * @param {string} peerId - The peer ID of the player who answered.
-     * @param {number} questionIndex - The index of the question answered.
-     * @param {string} selectedAnswer - The answer chosen.
-     * @param {boolean} isCorrect - Whether the answer was correct.
-     * @param {HTMLElement | null} [targetButton] - The button element clicked (optional).
-     * @private // Marked as private as it's primarily internal logic
-     */
-    processAnswer(peerId, questionIndex, selectedAnswer, isCorrect, targetButton = null) {
-        // Ensure the player exists
-        const player = this.players.get(peerId);
-        if (!player) {
-            console.error(`MP processAnswer: Player with peerId ${peerId} not found.`);
-            return;
+        // Update UI based on local finished status or game phase
+        if (state.gamePhase === GamePhases.FINISHED) {
+            console.log("MP Client: Received FINISHED state from host. Preparing to end game.");
+            this.mainMenu.gameAreaController.hideWaitingUi(); 
+            // Consider adding a small delay or waiting for final results message
+            // this.endGame(false); // Let H_FINAL_RESULTS trigger end screen
+        } else if (this.localPlayerFinished) {
+            console.log("MP Client: Local player is marked finished. Showing waiting UI.");
+            this.mainMenu.gameAreaController.showWaitingUi("Wachten tot anderen klaar zijn...");
+            if (this.timer) this.timer.stop();
+        } else if (this.gamePhase === 'playing'){
+             // Ensure waiting UI is hidden if the game is playing and we aren't finished
+             console.log("MP Client: Game ongoing, player not finished. Ensuring waiting UI is hidden.");
+             this.mainMenu.gameAreaController.hideWaitingUi();
         }
 
-        // Only process if it's the current question and player hasn't finished it yet for this round
-        // Note: Using > accounts for potential race conditions or re-processing attempts
-        if (questionIndex !== this.currentQuestionIndex || player.currentQuestionIndex > questionIndex) {
-             console.warn(`MP processAnswer: Ignoring answer for Q${questionIndex} from ${player.playerName}. Current is Q${this.currentQuestionIndex}. Player already processed up to Q${player.currentQuestionIndex}`);
-             // If it's the local player clicking again, ensure next button is shown.
-             if (peerId === this.webRTCManager?.peerId) {
-                  console.log(`MP processAnswer: Local player (${peerId}) clicked again on processed question ${questionIndex}. Ensuring Next button is visible.`);
-                  this.mainMenu.gameAreaController.showNextButton();
-             }
-            return; // Stop processing if already handled or not the current question
-        }
-
-        console.log(`MP processAnswer: Processing answer from ${player.playerName} (${peerId}) for Q${questionIndex}. Correct: ${isCorrect}`);
-
-        player.lastAnswerCorrect = isCorrect;
-        player.lastAnswerTimestamp = Date.now();
-        // Mark this question index as processed by this player for this round
-        player.currentQuestionIndex = questionIndex + 1;
-
-        if (isCorrect) {
-            // Use ScoreTimer to calculate score based on time remaining for *this* question
-            const scoreToAdd = this.timer ? this.timer.calculateScore() : 10; // Fallback score
-            player.score += scoreToAdd;
-             console.log(`MP processAnswer: Awarded ${scoreToAdd} points to ${player.playerName}. New score: ${player.score}`);
-        } else {
-            console.log(`MP processAnswer: Answer from ${player.playerName} was incorrect. No points added.`);
-        }
-
-         // Update the player map with the modified player object
-         this.players.set(peerId, player);
-
-        // --- Visual Feedback (Only for Local Player) ---
-        const localPeerId = this.webRTCManager?.peerId;
-         if (peerId === localPeerId) {
-             const currentQDataForFeedback = this.currentQuestions?.[questionIndex];
-             // *** FIX: Use '.answer' instead of '.correctAnswer' ***
-             const correctAnswerForFeedback = currentQDataForFeedback?.answer; // Use the correct property name
-             console.log(`MP processAnswer: Showing local feedback for ${player.playerName}. Correct: ${isCorrect}. Correct Answer for Feedback: ${correctAnswerForFeedback}`);
-             if (typeof correctAnswerForFeedback !== 'undefined') {
-                 this.mainMenu.gameAreaController.showFeedback(isCorrect, correctAnswerForFeedback, targetButton);
-             } else {
-                  console.error(`MP processAnswer: Cannot show feedback for Q${questionIndex}, correct answer value is undefined in question data.`);
-                  // Optionally show generic feedback without highlighting correct answer
-                  // this.mainMenu.gameAreaController.showFeedback(isCorrect, null, targetButton);
-             }
-         }
-         // --- Opponent Score/UI Update (Handled by broadcastGameState/handleGameStateUpdate) ---
-         // Avoid direct UI updates for opponent here; rely on state synchronization.
-         // This prevents duplicate updates (once here, once on state reception).
-
-        // --- Check Game End Condition ---
-        // Let's move this check to after state broadcast/reception to ensure consistency
-        // this.checkAndHandleGameEnd(); // Moved
-         console.log(`MP processAnswer: Finished for ${player.playerName} on Q${questionIndex}. Player state:`, JSON.parse(JSON.stringify(player))); // Log state after processing
+        // --- REMOVED Client-Side Phase Handling section as it's redundant/integrated above ---
     }
 
     /**
      * Handles answer selection logic for both host and client.
+     * Calculates score based on correctness and timer *before* stopping the timer.
      * @param {string} selectedAnswer - The answer text selected by the player.
      * @param {Event} event - The click event.
      */
     handleAnswerSelection(selectedAnswer, event) {
-        // Check if interaction should be blocked or if answer is invalid
         if (!selectedAnswer || this.blockInteraction || this.gamePhase !== 'playing') {
-            console.log(`MP handleAnswerSelection: Blocked interaction (Answer: ${selectedAnswer}, Blocked: ${this.blockInteraction}, Phase: ${this.gamePhase})`);
-            return; // Exit early if interaction is blocked
-        }
+             console.log(`MP handleAnswerSelection: Blocked interaction (Answer: ${selectedAnswer}, Blocked: ${this.blockInteraction}, Phase: ${this.gamePhase})`);
+             return;
+         }
 
         console.log(`MP handleAnswerSelection: Processing local answer "${selectedAnswer}" (Type: ${typeof selectedAnswer}). IsHost: ${this.isHost}`);
-        this.blockInteraction = true;
-        this.timer?.stop();
-        this.mainMenu.gameAreaController.disableAnswers();
+        this.blockInteraction = true; // Block interaction FIRST
 
-        const currentQData = this.currentQuestions?.[this.currentQuestionIndex];
-        // *** DIAGNOSTIC LOGGING START ***
-        console.log(`MP handleAnswerSelection: Current Question Index: ${this.currentQuestionIndex}`);
-        // Log the object structure (using JSON stringify for cleaner output)
-        console.log(`MP handleAnswerSelection: Fetched currentQData:`, JSON.parse(JSON.stringify(currentQData || {})));
-
+        const currentQData = this.currentQuestions[this.currentQuestionIndex];
         if (!currentQData) {
              console.error(`MP handleAnswerSelection: CRITICAL - No question data found for index ${this.currentQuestionIndex}. Aborting processing.`);
-             this.blockInteraction = false;
-             this.mainMenu.gameAreaController.enableAnswers();
-            return;
+             this.blockInteraction = false; // Allow potential recovery?
+             // No need to enable answers here, proceeding will likely cause issues.
+             return;
+        }
+        console.log(`MP handleAnswerSelection: Fetched currentQData:`, JSON.parse(JSON.stringify(currentQData || {})));
+
+        const actualCorrectAnswer = currentQData.answer;
+        console.log(`MP handleAnswerSelection: Comparing selectedAnswer "${selectedAnswer}" with currentQData.answer "${actualCorrectAnswer}"`);
+        const isCorrect = typeof actualCorrectAnswer !== 'undefined' && selectedAnswer == actualCorrectAnswer;
+        console.log(`MP handleAnswerSelection: Answer isCorrect = ${isCorrect}`);
+
+        let scoreToAdd = 0;
+        if (isCorrect) {
+            if (this.timer && typeof this.timer.calculateScore === 'function') {
+                // *** ADD DETAILED TIMER LOGGING ***
+                console.log(`MP handleAnswerSelection: Timer object state JUST BEFORE calculateScore():`, this.timer);
+                 // Attempt to log potentially relevant internal state if Timer/ScoreTimer structure is known/guessable
+                 try {
+                      // Use JSON.stringify to capture state, handle circular refs if necessary
+                     const timerStateString = JSON.stringify(this.timer, (key, value) => {
+                          // Simple circular reference handler example (adjust if needed)
+                          // if (key === '_someCircularRef') return '[Circular]';
+                          return value;
+                     });
+                     console.log(`MP handleAnswerSelection: Timer state (JSON): ${timerStateString}`);
+                 } catch (e) {
+                     console.warn("MP handleAnswerSelection: Could not stringify timer state:", e);
+                 }
+                 // *** END DETAILED LOGGING ***
+
+                // *** Add check for timer type BEFORE stop ***
+                if (this.timer) {
+                     console.log(`MP handleAnswerSelection: Checking timer instance BEFORE stop. Constructor: ${this.timer.constructor.name}`);
+                 } else {
+                     console.log(`MP handleAnswerSelection: Timer is null/undefined BEFORE stop.`);
+                 }
+
+                // Stop the timer BEFORE calculating score
+                this.timer.stop(); // Direct call - will throw error if timer is null/undefined
+
+                scoreToAdd = this.timer.calculateScore(); // Calculate score
+                console.log(`MP handleAnswerSelection: Score calculated AFTER stop: ${scoreToAdd}`); // Log the result immediately
+            } else {
+                console.warn("MP handleAnswerSelection: Timer or calculateScore method missing! Awarding default score (10).");
+                scoreToAdd = 10; // Fallback
+            }
         }
 
-        // *** FIX: Use '.answer' instead of '.correctAnswer' ***
-        const actualCorrectAnswer = currentQData.answer; // Use the correct property name
-        console.log(`MP handleAnswerSelection: Comparing selectedAnswer "${selectedAnswer}" (Type: ${typeof selectedAnswer}) with currentQData.answer "${actualCorrectAnswer}" (Type: ${typeof actualCorrectAnswer})`);
-        // *** END FIX ***
+        // Timer is already stopped above
+        // this.timer.stop(); // REMOVED FROM HERE
+        this.mainMenu.gameAreaController.disableAnswers();
 
-        // Perform comparison (using == for type flexibility, ensure data types are consistent ideally)
-        const isCorrect = typeof actualCorrectAnswer !== 'undefined' && selectedAnswer == actualCorrectAnswer;
-        console.log(`MP handleAnswerSelection: Answer isCorrect = ${isCorrect} (Used ==)`);
-        // *** DIAGNOSTIC LOGGING END ***
-
-        const localPeerId = this.webRTCManager?.peerId;
+        const localPeerId = this.webRTCManager.peerId;
         if (localPeerId) {
             console.log(`MP handleAnswerSelection: Processing answer locally for player ${localPeerId}.`);
-            // Pass the comparison result and target button
-            this.processAnswer(localPeerId, this.currentQuestionIndex, selectedAnswer, isCorrect, event?.target);
+            // *** FIX: Pass calculated scoreToAdd to processAnswer ***
+            this.processAnswer(localPeerId, this.currentQuestionIndex, selectedAnswer, isCorrect, scoreToAdd, event.target);
         } else {
             console.error("MP handleAnswerSelection: Cannot process local answer - local PeerID is missing.");
             this.blockInteraction = false;
@@ -1387,27 +1527,108 @@ class MultiplayerGame {
         // Host specific logic: Broadcast state
         if (this.isHost) {
             console.log("MP Host: Broadcasting game state after processing own answer.");
-            this.broadcastGameState(); // Broadcast the state including the result of the host's answer
+            this.broadcastGameState();
+
+            // Also check if game should end after processing client answer
+            if (this.checkIfAllFinished()) {
+                 console.log("MP Host: All players finished after processing client answer!");
+                 this.gamePhase = GamePhases.FINISHED;
+                 this.broadcastGameState(); // Broadcast final state
+                 this.endGame(true); // Host can end immediately
+            }
         }
-        // Client specific logic: Send answer to host
+        // Client specific logic: Send answer AND SCORE to host
         else {
-             console.log(`MP Client (${localPeerId}): Sending answer '${selectedAnswer}' for Q${this.currentQuestionIndex} to host.`);
-             if (this.webRTCManager && this.webRTCManager.hostConnection) {
-                 this.webRTCManager.sendTo(this.webRTCManager.hostConnection.peer, {
-                     type: MessageTypes.C_SUBMIT_ANSWER, // Use enum/const if available
-                     questionIndex: this.currentQuestionIndex,
-                     answer: selectedAnswer
+             // Ensure scoreToAdd is defined and is a number before sending
+            const finalScoreToAdd = (typeof scoreToAdd === 'number') ? scoreToAdd : 0;
+            const clientQuestionIndex = this.currentQuestionIndex; // Get client's current index
+            const questionText = currentQData.question; // Get the actual question text
+
+             console.log(`MP Client (${localPeerId}): Sending answer='${selectedAnswer}', text='${questionText}', score=${finalScoreToAdd} for clientIndex=${clientQuestionIndex} to host.`);
+             if (this.webRTCManager && this.webRTCManager.isActive()) { // Check if manager is active
+                // *** FIX: Send questionText and clientQuestionIndex ***
+                 this.webRTCManager.send({
+                     type: MessageTypes.C_SUBMIT_ANSWER,
+                     // questionIndex: this.currentQuestionIndex, // OLD
+                     clientQuestionIndex: clientQuestionIndex, // NEW
+                     questionText: questionText, // NEW
+                     answer: selectedAnswer,
+                     scoreToAdd: finalScoreToAdd
                  });
              } else {
-                 console.error(`MP Client: Cannot send answer - WebRTCManager (${!!this.webRTCManager}) or hostConnection (${!!this.webRTCManager?.hostConnection}) missing/invalid.`);
+                 console.error(`MP Client: Cannot send answer - WebRTCManager not active or hostConnection missing.`);
              }
         }
 
-        // Show the Next button for the local player (both host and client)
-         console.log(`MP handleAnswerSelection: Showing Next button for local player ${localPeerId}.`);
-         this.mainMenu.gameAreaController.showNextButton();
+        console.log(`MP handleAnswerSelection: Showing Next button for local player ${localPeerId}.`);
+        this.mainMenu.gameAreaController.showNextButton();
 
-         console.log(`MP handleAnswerSelection: Finished processing event for answer "${selectedAnswer}".`);
+        console.log(`MP handleAnswerSelection: Finished processing event for answer "${selectedAnswer}".`);
+    }
+
+    /**
+     * Processes an answer for a given player (updates player state, shows feedback).
+     * Uses the pre-calculated score passed from handleAnswerSelection.
+     * @param {string} peerId - The peer ID of the player who answered.
+     * @param {number} questionIndex - The index of the question answered.
+     * @param {string} selectedAnswer - The answer chosen.
+     * @param {boolean} isCorrect - Whether the answer was correct.
+     * @param {number} scoreToAdd - The score calculated before the timer was stopped.
+     * @param {HTMLElement | null} [targetButton] - The button element clicked (optional).
+     * @private
+     */
+    processAnswer(peerId, questionIndex, selectedAnswer, isCorrect, scoreToAdd, targetButton = null) {
+        const player = this.players.get(peerId);
+        if (!player) {
+            console.error(`MP processAnswer: Cannot find player with ID: ${peerId}`);
+            return;
+        }
+        console.log(`MP processAnswer START: Player ${player.playerName} (${peerId}) initial score: ${player.score}`);
+
+        // *** CORRECTED CHECK: Only ignore if THIS PLAYER already processed this question index ***
+        // The old check was: if (questionIndex !== this.currentQuestionIndex || player.currentQuestionIndex > questionIndex) {
+        if (player.currentQuestionIndex >= questionIndex) { // Use >= to prevent processing same or older index
+             console.warn(`MP processAnswer: Ignoring answer for Q${questionIndex} from ${player.playerName}. Player already processed up to Q${player.currentQuestionIndex}`);
+             return;
+        }
+
+        console.log(`MP processAnswer: Processing answer from ${player.playerName} (${peerId}) for Q${questionIndex}. Correct: ${isCorrect}. ScoreToAdd: ${scoreToAdd}`);
+
+        // --- Update Player State (Score & Progress) ---
+        if (isCorrect) {
+            player.score += scoreToAdd;
+            console.log(`MP processAnswer: Updated player ${player.playerName} score to ${player.score}`);
+        }
+
+        // IMPORTANT: Update the player's PROGRESS marker to reflect the question index *just answered*
+        player.currentQuestionIndex = questionIndex;
+        console.log(`MP processAnswer: Updated player ${player.playerName} currentQuestionIndex to ${questionIndex}`);
+
+        // --- UI Updates (if it's the LOCAL player) ---
+        if (peerId === this.webRTCManager.peerId) {
+            console.log(`MP processAnswer: Updating local UI for answer to Q${questionIndex}`);
+            this.mainMenu.gameAreaController.disableAnswers();
+            // REMOVED: this.mainMenu.gameAreaController.updateScore(player.score); - Handled by updateOpponentDisplay
+            this.mainMenu.gameAreaController.showFeedback(isCorrect, this.currentQuestions[questionIndex].answer, targetButton);
+            this.mainMenu.gameAreaController.showNextButton(); // Show next button *after* local processing
+        }
+
+        // --- Update Opponent Display for ALL players (including local score update) ---
+        console.log(`MP processAnswer: Calling updateOpponentDisplay after processing for ${player.playerName}`);
+        this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, this.webRTCManager.peerId);
+
+        // --- Check if THIS player finished the game ---
+        // Check if the question index just processed is the last one (index is 0-based)
+        if (player.currentQuestionIndex >= this.currentQuestions.length - 1) {
+             player.isFinished = true;
+             console.log(`MP processAnswer: Player ${player.playerName} (${peerId}) marked as finished after answering Q${player.currentQuestionIndex}.`);
+        }
+
+        // --- Check Game End (checks if ALL active players are finished) ---
+        // REMOVED: this.checkIfPlayerFinished(peerId);
+        this.checkMultiplayerEnd();
+
+        console.log(`MP processAnswer END: Player ${player.playerName} (${peerId}) final state for this step: score=${player.score}, index=${player.currentQuestionIndex}, finished=${player.isFinished}`);
     }
 
     /**
@@ -1421,6 +1642,31 @@ class MultiplayerGame {
         console.log(`MP proceedToNextQuestion: Current index AFTER increment: ${this.currentQuestionIndex}`);
         // Then display the question at the new index
         this.displayCurrentQuestion();
+    }
+
+    /**
+     * Checks if all players in the game have finished.
+     * @returns {boolean} True if all players are finished, false otherwise.
+     * @private
+     */
+    checkIfAllFinished() {
+        if (!this.players || this.players.size === 0) return false; // Can't be finished if no players map or it's empty
+        // Check if we have at least the expected number of players (e.g., 2 for 1v1)
+        // This prevents ending prematurely if a player disconnects before finishing.
+        // Adjust the expected number if group sizes change.
+        const expectedPlayers = 2; // TODO: Make this dynamic if lobby size changes?
+        if (this.players.size < expectedPlayers) {
+            // console.log("MP checkIfAllFinished: Not enough players connected to finish.");
+            return false;
+        }
+
+        for (const player of this.players.values()) {
+            if (!player.isFinished) {
+                return false; // Found a player who is not finished
+            }
+        }
+        console.log("MP checkIfAllFinished: All connected players are finished.");
+        return true; // All players are finished
     }
 
 }

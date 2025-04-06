@@ -21,9 +21,9 @@ class SinglePlayerEndDialog extends BaseDialog {
 
     /** Sets up listeners specific to this dialog's buttons. */
     _setupEventListeners() {
-        this.saveScoreButton?.addEventListener('click', () => this.handleSave());
-        this.restartButton?.addEventListener('click', () => this.handleRestart());
-        this.menuButton?.addEventListener('click', () => {
+        this.saveScoreButton.addEventListener('click', () => this.handleSave());
+        this.restartButton.addEventListener('click', () => this.handleRestart());
+        this.menuButton.addEventListener('click', () => {
             this.hide(); // Close dialog
             this.mainMenuController.showView('mainMenu', 'backward'); // Navigate back with direction
         });
@@ -37,7 +37,7 @@ class SinglePlayerEndDialog extends BaseDialog {
         if (this.finalScoreSpan) {
             this.finalScoreSpan.textContent = score;
         }
-        if (this.playerNameInput && this.mainMenuController?.currentGame) {
+        if (this.playerNameInput && this.mainMenuController.currentGame) {
              // Pre-fill name from the current game instance via the mainMenuController
              this.playerNameInput.value = this.mainMenuController.currentGame.playerName || '';
         }
@@ -55,7 +55,7 @@ class SinglePlayerEndDialog extends BaseDialog {
         const name = this.playerNameInput.value;
         if (!name.trim()) {
             // Delegate error showing to the main controller or a dedicated error dialog instance
-            this.mainMenuController?.dialogController?.showError("Vul je naam in om op te slaan!");
+            this.mainMenuController.dialogController.showError("Vul je naam in om op te slaan!");
             return;
         }
 
@@ -66,13 +66,13 @@ class SinglePlayerEndDialog extends BaseDialog {
 
         try {
             // Update name and trigger save via the game instance
-            if (!this.mainMenuController?.currentGame) {
+            if (!this.mainMenuController.currentGame) {
                 throw new Error("Current game instance not found.");
             }
             await this.mainMenuController.currentGame.saveHighscore(name); // Await save
             console.log("SinglePlayerEndDialog: game.saveHighscore finished successfully.");
 
-            this.mainMenuController.toastNotification?.show("Highscore opgeslagen!");
+            this.mainMenuController.toastNotification.show("Highscore opgeslagen!");
             this.hide(); // Hide this dialog
             // Navigate via the main controller AFTER successful save
             this.mainMenuController.showView('mainMenu', 'backward'); // Use backward for returning
@@ -80,7 +80,7 @@ class SinglePlayerEndDialog extends BaseDialog {
 
         } catch (error) {
              console.error("SinglePlayerEndDialog: Error during save:", error);
-             this.mainMenuController.dialogController?.showError(`Fout bij opslaan score: ${error?.message || error}`);
+             this.mainMenuController.dialogController.showError(`Fout bij opslaan score: ${error.message || error}`);
              // Re-enable buttons on error
              if(this.saveScoreButton) this.saveScoreButton.disabled = false;
              if(this.restartButton) this.restartButton.disabled = false;
@@ -93,7 +93,7 @@ class SinglePlayerEndDialog extends BaseDialog {
         console.log("SinglePlayerEndDialog: Restart clicked.");
         this.hide(); // Hide this dialog
         // Trigger restart via the game instance
-        this.mainMenuController?.currentGame?.restartGame();
+        this.mainMenuController.currentGame.restartGame();
     }
 
     /** Override onClose to ensure buttons are re-enabled if closed via ESC */

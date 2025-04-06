@@ -23,11 +23,11 @@ class CustomQuestionsController {
 
     /** Sets up listeners for buttons and the select element. */
     setupEventListeners() {
-        this.saveButton?.addEventListener('click', () => this.handleSave());
-        this.editButton?.addEventListener('click', () => this.handleEdit());
-        this.deleteButton?.addEventListener('click', () => this.handleDelete());
+        this.saveButton.addEventListener('click', () => this.handleSave());
+        this.editButton.addEventListener('click', () => this.handleEdit());
+        this.deleteButton.addEventListener('click', () => this.handleDelete());
 
-        this.existingSheetsSelect?.addEventListener('change', () => {
+        this.existingSheetsSelect.addEventListener('change', () => {
             const selectedSheet = this.existingSheetsSelect.value;
             if (selectedSheet === "") {
                  if (this.sheetNameInput) { this.sheetNameInput.value = ''; this.sheetNameInput.disabled = false; }
@@ -39,8 +39,8 @@ class CustomQuestionsController {
         });
 
         // CORRECTED back button listener (using the stored mainMenuController)
-        this.backButton = this.container?.querySelector('.backToMain');
-        this.backButton?.addEventListener('click', () => {
+        this.backButton = this.container.querySelector('.backToMain');
+        this.backButton.addEventListener('click', () => {
             this.mainMenuController.showView('mainMenu', 'backward'); // Add direction
         });
     }
@@ -48,7 +48,7 @@ class CustomQuestionsController {
     /** Shows the custom questions management container and updates dropdown. */
     show() {
         // Assumes #customQuestionsManager base style is display: flex
-        this.container?.classList.remove('hidden');
+        this.container.classList.remove('hidden');
         this.updateExistingSheetsDropdown();
         // Reset fields to default "New list" state
         if (this.sheetNameInput) { this.sheetNameInput.value = ''; this.sheetNameInput.disabled = false; }
@@ -58,12 +58,12 @@ class CustomQuestionsController {
 
     /** Hides the custom questions management container. */
     hide() {
-        this.container?.classList.add('hidden');
+        this.container.classList.add('hidden');
     }
 
     /** Updates the dropdown list of existing custom sheets. */
     updateExistingSheetsDropdown() {
-        if (!this.existingSheetsSelect || !this.mainMenuController?.questionsManager) return; // Use hub
+        if (!this.existingSheetsSelect || !this.mainMenuController.questionsManager) return; // Use hub
         try {
             const sheets = this.mainMenuController.questionsManager.listCustomSheets(); // Use hub
             const currentVal = this.existingSheetsSelect.value;
@@ -84,7 +84,7 @@ class CustomQuestionsController {
 
     /** Handles saving new or edited custom questions. */
     handleSave() {
-        if (!this.sheetNameInput || !this.questionsTextarea || !this.mainMenuController?.questionsManager) return; // Use hub
+        if (!this.sheetNameInput || !this.questionsTextarea || !this.mainMenuController.questionsManager) return; // Use hub
         const sheetName = this.sheetNameInput.value.trim();
         const customText = this.questionsTextarea.value.trim();
 
@@ -101,7 +101,7 @@ class CustomQuestionsController {
             if (this.existingSheetsSelect) this.existingSheetsSelect.value = sheetName;
             if (this.sheetNameInput) this.sheetNameInput.disabled = true; // Keep disabled
 
-            this.mainMenuController.populateSheetCheckboxes?.(); // Call directly on mainMenuController if it exists
+            this.mainMenuController.populateSheetCheckboxes(); // Call directly on mainMenuController if it exists
 
         } catch (error) {
             console.error("Error saving custom questions:", error);
@@ -125,7 +125,7 @@ class CustomQuestionsController {
      * @param {string} sheetName - The name of the sheet to load.
      */
     loadSheetForEditing(sheetName) {
-         if (!this.sheetNameInput || !this.questionsTextarea || !this.mainMenuController?.questionsManager) return; // Use hub
+         if (!this.sheetNameInput || !this.questionsTextarea || !this.mainMenuController.questionsManager) return; // Use hub
          try {
             const questions = this.mainMenuController.questionsManager.getCustomQuestions(sheetName); // Use hub
             if (questions) {
@@ -146,7 +146,7 @@ class CustomQuestionsController {
 
     /** Handles deleting a selected custom sheet. */
     handleDelete() {
-        if (!this.existingSheetsSelect || !this.mainMenuController?.questionsManager) return; // Use hub
+        if (!this.existingSheetsSelect || !this.mainMenuController.questionsManager) return; // Use hub
         const sheetName = this.existingSheetsSelect.value;
         if (!sheetName) { alert('Kies eerst een vragenlijst uit de lijst om te verwijderen.'); return; }
 
@@ -158,7 +158,7 @@ class CustomQuestionsController {
                 if (this.questionsTextarea) this.questionsTextarea.value = '';
                 this.updateExistingSheetsDropdown();
 
-                this.mainMenuController.populateSheetCheckboxes?.(); // Call directly on mainMenuController
+                this.mainMenuController.populateSheetCheckboxes(); // Call directly on mainMenuController
 
             } catch (error) {
                 console.error("Error deleting custom questions:", error);

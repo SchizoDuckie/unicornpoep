@@ -28,7 +28,7 @@ class HighscoresController {
     setupEventListeners() {
         // Add listener for the back button
         this.backButton = document.querySelector('#highscores .backToMain');
-        this.backButton?.addEventListener('click', () => {
+        this.backButton.addEventListener('click', () => {
             this.mainMenuController.showView('mainMenu', 'backward'); // Add direction
         });
 
@@ -38,14 +38,14 @@ class HighscoresController {
     /** Shows the highscores container and renders the scores. @async */
     async show() {
         // Assumes #highscores base style is display: flex
-        this.container?.classList.remove('hidden');
+        this.container.classList.remove('hidden');
         await this.render(); // Fetch and display scores
         this.triggerCelebratoryConfetti(); // Show confetti on view
     }
 
     /** Hides the highscores container. */
     hide() {
-        this.container?.classList.add('hidden');
+        this.container.classList.add('hidden');
     }
 
     /** Fetches, sorts, and renders highscores into the table. @async */

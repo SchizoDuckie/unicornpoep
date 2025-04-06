@@ -26,7 +26,7 @@ class Game {
         this.playerName = localStorage.getItem('unicornPoepPlayerName') || 'Speler 1';
 
         // Validate essential dependencies are available via the hub
-        if (!this.mainMenu?.questionsManager || !this.mainMenu?.gameAreaController || !this.mainMenu?.dialogController || !this.mainMenu?.loadingController || !this.mainMenu?.highscoresManager) {
+        if (!this.mainMenu.questionsManager || !this.mainMenu.gameAreaController || !this.mainMenu.dialogController || !this.mainMenu.loadingController || !this.mainMenu.highscoresManager) {
             console.error("SP Game: Essential managers/controllers not found via MainMenu!");
             // Consider throwing an error that stops game creation
         }
@@ -45,7 +45,7 @@ class Game {
      * @param {string} newName - The new player name.
      */
     updatePlayerName(newName) {
-        const trimmedName = newName?.trim();
+        const trimmedName = newName.trim();
         if (trimmedName && trimmedName !== this.playerName) {
             this.playerName = trimmedName;
             localStorage.setItem('unicornPoepPlayerName', trimmedName);
@@ -61,7 +61,7 @@ class Game {
      */
     async loadQuestionsForGame() {
         console.log("SP Game: Calling loadQuestionsForGame...");
-        if (!this.mainMenu?.questionsManager) {
+        if (!this.mainMenu.questionsManager) {
             throw new Error("QuestionsManager not available via mainMenu.");
         }
         if (!this.selectedSheets || this.selectedSheets.length === 0) {
@@ -78,7 +78,7 @@ class Game {
 
         } catch (error) {
              console.error("SP Game: Error loading questions via QuestionsManager:", error);
-             this.mainMenu.dialogController?.showError(`Fout bij laden vragen: ${error.message}`);
+             this.mainMenu.dialogController.showError(`Fout bij laden vragen: ${error.message}`);
              this.currentQuestions = []; // Ensure state is clean on error
             throw error; // Re-throw to be caught by startNewGame
         }
@@ -162,7 +162,7 @@ class Game {
 
         if (this.isTestMode) {
             this.timer = new ScoreTimer(this.difficulty);
-            console.log(`SP Game: Initialized ScoreTimer for difficulty '${this.difficulty}'. Effective duration: ${this.timer?.duration}ms`);
+            console.log(`SP Game: Initialized ScoreTimer for difficulty '${this.difficulty}'. Effective duration: ${this.timer.duration}ms`);
         } else {
             this.timer = null;
             console.log("SP Game: Practice mode, timer not initialized.");
@@ -193,7 +193,7 @@ class Game {
             } else {
                  console.error("SP Game: Cannot navigate back to main menu, mainMenu reference is missing.");
                  // Potentially show a generic error message if DialogController is available
-                 this.mainMenu?.dialogController?.showErrorDialog("Kon niet terugkeren naar hoofdmenu.");
+                 this.mainMenu.dialogController.showErrorDialog("Kon niet terugkeren naar hoofdmenu.");
             }
         }
     }
@@ -247,12 +247,12 @@ class Game {
     /** Handles the player's selection of an answer via GameAreaController */
     handleAnswerSelection(selectedAnswer, event) {
         const ctrl = this.mainMenu.gameAreaController;
-        if (!ctrl?.areAnswersEnabled()) return;
+        if (!ctrl.areAnswersEnabled()) return;
 
-        this.timer?.stop();
-        ctrl?.disableAnswers();
+        this.timer.stop();
+        ctrl.disableAnswers();
 
-        const currentQuestion = this.currentQuestions?.[this.currentQuestionIndex];
+        const currentQuestion = this.currentQuestions[this.currentQuestionIndex];
         if (!currentQuestion) {
             console.error("SP Game: Missing current question during answer handling.");
             this.endGame();
@@ -261,9 +261,9 @@ class Game {
 
         const isCorrect = selectedAnswer === currentQuestion.answer;
 
-        ctrl?.highlightCorrectAnswer(currentQuestion.answer);
+        ctrl.highlightCorrectAnswer(currentQuestion.answer);
         if (selectedAnswer !== null && !isCorrect) {
-             ctrl?.highlightWrongAnswer(selectedAnswer);
+             ctrl.highlightWrongAnswer(selectedAnswer);
         }
 
         if (isCorrect) {
@@ -271,7 +271,7 @@ class Game {
              if (this.isTestMode) {
                  scoreIncrement = this.timer ? this.timer.calculateScore(this.difficulty) : 10;
             this.score += scoreIncrement;
-                 ctrl?.updateScore(this.score);
+                 ctrl.updateScore(this.score);
              }
              if (event && this.mainMenu.gameAreaController) {
                 this.mainMenu.gameAreaController.showConfetti(scoreIncrement > 0 ? scoreIncrement * 2 : 30, event);
@@ -293,7 +293,7 @@ class Game {
     nextQuestion() {
         console.log(`SP nextQuestion: Advancing locally from index ${this.currentQuestionIndex}`);
         this.currentQuestionIndex++;
-        this.mainMenu.gameAreaController?.resetAnswerHighlights(); // Reset highlights before showing next
+        this.mainMenu.gameAreaController.resetAnswerHighlights(); // Reset highlights before showing next
         this.displayCurrentQuestion();
     }
 
@@ -309,7 +309,7 @@ class Game {
     onTick(remainingTimeMillis) {
         const ctrl = this.mainMenu.gameAreaController;
         if (!ctrl) {
-             this.timer?.stop();
+             this.timer.stop();
              return;
         }
         // *** REVERT: Calculate seconds for display ***
@@ -325,8 +325,8 @@ class Game {
     /** Ends the single-player game session */
     async endGame() {
         console.log("SP Game: Ending game.");
-        this.timer?.stop(); // Keep optional chaining for timer as it *can* be null in practice mode
-        // REMOVED ?. - Expect mainMenu and gameAreaController to exist
+        this.timer.stop(); // Keep optional chaining for timer as it *can* be null in practice mode
+        // REMOVED . - Expect mainMenu and gameAreaController to exist
         this.mainMenu.gameAreaController.disableAnswers();
         this.gameActive = false;
 
@@ -336,7 +336,7 @@ class Game {
             return;
         }
 
-        // REMOVED ?. - Expect mainMenu, highscoresManager, and dialogController to exist
+        // REMOVED . - Expect mainMenu, highscoresManager, and dialogController to exist
         const hsManager = this.mainMenu.highscoresManager;
         const dialogCtrl = this.mainMenu.dialogController;
 
@@ -344,7 +344,7 @@ class Game {
         if (!hsManager || !(hsManager instanceof HighscoresManager)) {
             const errorMsg = "Critical Error: HighscoresManager instance is missing or not the correct type in endGame.";
             console.error(errorMsg, "Instance received:", hsManager);
-            // REMOVED ?. - Expect dialogCtrl to exist if hsManager checks passed
+            // REMOVED . - Expect dialogCtrl to exist if hsManager checks passed
             dialogCtrl.showError(errorMsg);
             this.backToMainMenu();
             return; // Stop execution
@@ -353,7 +353,7 @@ class Game {
         if (typeof hsManager.isNewHighScore !== 'function') {
             const errorMsg = "Critical Error: HighscoresManager instance is valid, but 'isNewHighScore' method is missing at runtime.";
             console.error(errorMsg, "Instance prototype:", Object.getPrototypeOf(hsManager));
-            // REMOVED ?. - Expect dialogCtrl to exist if hsManager checks passed
+            // REMOVED . - Expect dialogCtrl to exist if hsManager checks passed
             dialogCtrl.showError(errorMsg);
             this.backToMainMenu();
             return; // Stop execution
@@ -367,7 +367,7 @@ class Game {
              );
 
              // Check dialogCtrl and the method 'showSinglePlayerEnd'
-             // REMOVED ?. - Expect dialogCtrl to exist
+             // REMOVED . - Expect dialogCtrl to exist
              if (dialogCtrl && typeof dialogCtrl.showSinglePlayerEnd === 'function') {
                  dialogCtrl.showSinglePlayerEnd(this.score);
              } else {
@@ -376,7 +376,7 @@ class Game {
              }
         } catch (error) {
              console.error("SP Game: Error during end game score processing (after checks):", error);
-             // REMOVED ?. - Expect dialogCtrl to exist if we get here
+             // REMOVED . - Expect dialogCtrl to exist if we get here
              dialogCtrl.showError(`Fout bij verwerken van score: ${error.message}`);
              this.backToMainMenu();
         }
@@ -385,9 +385,9 @@ class Game {
     /** Navigates back to main menu via the central controller */
     backToMainMenu() {
         console.log("SP Game: Requesting navigation to main menu.");
-        this.timer?.stop(); // Keep for timer
+        this.timer.stop(); // Keep for timer
         this.resetGameState();
-        // REMOVED ?. - Expect mainMenu to exist
+        // REMOVED . - Expect mainMenu to exist
         this.mainMenu.showView('mainMenu');
         // Removed the defensive fallback block that tried window access
     }
@@ -396,7 +396,7 @@ class Game {
     resetGameState() {
         console.log('SP Game: Resetting state');
         this.gameActive = false;
-        this.timer?.stop(); // Keep for timer
+        this.timer.stop(); // Keep for timer
         this.timer = null;
         this.selectedSheets = [];
         this.currentQuestions = [];
@@ -405,7 +405,7 @@ class Game {
         this.isTestMode = false;
         this.isPracticeMode = false;
         this.difficulty = null;
-        // REMOVED ?. - Expect mainMenu and gameAreaController to exist
+        // REMOVED . - Expect mainMenu and gameAreaController to exist
         this.mainMenu.gameAreaController.resetUI();
     }
 
@@ -416,7 +416,7 @@ class Game {
      * @async - Keep async signature even if addScore is sync, for potential future changes.
      */
     async saveHighscore(playerNameInput) {
-        const nameToSave = playerNameInput?.trim() || this.playerName; // Allow ?. for standard JS method
+        const nameToSave = playerNameInput.trim() || this.playerName; // Allow . for standard JS method
         if (!nameToSave) {
             console.warn("SP Game: Attempted to save high score with no name.");
             this.mainMenu.toastNotification.show("Voer een naam in om de score op te slaan.", 4000);
@@ -462,7 +462,7 @@ class Game {
      */
     stopGame() {
         console.log("SP Game: Stopping game via stop button.");
-        this.timer?.stop();
+        this.timer.stop();
         this.resetGameState(); // Reset state and UI
         // Navigate first
         this.mainMenu.showView('mainMenu', 'backward');
@@ -474,14 +474,14 @@ class Game {
     restartGame() {
         console.log("SP Game: Restarting game.");
         this.startNewGame(this.selectedSheets, this.difficulty);
-        // REMOVED ?. - Expect mainMenu to exist
+        // REMOVED . - Expect mainMenu to exist
         this.mainMenu.showView('gameArea');
     }
 
     /** Shows multiplayer choice screen - DELEGATES TO MAIN MENU CONTROLLER */
     showMultiplayerChoice() {
         console.log("Game: Multiplayer selected. Triggering MP initialization via MainMenuController.");
-        // REMOVED ?. - Expect mainMenu to exist
+        // REMOVED . - Expect mainMenu to exist
         this.mainMenu.startMultiplayer(MultiplayerModes.CHOICE);
     }
 }

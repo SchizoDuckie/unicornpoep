@@ -10,7 +10,7 @@ class AboutController {
     constructor(mainMenuController) {
         this.mainMenuController = mainMenuController;
         this.aboutElement = document.getElementById('about');
-        this.backButton = this.aboutElement?.querySelector('.backToMain');
+        this.backButton = this.aboutElement.querySelector('.backToMain');
 
         this.setupEventListeners();
         this.hide(); // Add .hidden class initially
@@ -20,7 +20,7 @@ class AboutController {
      * Sets up listeners for buttons within the about view.
      */
     setupEventListeners() {
-        this.backButton?.addEventListener('click', () => {
+        this.backButton.addEventListener('click', () => {
             this.mainMenuController.showView('mainMenu', 'backward');
         });
     }
@@ -29,14 +29,14 @@ class AboutController {
      * Shows the about container. Assumes base style is display: flex.
      */
     show() {
-        this.aboutElement?.classList.remove('hidden');
+        this.aboutElement.classList.remove('hidden');
     }
 
     /**
      * Hides the about container.
      */
     hide() {
-        this.aboutElement?.classList.add('hidden');
+        this.aboutElement.classList.add('hidden');
     }
 
     activate() {

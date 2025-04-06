@@ -15,13 +15,13 @@ class LoadingController {
      * Assumes the base CSS for #loading sets display: flex.
      */
     show() {
-        this.container?.classList.remove('hidden');
+        this.container.classList.remove('hidden');
     }
 
     /**
      * Hides the loading indicator by adding the 'hidden' class.
      */
     hide() {
-        this.container?.classList.add('hidden');
+        this.container.classList.add('hidden');
     }
 }
