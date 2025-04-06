@@ -9,16 +9,80 @@ These instructions will help you understand the structure, patterns, and convent
 
 **1. Core Architecture & Design Patterns:**
 
-*   **Central Orchestrator:** The `Game` class (`game.js`) acts as the central hub, managing game state, transitions between modes (main menu, practice, test, multiplayer), and coordinating interactions between different controllers and managers.
-*   **Controller Pattern:** The UI is divided into logical sections, each managed by a dedicated controller class (e.g., `MainMenuController`, `GameAreaController`, `DialogController`, `MultiplayerController`, `HighscoresController`, `CustomQuestionsController`, `AboutController`, `LoadingController`).
-    *   Controllers are responsible for handling user interactions within their specific UI section (button clicks, input changes).
-    *   They interact with the main `Game` instance to trigger state changes or actions.
-*   **UI Visibility:** The primary pattern for showing/hiding major UI sections (like `#mainMenu`, `#gameArea`, `#multiplayerChoice`, `#sheetSelection`, etc.) is toggling the `.hidden` CSS class (`display: none !important;`) on their container elements. Controller methods like `show()` (removes `.hidden`) and `hide()` (adds `.hidden`) manage this state. Assume elements have a base `display` style (e.g., `flex`, `block`) that becomes active when `.hidden` is removed.
-    *   **Hierarchy Dependency:** Crucially, an element will *not* be visible if any of its parent containers still have the `.hidden` class, even if the element's own `.hidden` class is removed. When showing a sub-section (like `#sheetSelection`), ensure its parent container (like `#mainMenu`) is also visible (e.g., by calling the parent controller's `show()` method if needed).
-    *   **Exception:** Fixed-position bottom navigation bars (`#sheetNavigation`, `#gameNavigation`) use a different mechanism. They toggle an `.active` class that changes their `bottom` CSS property to slide them into view, rather than using the `.hidden` class.
-    *   **Dialogs:** Modal dialogs (`<dialog>` elements managed by `DialogController`) use their native `.showModal()` and `.close()` methods, not the `.hidden` class pattern.
+*   **Central Orchestrator (`MainMenuController`)**: The `MainMenuController` (`mainmenu-controller.js`) acts as the **primary application entry point and central coordinator**. It is instantiated in `index.html`'s `DOMContentLoaded` listener.
+    *   It is responsible for initializing core managers (`QuestionsManager`, `HighscoresManager`) and other UI controllers (`GameAreaController`, `DialogController`, etc.).
+    *   It holds direct references to these created instances.
+    *   It manages the main application navigation flow using a central `showView(viewId)` method, which handles showing/hiding the main view container `div` elements (`#mainMenu`, `#gameArea`, `#highscores`, etc.).
+    *   It creates `Game` or `MultiplayerGame` instances *on demand* when the user starts a game session.
+*   **Dependency Management (Hub Pattern):**
+    *   **NO Global `window.*` for Controllers/Managers:** Avoid accessing controllers or managers via `window.*` references within class methods.
+    *   **`MainMenuController` as Hub:** When `MainMenuController` creates other controllers or the `Game`/`MultiplayerGame` instances, it passes **itself** (`this`) into their constructors.
+    *   **Access via Hub:** Components (other controllers, `Game`, `MultiplayerGame`) store the passed `MainMenuController` instance (e.g., `this.mainMenuController`). To access other components (managers, controllers, the current game instance), they use their stored reference (e.g., `this.mainMenuController.gameAreaController`, `this.mainMenuController.questionsManager`, `this.mainMenuController.currentGame`).
+*   **Controller Pattern:** The UI is divided into logical sections, each managed by a dedicated controller class (e.g., `GameAreaController`, `DialogController`, `MultiplayerController`, `HighscoresController`, `CustomQuestionsController`, `AboutController`, `LoadingController`).
+    *   Controllers are responsible for handling user interactions within their specific UI section and updating the DOM elements they manage.
+    *   They interact with the central `MainMenuController` instance (via their stored reference) to trigger navigation (`this.mainMenuController.showView(...)`) or access other components/game state.
+    *   **UI Visibility:** Top-level view visibility (`#mainMenu`, `#gameArea`, etc.) is managed by `MainMenuController.showView()`. Controllers manage the visibility *within* their specific view (e.g., `MainMenuController` showing/hiding the sheet selection sub-menu, `MultiplayerController` managing its connection screens). Dialog visibility is typically managed by `DialogController` or `MultiplayerController` using `<dialog>.showModal()` and `.close()`.
 *   **Manager Pattern:** Data handling and external interactions are encapsulated in manager classes:
-    *   `QuestionsManager`: Loads, parses, caches, and manages access to predefined and custom questions (stored in `localStorage`).
+    *   `QuestionsManager`: Loads, parses, caches, and manages access to questions. Created by `MainMenuController`.
+    *   `HighscoresManager`: Handles saving/retrieving high scores. Created by `MainMenuController`.
+    *   `WebRTCManager`: Manages peer-to-peer connection logic. Created internally by `MultiplayerGame`.
+*   **Game Session Classes (`Game`, `MultiplayerGame`):**
+    *   These classes manage the logic for an *active* game session (single-player or multiplayer).
+    *   They are created *by* `MainMenuController` when a game starts.
+    *   They receive the `MainMenuController` instance in their constructor for accessing managers/controllers.
+    *   They focus *only* on game logic (loading questions for the session, handling answers, managing timers, scores, game state, WebRTC messages).
+    *   They do **not** handle top-level application navigation. To return to the menu, they call `this.mainMenuController.showView('mainMenu')`.
+*   **Separation of Concerns:** `MainMenuController` handles app init and navigation. Other Controllers handle specific UI sections. Managers handle data/external systems. `Game`/`MultiplayerGame` handle active game session logic.
+
+**2. Key Components & Logic Distribution:**
+
+*   **Application Initialization (`index.html`, `MainMenuController.init`)**: `index.html`'s primary role in the `DOMContentLoaded` listener is **minimal**: it should only instantiate the `MainMenuController` and call its `init()` method. **Avoid placing significant application logic, navigation, or component creation directly within `index.html`.** `MainMenuController.init()` then takes over, creating managers/controllers, fetching initial data, setting up global listeners, and showing the initial view (usually main menu).
+*   **Main Menu (`MainMenuController`)**: Handles menu options, sheet/difficulty selection UI, and triggers the start of game sessions (SP or MP).
+*   **Game Area (`GameAreaController`)**: Manages the UI during active gameplay (question, answers, score, timer, progress, opponent list, chat). Receives updates from the active `Game` or `MultiplayerGame` instance.
+*   **Dialogs (`DialogController`)**: Manages common modal dialogs (End of Game, Disconnection, Errors). Interacts with `MainMenuController` for navigation after closing.
+*   **Multiplayer UI (`MultiplayerController`)**: Manages pre-game MP screens (Host/Join choice, connection codes, status messages). Interacts with `MainMenuController` for navigation and the active `MultiplayerGame` instance.
+*   **Multiplayer Logic (`MultiplayerGame`, `WebRTCManager`)**: `MultiplayerGame` orchestrates the MP session state and logic, using `WebRTCManager` for network communication.
+*   **Single Player Logic (`Game`)**: Orchestrates the SP game session state and logic.
+*   **High Scores (`HighscoresManager`, `HighscoresController`)**: Manager handles data, Controller handles UI display.
+*   **Custom Questions (`QuestionsManager`, `CustomQuestionsController`)**: Manager handles data, Controller handles UI.
+
+**3. Code Standards & Conventions:**
+
+*   **Language:** Modern JavaScript (ES6+). Use `class` syntax.
+*   **Asynchronous Operations:** Use `async`/`await`.
+*   **Docblocks:** Maintain JSDoc-style comments.
+*   **Naming:** camelCase for variables/functions, PascalCase for classes.
+*   **DOM Manipulation:** `getElementById`, `querySelector`, class toggling (`.classList`), `textContent`/`innerHTML`.
+*   **Error Handling:** Use `try...catch`. Log errors. Use `DialogController.showErrorDialog` for user-facing errors where appropriate.
+*   **Comments:** Explain non-obvious logic. Preserve existing important comments.
+
+**4. Data Storage:**
+
+*   **`localStorage`:** Used for `HighscoresManager`, `QuestionsManager` (custom sheets), player name persistence.
+*   **In-Memory State:**
+    *   **App State:** `MainMenuController` holds references to all main components and the `currentGame` instance.
+    *   **Game State:** `Game` or `MultiplayerGame` instances manage their session state (selected sheets, difficulty, questions, scores, player list, game phase).
+
+**5. Potential Points of Attention:**
+
+*   **Redundant Files:** Prioritize `*Controller.js`/`*Manager.js` files over older, potentially redundant ones (like `mainmenu.js`, `highscores.js`).
+*   **Konami Code:** Easter egg in `highscores-controller.js`.
+*   **Global Libraries:** Assumes global availability of `confetti`, `Peer` (from `peerjs.min.js`), `ScoreTimer`, `ToastNotification`.
+
+**6. Continuous improvements:**
+
+*   When new patterns or significant logic changes occur, suggest updates to this document.
+
+**7. Debugging Guidance:**
+
+*   **Trace the Hub:** When debugging interactions, trace calls through the `MainMenuController` instance. Understand which component is responsible for the current logic.
+*   **Identify Missing Code:** State explicitly if required files are missing.
+*   **Trace Inter-Component Calls:** Follow the flow from one component accessing another via the `MainMenuController` hub (e.g., `Game` calling `this.mainMenuController.gameAreaController.updateScore(...)`).
+*   **NO `console.log` Debugging:** Analyze the code flow, state changes, and event listeners. Plan debugging steps.
+*   **Focus on Root Causes:** Avoid workarounds. Identify *why* state is wrong or a function isn't behaving as expected.
+*   **Isolate Issues:** Try to determine if the issue lies in UI handling (Controller), game logic (`Game`/`MultiplayerGame`), data handling (Manager), or navigation (`MainMenuController`).
+
+By following these guidelines, you should be able to navigate the codebase, understand the central coordinator pattern, component responsibilities, and the flow of logic, making changes consistent with the established architecture.
 
 **2. Code Standards & Conventions:**
 
@@ -27,8 +91,8 @@ These instructions will help you understand the structure, patterns, and convent
  *   **Docblocks:** Functions and classes generally have JSDoc-style comments explaining their purpose and parameters (`@param`, `@returns`). Maintain this style.
  *   **Naming:** Use camelCase for variables and functions, PascalCase for class names.
  *   **DOM Manipulation:** Primarily uses `document.getElementById` and `querySelector`/`querySelectorAll` to get elements. Interactions often involve adding/removing classes (`.classList.add`/`.remove`) and setting `textContent` or `innerHTML`.
- *   **Error Handling:** Use `try...catch` blocks for operations that might fail (e.g., `localStorage` access, `fetch`, JSON parsing). Log errors to the console (`console.error`, `console.warn`). User-facing errors are often shown via `alert()` or specific UI elements managed by controllers (like `DialogController` or `MultiplayerController`).
- *   **Comments:** Avoid redundant comments. Focus on explaining non-obvious logic or reasoning. Preserve existing important comments (e.g., explaining edge cases).
+ *   **Error Handling:** Use `try...catch` blocks for operations that might fail (e.g., `localStorage` access, `fetch`, JSON parsing). Log errors to the console (`console.error`, `console.warn`). User-facing errors and input are never shown via `alert()` or `prompt()` always use a proper GUI dialog with a controller (like `DialogController` or `MultiplayerController`).
+ *   **Comments:** Avoid redundant comments and comments that show the LLM thinking or debugging process. Remove them if you encounter them. Focus on explaining non-obvious logic or reasoning. Preserve existing important comments (e.g., explaining edge cases). Always make sure every function and class has a docblock.
  *   **UI Styling Consistency - HTML Structure:** When adding new UI elements (inputs, buttons, dialogs, etc.) that need to visually match existing ones, **inspect the exact HTML structure** of the reference element in `index.html`. **Precisely replicate** this structure, including any **wrapper `<div>` elements and specific CSS classes** (like `.name-input-container`), not just top-level classes (like `.unicorn-theme` or `.hidden`). CSS styling rules often depend on this specific nesting and class hierarchy. Simply applying a general theme class or relying on element type selectors may not achieve the desired visual consistency.
 
 

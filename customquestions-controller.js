@@ -7,8 +7,8 @@ class CustomQuestionsController {
      * Initializes the controller, gets elements, and sets up listeners.
      * @param {Game} game - The main game instance.
      */
-    constructor(game) {
-        this.game = game;
+    constructor(mainMenuController) {
+        this.mainMenuController = mainMenuController; // Store the hub reference
         this.container = document.getElementById('customQuestionsManager');
         this.sheetNameInput = document.getElementById('customSheetName');
         this.questionsTextarea = document.getElementById('customQuestionsTextarea');
@@ -27,10 +27,6 @@ class CustomQuestionsController {
         this.editButton?.addEventListener('click', () => this.handleEdit());
         this.deleteButton?.addEventListener('click', () => this.handleDelete());
 
-        this.container?.querySelectorAll('.backToMain').forEach(btn => {
-            btn.addEventListener('click', () => this.game.backToMainMenu());
-        });
-
         this.existingSheetsSelect?.addEventListener('change', () => {
             const selectedSheet = this.existingSheetsSelect.value;
             if (selectedSheet === "") {
@@ -40,6 +36,12 @@ class CustomQuestionsController {
                  this.loadSheetForEditing(selectedSheet);
                  if (this.sheetNameInput) this.sheetNameInput.disabled = true;
             }
+        });
+
+        // CORRECTED back button listener (using the stored mainMenuController)
+        this.backButton = this.container?.querySelector('.backToMain');
+        this.backButton?.addEventListener('click', () => {
+            this.mainMenuController.showView('mainMenu', 'backward'); // Add direction
         });
     }
 
@@ -61,9 +63,9 @@ class CustomQuestionsController {
 
     /** Updates the dropdown list of existing custom sheets. */
     updateExistingSheetsDropdown() {
-        if (!this.existingSheetsSelect || !this.game.questionsManager) return;
+        if (!this.existingSheetsSelect || !this.mainMenuController?.questionsManager) return; // Use hub
         try {
-            const sheets = this.game.questionsManager.listCustomSheets();
+            const sheets = this.mainMenuController.questionsManager.listCustomSheets(); // Use hub
             const currentVal = this.existingSheetsSelect.value;
             this.existingSheetsSelect.innerHTML = '<option value="">-- Nieuwe lijst maken --</option>';
             sheets.forEach(sheet => {
@@ -82,7 +84,7 @@ class CustomQuestionsController {
 
     /** Handles saving new or edited custom questions. */
     handleSave() {
-        if (!this.sheetNameInput || !this.questionsTextarea || !this.game.questionsManager) return;
+        if (!this.sheetNameInput || !this.questionsTextarea || !this.mainMenuController?.questionsManager) return; // Use hub
         const sheetName = this.sheetNameInput.value.trim();
         const customText = this.questionsTextarea.value.trim();
 
@@ -93,13 +95,13 @@ class CustomQuestionsController {
         if (invalidLine) { alert(`Ongeldig formaat op regel: "${invalidLine}". Gebruik 'Vraag => Antwoord'.`); return; }
 
         try {
-            this.game.questionsManager.saveCustomQuestions(sheetName, customText);
+            this.mainMenuController.questionsManager.saveCustomQuestions(sheetName, customText); // Use hub
             alert(`Vragenlijst "${sheetName}" opgeslagen!`);
             this.updateExistingSheetsDropdown();
             if (this.existingSheetsSelect) this.existingSheetsSelect.value = sheetName;
             if (this.sheetNameInput) this.sheetNameInput.disabled = true; // Keep disabled
 
-            this.game.refreshAvailableSheets(); // Update the main menu list
+            this.mainMenuController.populateSheetCheckboxes?.(); // Call directly on mainMenuController if it exists
 
         } catch (error) {
             console.error("Error saving custom questions:", error);
@@ -123,9 +125,9 @@ class CustomQuestionsController {
      * @param {string} sheetName - The name of the sheet to load.
      */
     loadSheetForEditing(sheetName) {
-         if (!this.sheetNameInput || !this.questionsTextarea || !this.game.questionsManager) return;
+         if (!this.sheetNameInput || !this.questionsTextarea || !this.mainMenuController?.questionsManager) return; // Use hub
          try {
-            const questions = this.game.questionsManager.getCustomQuestions(sheetName);
+            const questions = this.mainMenuController.questionsManager.getCustomQuestions(sheetName); // Use hub
             if (questions) {
                 this.sheetNameInput.value = sheetName;
                 this.questionsTextarea.value = this.convertQuestionsToText(questions);
@@ -144,19 +146,19 @@ class CustomQuestionsController {
 
     /** Handles deleting a selected custom sheet. */
     handleDelete() {
-        if (!this.existingSheetsSelect || !this.game.questionsManager) return;
+        if (!this.existingSheetsSelect || !this.mainMenuController?.questionsManager) return; // Use hub
         const sheetName = this.existingSheetsSelect.value;
         if (!sheetName) { alert('Kies eerst een vragenlijst uit de lijst om te verwijderen.'); return; }
 
         if (confirm(`Weet je zeker dat je de vragenlijst "${sheetName}" permanent wilt verwijderen?`)) {
             try {
-                this.game.questionsManager.deleteCustomQuestions(sheetName);
+                this.mainMenuController.questionsManager.deleteCustomQuestions(sheetName); // Use hub
                 alert(`Vragenlijst "${sheetName}" verwijderd.`);
                 if (this.sheetNameInput) { this.sheetNameInput.value = ''; this.sheetNameInput.disabled = false; }
                 if (this.questionsTextarea) this.questionsTextarea.value = '';
                 this.updateExistingSheetsDropdown();
 
-                this.game.refreshAvailableSheets(); // Update the main menu list
+                this.mainMenuController.populateSheetCheckboxes?.(); // Call directly on mainMenuController
 
             } catch (error) {
                 console.error("Error deleting custom questions:", error);
@@ -173,5 +175,10 @@ class CustomQuestionsController {
     convertQuestionsToText(questions) {
         if (!Array.isArray(questions)) return '';
         return questions.map(q => `${q.question || ''} => ${q.answer || ''}`).join('\n');
+    }
+
+    activate() {
+        console.log("CustomQuestionsController activating.");
+        this.updateExistingSheetsDropdown(); // Load the dropdown when view becomes active
     }
 }

@@ -41,29 +41,26 @@ This document outlines the plan for refactoring the Unicorn Poep multiplayer fun
 
 ## 3. Component Responsibilities
 
-*   **`Game.js` (Host Role):**
-    *   Acts as the central game orchestrator and state authority.
-    *   Initializes the PeerJS peer as a host.
-    *   Manages a list of connected players (`players = Map<peerId, {playerName, score, isFinished, ...}>`).
-    *   Handles client connection requests (`requestJoin`), confirmations (`confirmJoin`), and disconnections.
-    *   Receives and processes action messages from clients (`submitAnswer`, `chatMessage`, `playerFinished`).
-    *   Manages the master game loop/state (current question, timer sync - if applicable).
-    *   Determines game start (after countdown trigger) and game end (when all players are finished).
-    *   Calculates final results.
-    *   Broadcasts game state updates, events (`playerJoined`, `startCountdown`, `startGame`, `gameStateUpdate`, `playerFinishedUpdate`, `finalResults`, `chatMessage`, `playerDisconnected`), and specific messages to clients via `WebRTCManager`.
+*   **`Game.js` (Base Class):**
+    *   Manages the core **single-player** game logic: loading questions, tracking progress (`currentQuestionIndex`), score calculation (local), timer management (local), checking answers, displaying questions/answers via `GameAreaController`.
+    *   Handles navigation between main menu, game area, high scores, about, custom questions (via respective controllers) for single-player mode.
+    *   Knows nothing about multiplayer state, WebRTC, or message handling.
 
-*   **`Game.js` (Client Role):**
-    *   Initiates connection to the Host via PeerJS ID.
-    *   Sends join requests and confirmations (`requestJoin`, `confirmJoin`).
-    *   Sends player actions (`submitAnswer`, `chatMessage`, `playerFinished`) to the Host.
-    *   Receives and reacts to messages/commands from the Host (`gameInfo`, `gameInProgress`, `playerJoined`, `startCountdown`, `startGame`, `gameStateUpdate`, `playerFinishedUpdate`, `finalResults`, `chatMessage`, `playerDisconnected`).
-    *   Updates local state and UI based *only* on data received from the Host. Contains minimal game logic, primarily rendering and input handling directed towards the host.
+*   **`MultiplayerGame.js` (Wrapper/Orchestrator):**
+    *   *Contains* an instance of the base `Game` class (`this.coreGame`) to handle non-networked game mechanics.
+    *   Manages multiplayer-specific state: `isHost`, `players` Map, `gamePhase`.
+    *   Manages the `WebRTCManager` instance.
+    *   Implements methods for hosting (`startMultiplayerHost`) and joining (`requestToJoin`, `confirmJoin`, `cancelJoin`).
+    *   Implements the central `handleMultiplayerMessage` method, processing messages using `MessageTypes` constants.
+    *   Handles multiplayer game flow: lobby, countdown, synchronized start/end, waiting states.
+    *   Processes player actions (answers, finishes) received via network messages.
+    *   Orchestrates UI updates via controllers based on multiplayer state (e.g., calls `gameAreaController.updateOpponentDisplay` with `this.players`).
+    *   Delegates display of questions/answers to `this.coreGame.displayCurrentQuestion()` but controls *when* it happens based on network state.
 
 *   **`WebRTCManager.js`:**
-    *   Abstracts PeerJS interactions.
-    *   **Host:** Initializes PeerJS peer, listens for incoming connections (`peer.on('connection')`), handles connection lifecycle events (`open`, `data`, `close`, `error`) for each client, stores active connections (`Map<peerId, DataConnection>`), provides methods to `broadcast(message)` to all connections and `sendTo(peerId, message)`.
-    *   **Client:** Initializes PeerJS peer, initiates connection to host (`peer.connect(hostId)`), handles connection lifecycle events (`open`, `data`, `close`, `error`) for the single host connection, provides method `send(message)` to the host.
-    *   Handles message serialization/deserialization (e.g., JSON).
+    *   Abstracts PeerJS interactions (Host/Client roles).
+    *   Uses `MessageTypes` constants when sending/logging messages.
+    *   Communicates received messages back to the `MultiplayerGame` instance's `handleMultiplayerMessage`.
 
 *   **`MultiplayerController.js`:**
     *   Manages pre-game UI: Host/Join choice, player name input.
@@ -71,7 +68,7 @@ This document outlines the plan for refactoring the Unicorn Poep multiplayer fun
     *   Handles Join code input and submission.
     *   Displays connection status during setup ("Fetching game info...", "Connecting...", "Waiting for confirmation...").
     *   Displays the **Join Confirmation Screen** (showing `gameInfo` received from the host) with "Join" / "Cancel" options.
-    *   Interacts with `Game.js` to initiate `startMultiplayerHost`, `requestToJoin`, `confirmJoin`, `cancelJoin`. Handles UI updates based on feedback from `Game.js` during this phase (e.g., show errors like "Game in Progress").
+    *   Interacts with the active `MultiplayerGame` instance (instead of `Game`) to trigger hosting/joining actions.
 
 *   **`GameAreaController.js`:**
     *   Manages the main gameplay UI elements.
@@ -81,99 +78,63 @@ This document outlines the plan for refactoring the Unicorn Poep multiplayer fun
     *   Manages and displays the **Countdown Overlay**.
     *   Manages and displays the **Waiting State UI** (hiding game elements, showing "Waiting for others...", activating chat input/display).
     *   Displays received chat messages.
-    *   Handles user input for answers and chat messages, passing them to `Game.js`.
-    *   Updates all UI elements based on `gameStateUpdate` messages received via `Game.js`.
+    *   Receives updates from either `Game` (single-player) or `MultiplayerGame` (multiplayer) instance (e.g., `updateOpponentDisplay` called by `MultiplayerGame`).
+    *   Forwards user actions (answer selection, next button) to the *active* game instance (`Game` or `MultiplayerGame`).
 
 *   **`DialogController.js`:**
     *   Manages modal dialogs.
-    *   Displays the **Multiplayer Final Results Dialog**, showing a list of all players, their scores, and highlighting the winner. Triggered by `Game.js` upon receiving/calculating `finalResults`.
+    *   Displays the **Multiplayer Final Results Dialog**, showing a list of all players, their scores, and highlighting the winner. Triggered by `MultiplayerGame`.
     *   Displays error/disconnect dialogs (e.g., "Host disconnected").
 
-## 4. Message Types (Conceptual)
-
-*(Messages prefixed with `c_` are Client->Host, `h_` are Host->Client)*
+## 4. Message Types (`MessageTypes` Constants)
 
 *   **Connection/Setup:**
-    *   `c_requestJoin { playerName }`: Client asks host if they can join.
-    *   `h_gameInfo { hostName, sheetNames, difficulty, playerCount }`: Host sends game details to requesting client.
-    *   `h_gameInProgress`: Host tells client game has already started.
-    *   `h_joinRejected { reason }`: Host denies join (e.g., "lobby full" if limit implemented).
-    *   `c_confirmJoin`: Client confirms they want to join after seeing `h_gameInfo`.
-    *   `h_welcome { assignedPeerId, playerList }`: Host confirms join, sends initial player list.
-    *   `h_playerJoined { peerId, playerName }`: Host informs *all* clients someone new joined.
-    *   `c_disconnecting`: Client informs host they are leaving (graceful disconnect).
-    *   `h_playerDisconnected { peerId }`: Host informs *all* clients someone left.
+    *   `C_REQUEST_JOIN { playerName }`
+    *   `H_GAME_INFO { hostName, sheetNames, difficulty, playerCount }`
+    *   `H_GAME_IN_PROGRESS`
+    *   `H_JOIN_REJECTED { reason }`
+    *   `C_CONFIRM_JOIN { playerName }`
+    *   `H_WELCOME { assignedPeerId, playerList }`
+    *   `H_PLAYER_JOINED { playerInfo: { peerId, playerName, score, isFinished } }`
+    *   `C_DISCONNECTING` (Optional)
+    *   `H_PLAYER_DISCONNECTED { peerId }`
 
 *   **Game Flow:**
-    *   `h_startCountdown { duration }`: Host tells all clients to start the visual countdown.
-    *   `h_startGame { initialGameState }`: Host signals game start, sends initial question/state.
-    *   `c_submitAnswer { questionId, answer }`: Client sends their answer.
-    *   `h_gameStateUpdate { timestamp, currentPlayerScores, currentQuestion?, gamePhase, ... }`: Host broadcasts current state to all clients. (Sent periodically or after key events).
-    *   `c_playerFinished { finalScore }`: Client informs host they have completed all questions or timed out.
-    *   `h_playerFinishedUpdate { peerId, finalScore }`: Host informs all clients that a specific player has finished.
-    *   `h_finalResults { resultsList: [{peerId, playerName, score, rank}, ...], winnerName }`: Host sends final ranked results to all clients.
+    *   `H_START_COUNTDOWN { duration }`
+    *   `H_START_GAME { initialGameState }` (Optional: Or rely on state update after countdown)
+    *   `C_SUBMIT_ANSWER { questionIndex, answer }`
+    *   `H_GAME_STATE_UPDATE { state: { currentQuestionIndex, players: [{peerId, playerName, score, isFinished}, ...], gamePhase? } }`
+    *   `C_PLAYER_FINISHED { finalScore }`
+    *   `H_FINAL_RESULTS { resultsList: [{peerId, playerName, score, rank}, ...], winnerName }`
 
 *   **Chat:**
-    *   `c_chatMessage { text }`: Client sends a chat message.
-    *   `h_chatMessage { senderPeerId, senderName, text }`: Host relays chat message to all clients.
+    *   `C_CHAT_MESSAGE { text }`
+    *   `H_CHAT_MESSAGE { senderPeerId, senderName, text }`
 
 ## 5. Detailed Flows
 
-*(Simplified sequences focusing on interactions)*
+*(Flows remain conceptually the same, but interactions now involve `MultiplayerGame` coordinating with `WebRTCManager`, Controllers, and its internal `coreGame` instance where appropriate. Message types now use constants.)*
 
-1.  **Hosting:**
-    *   User clicks Host -> `MultiplayerController` gets name, calls `Game.startMultiplayerHost` -> `Game` init -> `WebRTCManager.initializeHost` -> `WebRTCManager` gets PeerID -> `Game` stores ID -> `MultiplayerController.showHostScreen(peerId)`.
+*(Example: Gameplay Loop)*
+*   User interacts (MP Client) -> `GameAreaController` calls `currentGame.handleAnswerSelection(answer)` (`currentGame` is `MultiplayerGame` instance) -> `MultiplayerGame` sends `MessageTypes.C_SUBMIT_ANSWER` via `WebRTCManager`.
+*   Host `WebRTCManager` receives message -> `MultiplayerGame.handleMultiplayerMessage` processes `MessageTypes.C_SUBMIT_ANSWER` -> `MultiplayerGame.handleClientAnswer` -> `MultiplayerGame.processAnswerLocally` (updates `this.players`) -> `MultiplayerGame.broadcastGameState`.
+*   Client `WebRTCManager` receives message -> `MultiplayerGame.handleMultiplayerMessage` processes `MessageTypes.H_GAME_STATE_UPDATE` -> `MultiplayerGame.handleGameStateUpdate` updates `this.players` -> Calls `GameAreaController.updateOpponentDisplay(this.players)`.
 
-2.  **Joining & Confirmation:**
-    *   User enters code, clicks Join -> `MultiplayerController.submitCode` -> `Game.requestToJoin(hostId)` -> `WebRTCManager.connectToHost(hostId)` -> On 'open': `WebRTCManager.send(c_requestJoin)`.
-    *   Host: `WebRTCManager` receives `c_requestJoin` -> `Game.handleJoinRequest` -> If game not started: `WebRTCManager.sendTo(clientId, h_gameInfo)`. If started: `sendTo(clientId, h_gameInProgress)`, close connection.
-    *   Client: `WebRTCManager` receives `h_gameInfo` -> `Game.handleGameInfo` -> `MultiplayerController.showJoinConfirmation(gameInfo)`. If `h_gameInProgress`: `Game.handleJoinRejected` -> `MultiplayerController.showError("Game in progress")`.
-    *   User clicks "Confirm Join" -> `MultiplayerController` calls `Game.confirmJoin` -> `WebRTCManager.send(c_confirmJoin)`.
-    *   Host: `WebRTCManager` receives `c_confirmJoin` -> `Game.finalizePlayerJoin(clientId, clientName)` -> Add player to list -> `WebRTCManager.broadcast(h_playerJoined)` -> `WebRTCManager.sendTo(newClientId, h_welcome)`.
-    *   Client: `WebRTCManager` receives `h_welcome` or `h_playerJoined` -> `Game.updatePlayerList` -> `GameAreaController.updateOpponentDisplay`.
-
-3.  **Starting Game:**
-    *   Host clicks "Start Game" -> `GameAreaController` calls `Game.requestStartGame` (Host only).
-    *   Host `Game`: `WebRTCManager.broadcast(h_startCountdown)`.
-    *   All `Game` instances: receive `h_startCountdown` -> `GameAreaController.startCountdownDisplay(duration, onComplete)`.
-    *   Countdown `onComplete`: Host `Game` -> sends `h_startGame` / initial `h_gameStateUpdate`. Client `Game` -> waits for `h_startGame` / `h_gameStateUpdate`. -> All `Game` -> `GameAreaController.displayQuestion`.
-
-4.  **Gameplay Loop:**
-    *   Client interacts -> `GameAreaController` calls `Game.submitAnswer` -> `WebRTCManager.send(c_submitAnswer)`.
-    *   Host `Game` receives `c_submitAnswer` -> Process answer, update score for that client -> `WebRTCManager.broadcast(h_gameStateUpdate)` (contains updated scores for all).
-    *   Client `Game` receives `h_gameStateUpdate` -> Update local state -> `GameAreaController.updateUI` (scores, progress etc.).
-
-5.  **Finishing & Game End:**
-    *   Player finishes (questions done / timer out) -> `GameAreaController` calls `Game.localPlayerFinished`.
-    *   `Game.localPlayerFinished`: Set local `isFinished=true` -> `GameAreaController.showWaitingUI()` -> If Client: `WebRTCManager.send(c_playerFinished)`. If Host: `handlePlayerFinishedLocally()`.
-    *   Host `Game`: Receives `c_playerFinished` or `handlePlayerFinishedLocally()` -> Update player status `isFinished=true`, store final score -> `WebRTCManager.broadcast(h_playerFinishedUpdate)`.
-    *   Host `Game`: Check if `all players.isFinished === true`. If yes: `calculateFinalResults()` -> `WebRTCManager.broadcast(h_finalResults)` -> `handleFinalResultsLocally()`.
-    *   All `Game` instances: Receive `h_playerFinishedUpdate` -> Update UI status for that player (`GameAreaController`). Receive `h_finalResults` -> `GameAreaController.hideWaitingUI()` -> `DialogController.showMultiplayerEndDialog(results)` -> `HighscoresManager.addScore(winner)`.
-
-6.  **Chat:**
-    *   User types message, presses Enter -> `GameAreaController` calls `Game.sendChatMessage(text)`.
-    *   Client `Game`: `WebRTCManager.send(c_chatMessage)`.
-    *   Host `Game`: Receives `c_chatMessage` -> `WebRTCManager.broadcast(h_chatMessage)` (with sender info).
-    *   All `Game` instances: Receive `h_chatMessage` -> `GameAreaController.displayChatMessage(senderName, text)`.
-
-7.  **Disconnect:**
-    *   `WebRTCManager` detects `close` or `error` event for a connection.
-    *   Host `WebRTCManager`: Notify `Game.handleDisconnect(peerId)` -> `Game` removes player -> `WebRTCManager.broadcast(h_playerDisconnected)`.
-    *   Client `WebRTCManager`: If host connection lost -> Notify `Game.handleHostDisconnect` -> `DialogController.showError("Host disconnected")`.
-    *   Client `Game`: Receives `h_playerDisconnected` -> Remove player from UI (`GameAreaController`).
-
-## 6. Data Structures (Host `Game` State - Conceptual)
+## 6. Data Structures (`MultiplayerGame` State - Conceptual)
 
 ```javascript
-this.players = new Map(); // Key: peerId, Value: { playerName: string, score: number, isFinished: boolean, connection: DataConnection }
-this.gameSettings = { sheetKeys: [], difficulty: '' };
-this.questions = [];
-this.currentQuestionIndex = 0;
-this.gamePhase = 'lobby' | 'countdown' | 'playing' | 'waiting' | 'results'; // Controls overall flow
-this.isHost = true;
-this.peerId = null; // Host's own PeerJS ID
+this.isHost = false;
+this.players = new Map(); // Key: peerId, Value: { playerName: string, score: number, isFinished: boolean }
+this.gamePhase = 'idle'; // etc.
+this.localPlayerFinished = false;
+this.webRTCManager = new WebRTCManager(this); // Passes self (MultiplayerGame)
+this.coreGame = new Game(...); // Internal instance for core logic/state
+// Game settings like selectedSheets, difficulty stored here or in coreGame? Likely here.
+this.selectedSheets = [];
+this.difficulty = '';
+this.currentQuestionIndex = 0; // MP needs to track this for sync
 ```
 
 ## 7. Conclusion
 
-This Host-as-Server architecture provides a clear structure for managing the multiplayer game flow. It centralizes authority and state management on the host, simplifying client logic. By defining clear message types and component responsibilities, this plan serves as a blueprint for implementing the desired robust and feature-rich multiplayer experience, abstracting away the underlying connection management within `WebRTCManager`. 
+This refactored architecture separates single-player (`Game`) and multiplayer (`MultiplayerGame`) logic using composition. `MultiplayerGame` orchestrates the network interactions and multiplayer state, delegating core game mechanics to the base `Game` class when needed. Using `MessageTypes` constants improves code clarity and maintainability. 

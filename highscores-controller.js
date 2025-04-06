@@ -6,27 +6,33 @@
 class HighscoresController {
     /**
      * Initializes the controller, gets elements, and sets up listeners.
-     * @param {Game} game - The main game instance.
+     * @param {MainMenu} mainMenuController - The central orchestrator instance.
      */
-    constructor(game) {
-        this.game = game;
+    constructor(mainMenuController) {
+        this.mainMenuController = mainMenuController; // Store the hub reference
         this.container = document.getElementById('highscores');
         this.listElement = document.getElementById('scoreList');
-        this.highscoresManager = game.highscoresManager;
+        // Access manager via the hub
+        this.highscoresManager = this.mainMenuController.highscoresManager;
         if (!this.highscoresManager) {
-            console.error("HighscoresController critical error: HighscoresManager not provided by Game instance!");
+            console.error("HighscoresController critical error: HighscoresManager not available via MainMenuController!");
         }
 
         this.setupEventListeners();
         new KonamiCode(() => this.triggerRandomConfetti());
-        this.hide(); // Add .hidden class initially
+        // Don't hide here, let MainMenuController manage top-level visibility
+        // this.hide();
     }
 
     /** Sets up listeners for buttons within the highscores view. */
     setupEventListeners() {
-        this.container?.querySelectorAll('.backToMain').forEach(btn => {
-            btn.addEventListener('click', () => this.game.backToMainMenu());
+        // Add listener for the back button
+        this.backButton = document.querySelector('#highscores .backToMain');
+        this.backButton?.addEventListener('click', () => {
+            this.mainMenuController.showView('mainMenu', 'backward'); // Add direction
         });
+
+        // Existing Konami Code listener...
     }
 
     /** Shows the highscores container and renders the scores. @async */
@@ -160,6 +166,11 @@ class HighscoresController {
          confetti({ particleCount, spread, origin, startVelocity: 25, ticks: 80 + Math.floor(pressDuration/15) });
          window._konamiConfettiStartTime = null;
      }
+
+    activate() {
+        console.log("HighscoresController activating.");
+        this.displayHighscores(); // Fetch and display scores when view becomes active
+    }
 }
 
 // --- KonamiCode class ---

@@ -1,3 +1,7 @@
+Tafel van 1:
+ 	1 x 2 => 2
+ 	2 x 2 => 4
+
 Tafel van 2:
  	1 x 2 => 2
  	2 x 2 => 4

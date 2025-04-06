@@ -4,237 +4,320 @@
  */
 class MultiplayerController {
     /**
-     * Initializes the controller, gets elements, and sets up listeners.
-     * @param {Game} game - The main game instance.
+     * @param {MainMenuController} mainMenuController
      */
-    constructor(game) {
-        this.game = game;
-        this.choiceContainer = document.getElementById('multiplayerChoice');
-        this.playerNameInput = document.getElementById('playerNameInput');
+    constructor(mainMenuController) {
+        this.mainMenuController = mainMenuController;
+        this.game = null; // Set by MainMenuController
+
+        // Get elements for choice screen
+        this.choiceScreen = document.getElementById('multiplayerChoice');
         this.hostButton = document.getElementById('hostGame');
         this.joinButton = document.getElementById('joinGame');
-        this.statusDialog = document.getElementById('connectionStatus');
+        this.playerNameInput = document.getElementById('playerNameInput');
+        this.choiceErrorElement = document.getElementById('choiceError');
+        this.backButtonChoice = this.choiceScreen?.querySelector('.backToMain'); // Assuming back button exists
+
+        // Get elements for connection status dialog/screens
+        this.connectionDialog = document.getElementById('connectionStatus');
+        this.hostView = this.connectionDialog?.querySelector('#connectionCode');
         this.hostCodeDisplay = document.getElementById('hostCodeDisplay');
-        this.hostCodeContainer = document.getElementById('connectionCode');
-        this.joinViewContainer = document.getElementById('joinView');
-        this.codeInput = document.getElementById('connectionCodeInput');
-        this.submitCodeButton = document.getElementById('submitCode');
-        this.waitingMessageElement = document.getElementById('waitingMessage');
         this.copyCodeButton = document.getElementById('copyCodeButton');
         this.whatsappShareButton = document.getElementById('whatsappShareButton');
+        this.hostWaitingText = this.connectionDialog?.querySelector('#hostWaitingText');
+        this.hostStartButton = this.connectionDialog?.querySelector('#hostStartButton');
+        this.joinView = document.getElementById('joinView');
+        this.connectionCodeInput = document.getElementById('connectionCodeInput');
+        this.submitCodeButton = document.getElementById('submitCode');
 
-        this.setupEventListeners();
-        this.hideAll(); // Add .hidden class initially
+        this.fetchingInfoView = document.getElementById('fetchingInfoView');
+        this.joinConfirmView = document.getElementById('joinConfirmView');
+        this.joinGameInfo = document.getElementById('joinGameInfo');
+        this.confirmJoinButton = document.getElementById('confirmJoinButton');
+        this.cancelJoinButton = document.getElementById('cancelJoinButton');
+
+        this.waitingForStartView = document.getElementById('waitingForStartView');
+        this.connectionErrorMessage = document.getElementById('connectionErrorMessage');
+        this.backButtonConnection = this.connectionDialog?.querySelector('.backToMain'); // Assuming one back button
+
+        // Error check elements
+        if (!this.hostStartButton) console.warn("MultiplayerController: Host Start Button not found in dialog.");
+
+        this._setupEventListeners();
     }
 
-    /** Sets up listeners for multiplayer choice and connection UI elements. */
-    setupEventListeners() {
+    _setupEventListeners() {
         this.hostButton?.addEventListener('click', () => {
-            const name = this.playerNameInput?.value || '';
-            if (!name.trim()) { 
-                alert("Vul eerst je naam in!"); 
-                return; 
+            if (this.validatePlayerName(this.playerNameInput?.value)) {
+                console.log("MultiplayerController: Requesting PREPARE_HOST flow from MainMenu.");
+                this.mainMenuController.startMultiplayer(MultiplayerModes.PREPARE_HOST);
             }
-            this.game.updatePlayerName(name); 
-            this.hideAll();
-            // Delegate showing sheet selection to the main menu controller
-            this.game.mainMenuController.showSheetSelectionForMultiplayerHost();
         });
+
         this.joinButton?.addEventListener('click', () => {
-            const name = this.playerNameInput?.value || '';
-            if (!name.trim()) { alert("Vul eerst je naam in!"); return; }
-            this.game.updatePlayerName(name); this.hideAll();
-            this.game.startMultiplayerJoin(); // Game class handles showing join screen
-        });
-        this.playerNameInput?.addEventListener('change', () => {
-             if(this.playerNameInput) this.game.updatePlayerName(this.playerNameInput.value);
-        });
-        this.submitCodeButton?.addEventListener('click', () => this.submitCode());
-        this.codeInput?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.submitCode();
-            // Allow only numbers and essential control keys
-            if (!/^[0-9]$/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key) && !e.ctrlKey && !e.metaKey) e.preventDefault();
-        });
-        this.codeInput?.addEventListener('input', () => { // Limit length
-             if (this.codeInput && this.codeInput.value.length > 6) this.codeInput.value = this.codeInput.value.slice(0, 6);
+            if (this.validatePlayerName(this.playerNameInput?.value)) {
+                console.log("MultiplayerController: Showing join view (connection status dialog).");
+                this.showJoinScreen();
+            }
         });
 
-        // Added listener for copy button
-        this.copyCodeButton?.addEventListener('click', () => this.copyCodeToClipboard());
+        this.playerNameInput?.addEventListener('input', (e) => {
+            const name = e.target.value;
+            this.game?.updatePlayerName(name);
+            this.validatePlayerName(name);
+        });
 
-        // Add listeners to back buttons within these sections
-        this.choiceContainer?.querySelectorAll('.backToMain').forEach(btn => btn.addEventListener('click', () => this.game.backToMainMenu()));
-        this.statusDialog?.querySelectorAll('.backToMain').forEach(btn => btn.addEventListener('click', () => this.game.backToMainMenu()));
+        this.submitCodeButton?.addEventListener('click', () => {
+            const code = this.connectionCodeInput?.value.trim();
+            if (code && /^[0-9]{6}$/.test(code)) {
+                console.log(`MultiplayerController: Submitting join code: ${code}`);
+                this.mainMenuController.startMultiplayer(MultiplayerModes.JOIN, { hostId: code });
+            } else {
+                this.showConnectionError("Voer een geldige 6-cijferige code in.");
+            }
+        });
+
+        this.confirmJoinButton?.addEventListener('click', () => {
+            console.log("MultiplayerController: Confirm Join button clicked.");
+            this.game?.confirmJoin();
+        });
+
+        this.cancelJoinButton?.addEventListener('click', () => {
+            console.log("MultiplayerController: Cancel Join button clicked.");
+            this.game?.cancelJoin();
+        });
+
+        this.backButtonChoice?.addEventListener('click', () => this.mainMenuController?.showView('mainMenu'));
+        this.backButtonConnection?.addEventListener('click', () => {
+            console.log("MP Connection Back button clicked.");
+            this.hideConnectionDialog();
+            this.game?.cancelJoin?.();
+            this.mainMenuController?.showView('mainMenu');
+        });
+
+        this.copyCodeButton?.addEventListener('click', () => this.copyHostCode());
+
+        this.hostStartButton?.addEventListener('click', () => {
+            if (this.hostStartButton && !this.hostStartButton.disabled) {
+                 console.log("MultiplayerController: Host Start Button clicked.");
+                 this.hostStartButton.disabled = true;
+                 this.mainMenuController?.currentGame?.requestStartGame();
+            }
+        });
     }
 
-    /** Hides all multiplayer UI sections by adding the 'hidden' class or closing the dialog. */
-    hideAll() {
-        this.choiceContainer?.classList.add('hidden');
-        
-        // Explicitly add .hidden class to the dialog itself for CSS hiding
-        this.statusDialog?.classList.add('hidden'); 
-
-        // Close the dialog if it's open
-        if (this.statusDialog && this.statusDialog.open) {
-                 this.statusDialog.close();
-        }
-        
-        if (this.waitingMessageElement) this.waitingMessageElement.textContent = ''; // Clear messages
-    }
     /**
-     * Shows the initial Host/Join choice screen.
-     * @param {string} currentName - The player's current name to pre-fill.
+     * Validates the player name input.
+     * Shows/hides an error message and returns validity status.
+     * @param {string | undefined} name - The player name to validate.
+     * @returns {boolean} - True if the name is valid, false otherwise.
+     * @private // Or public if needed elsewhere, but seems internal for now
      */
-    showChoiceScreen(currentName) {
-        this.hideAll(); // Ensure others are hidden
-        if (this.playerNameInput) this.playerNameInput.value = currentName;
-        // Assumes #multiplayerChoice base style is display: flex
-        this.choiceContainer?.classList.remove('hidden');
-    }
-    /**
-     * Shows the screen for the host, displaying the connection code and waiting message.
-     * @param {string} code - The connection code.
-     */
-    showHostWaitingScreen(code) {
-        this.hideAll(); // Ensure others are hidden
-        if (this.hostCodeDisplay) this.hostCodeDisplay.textContent = code;
-        this.hostCodeContainer?.classList.remove('hidden'); // Show host code section
-        this.joinViewContainer?.classList.add('hidden'); // Ensure join view is hidden
-
-        // Set the initial waiting message
-        if (this.waitingMessageElement) {
-            this.waitingMessageElement.innerHTML = '<span>Wachten op andere speler</span><span class="dot1">.</span><span class="dot2">.</span><span class="dot3">.</span>';
-        }
-
-        // Set WhatsApp share link
-        if (this.whatsappShareButton) {
-            // --- Data Retrieval (Assumes valid now) ---
-            const selectedKeys = this.game.selectedSheets; // Should be correctly set by game.startMultiplayerHost
-            const difficulty = this.game.difficulty;       // Should be correctly set by game.startMultiplayerHost
-            const questionsManager = this.game.questionsManager;
-            const playerName = this.game.playerName; // Use game state name
-            let sheetNamesText = questionsManager.getFormattedSheetNames(selectedKeys);
-            const levels = `${sheetNamesText} op standje ${difficulty}`; // Directly use difficulty
-            const baseUrl = window.location.href.replace(window.location.search,'');
-            const messageText = `Hoi ${playerName} hier! Doe je mee met mijn spelletje Unicorn Poep 🦄💩?
-We spelen levels: 
-- ${levels}
-Klik om gelijk mee te spelen: ${baseUrl}?join=${code}
-Of voer deze code in onder 'Samen spelen': ${code}`;
-
-            const encodedText = encodeURIComponent(messageText);
-
-            this.whatsappShareButton.href = `https://api.whatsapp.com/send/?text=${encodedText}&type=custom_url&app_absent=0`;
-        }
-
-        this.statusDialog?.classList.remove('hidden');
-        this.statusDialog?.showModal();
-    }
-    /** Shows the screen for the client to enter the connection code. */
-    showJoinScreen() {
-        this.hideAll(); // Ensure others are hidden
-        this.hostCodeContainer?.classList.add('hidden'); // Ensure host view is hidden
-        this.joinViewContainer?.classList.remove('hidden'); // Show join view section
-        if (this.waitingMessageElement) this.waitingMessageElement.textContent = ''; // Clear message
-        if (this.codeInput) this.codeInput.value = '';
-        
-        // Remove hidden class THEN show the dialog
-        this.statusDialog?.classList.remove('hidden');
-        this.statusDialog?.showModal(); 
-        
-        setTimeout(() => this.codeInput?.focus(), 100); // Focus after render
-    }
-    /** Shows a generic "Connecting..." message while connection is in progress. */
-    showConnectingMessage() {
-         this.hideAll(); // Ensure others are hidden
-         this.hostCodeContainer?.classList.add('hidden');
-         this.joinViewContainer?.classList.add('hidden');
-         if (this.waitingMessageElement) { 
-             this.waitingMessageElement.innerHTML = '<span>Verbinden</span><span class="dot1">.</span><span class="dot2">.</span><span class="dot3">.</span>'; 
-             this.waitingMessageElement.style.color = ''; // Reset color
-         }
-         // Remove hidden class THEN show the dialog
-         this.statusDialog?.classList.remove('hidden');
-         this.statusDialog?.showModal(); 
-    }
-     /**
-      * Shows a custom waiting message (e.g., waiting for game data).
-      * @param {string} message - The message to display.
-      */
-     showWaitingMessage(message) {
-         this.hideAll(); // Ensure others are hidden
-         this.hostCodeContainer?.classList.add('hidden');
-         this.joinViewContainer?.classList.add('hidden');
-         if (this.waitingMessageElement) { 
-             this.waitingMessageElement.innerHTML = `<span>${message}</span><span class="dot1">.</span><span class="dot2">.</span><span class="dot3">.</span>`; 
-             this.waitingMessageElement.style.color = ''; // Reset color
-         }
-         // Remove hidden class THEN show the dialog
-         this.statusDialog?.classList.remove('hidden');
-         this.statusDialog?.showModal(); 
-     }
-    /**
-     * Shows an error message on the join screen.
-     * @param {string} message - The error message.
-     */
-    showJoinError(message) {
-         this.showJoinScreen(); // Reset to join input state first (handles visibility)
-         if (this.waitingMessageElement) { this.waitingMessageElement.textContent = `Fout: ${message}`; this.waitingMessageElement.style.color = 'red'; }
-    }
-    /** Handles code submission logic, validates code, and calls game connect method. */
-    submitCode() {
-        if (!this.codeInput) return;
-        const code = this.codeInput.value.trim();
-        if (code.length === 6 && /^[0-9]+$/.test(code)) {
-             if (this.waitingMessageElement) this.waitingMessageElement.style.color = ''; // Reset color
-             // Show connecting message while attempting
-             this.showConnectingMessage();
-             this.game.connectToMultiplayerGame(code);
+    validatePlayerName(name) {
+        const trimmedName = name?.trim(); // Trim whitespace and handle potential undefined
+        if (!trimmedName) {
+            this.showChoiceError("Vul alsjeblieft een naam in.");
+            return false;
         } else {
-            this.showJoinError('Voer een geldige 6-cijferige code in.');
+            this.showChoiceError(""); // Clear error if valid
+            return true;
         }
     }
 
-    /** Copies the host connection code to the clipboard. */
-    copyCodeToClipboard() {
-        const code = this.hostCodeDisplay?.textContent;
-        if (!this.copyCodeButton) return; // Guard against missing button
+    // --- UI Management Methods ---
 
-        if (code && navigator.clipboard) {
-            navigator.clipboard.writeText(code).then(() => {
-                // Visual feedback
-                const originalTitle = this.copyCodeButton.title;
-                const originalIconHTML = this.copyCodeButton.innerHTML;
-                this.copyCodeButton.title = 'Gekopieerd!';
-                this.copyCodeButton.disabled = true; // Briefly disable
-                 // Simple checkmark icon
-                this.copyCodeButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`;
-                setTimeout(() => {
-                    this.copyCodeButton.title = originalTitle;
-                    this.copyCodeButton.innerHTML = originalIconHTML; // Restore original icon
-                    this.copyCodeButton.disabled = false;
-                }, 2000); // Revert after 2 seconds
-            }).catch(err => {
-                console.error('Kon code niet kopiëren: ', err);
-                alert('Kon code niet kopiëren.');
-            });
-        } else if (code) {
-             // Fallback for older browsers
-             try {
-                 const tempInput = document.createElement('textarea'); // Use textarea for potential line breaks
-                 tempInput.style.position = 'absolute';
-                 tempInput.style.left = '-9999px';
-                 tempInput.value = code;
-                 document.body.appendChild(tempInput);
-                 tempInput.select();
-                 tempInput.setSelectionRange(0, 99999); // For mobile devices
-                 document.execCommand('copy');
-                 document.body.removeChild(tempInput);
-                 alert('Code gekopieerd!'); // Simple alert feedback for fallback
-             } catch (err) {
-                 console.error('Fallback kopiëren mislukt: ', err);
-                 alert('Kon code niet automatisch kopiëren.');
+    resetUI() {
+        console.log("MultiplayerController: Resetting UI");
+        this.hideAllScreens();
+        this.hideConnectionDialog();
+        this.choiceScreen?.classList.add('hidden');
+        this.showChoiceError("");
+        if(this.playerNameInput) this.playerNameInput.value = this.mainMenuController?.currentGame?.playerName || '';
+        if(this.connectionCodeInput) this.connectionCodeInput.value = '';
+        this.hostStartButton?.classList.add('hidden');
+        if (this.hostStartButton) this.hostStartButton.disabled = false;
+    }
+
+    hideAllScreens() {
+        this.hostView?.classList.add('hidden');
+        this.joinView?.classList.add('hidden');
+        this.fetchingInfoView?.classList.add('hidden');
+        this.joinConfirmView?.classList.add('hidden');
+        this.waitingForStartView?.classList.add('hidden');
+        this.connectionErrorMessage?.classList.add('hidden');
+    }
+
+    showConnectionDialog() {
+        if (this.connectionDialog) {
+            this.connectionDialog.classList.remove('hidden');
+
+            if (!this.connectionDialog.open) {
+                 console.log("MultiplayerController: Showing connection dialog modal.");
+                 this.connectionDialog.showModal();
+            } else {
+                 console.log("MultiplayerController: Connection dialog already open.");
+            }
+        } else {
+             console.error("MultiplayerController: Connection dialog element not found!");
+        }
+    }
+
+    hideConnectionDialog() {
+        if (this.connectionDialog?.open) {
+             console.log("MultiplayerController: Closing connection dialog modal.");
+             this.connectionDialog.close();
+        }
+        this.connectionDialog?.classList.add('hidden');
+        this.hideAllScreens();
+    }
+
+    showChoiceScreen(playerName) {
+        this.resetUI();
+        if(this.playerNameInput) this.playerNameInput.value = playerName || '';
+        this.choiceScreen?.classList.remove('hidden');
+    }
+
+    showChoiceError(message) {
+        if (this.choiceErrorElement) {
+            this.choiceErrorElement.textContent = message;
+            this.choiceErrorElement.classList.toggle('hidden', !message);
+        }
+    }
+
+    showHostScreen(hostId) {
+        this.hideAllScreens();
+        this.showConnectionDialog();
+        if (this.hostCodeDisplay) this.hostCodeDisplay.textContent = hostId;
+        this.hostView?.classList.remove('hidden');
+
+        let shareText = `Hoi! Doe je mee met mijn spelletje Unicorn Poep 🦄💩?`;
+
+        const gameInstance = this.mainMenuController?.currentGame;
+        if (gameInstance) {
+            const playerName = gameInstance.playerName || 'Ik';
+            const sheetNames = gameInstance.selectedSheets || [];
+            const difficulty = gameInstance.difficulty || 'onbekend';
+
+            const formattedSheets = sheetNames.join(', ');
+
+            shareText = `Hoi! ${playerName} 😎 hier! Doe je mee met mijn spelletje Unicorn Poep 🦄💩?\n`;
+            if (formattedSheets) {
+                shareText += `We spelen:\n- ${formattedSheets} op standje ${difficulty}\n\n`;
+            } else {
+                 shareText += `We spelen op standje ${difficulty}\n\n`;
+            }
+        } else {
+             console.warn("showHostScreen: Could not get game instance details for share text.");
+        }
+
+        const joinLink = `${window.location.origin}${window.location.pathname}?join=${hostId}`;
+        shareText += `Klik om gelijk mee te spelen: ${joinLink}\nOf voer deze code in onder 'Samen spelen': ${hostId}`;
+
+        if(this.whatsappShareButton) {
+             this.whatsappShareButton.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+        } else {
+             console.warn("WhatsApp share button not found.");
+        }
+
+        this.hostStartButton?.classList.add('hidden');
+        if (this.hostStartButton) this.hostStartButton.disabled = true;
+        this.updateLobbyPlayerCount(this.mainMenuController?.currentGame?.players.size || 1);
+
+        console.log("MultiplayerController: Showing host screen.");
+    }
+
+    updateLobbyPlayerCount(count = 0) {
+        if(this.hostWaitingText && this.hostView && !this.hostView.classList.contains('hidden')) {
+             const canStart = count > 1;
+             if (count <= 1) {
+                 this.hostWaitingText.textContent = "Wachten op andere spelers om mee te doen...";
+                 this.hostStartButton?.classList.add('hidden');
+                 if (this.hostStartButton) this.hostStartButton.disabled = true;
+             } else {
+                 const playerText = count === 1 ? 'speler' : 'spelers';
+                 this.hostWaitingText.textContent = `${count} ${playerText} in lobby. Klaar om te starten?`;
+                 this.hostStartButton?.classList.remove('hidden');
+                 if (this.hostStartButton) this.hostStartButton.disabled = !canStart;
              }
         }
+    }
+
+    showJoinScreen() {
+        this.hideAllScreens();
+        this.showConnectionDialog();
+        this.joinView?.classList.remove('hidden');
+        if(this.connectionCodeInput) this.connectionCodeInput.focus();
+        this.showConnectionError("");
+        console.log("MultiplayerController: Showing join screen.");
+    }
+
+    showConnectionError(message, keepJoinViewVisible = false) {
+        if (this.connectionErrorMessage) {
+            this.connectionErrorMessage.textContent = message;
+            this.connectionErrorMessage.classList.toggle('hidden', !message);
+        }
+        if (!keepJoinViewVisible) {
+            this.hideAllScreens();
+            this.joinView?.classList.add('hidden');
+            if (message && keepJoinViewVisible) {
+                this.joinView?.classList.remove('hidden');
+            }
+        }
+    }
+
+    showFetchingGameInfo() {
+        this.hideAllScreens();
+        this.showConnectionDialog();
+        this.fetchingInfoView?.classList.remove('hidden');
+        console.log("MultiplayerController: Showing fetching game info screen.");
+    }
+
+    showJoinConfirmationScreen(gameInfo) {
+        this.hideAllScreens();
+        this.showConnectionDialog();
+        if (this.joinGameInfo) {
+             // Format sheet names from the received sheetKeys array
+             const formattedSheets = (gameInfo.sheetKeys && gameInfo.sheetKeys.length > 0)
+                 ? gameInfo.sheetKeys.join(', ')
+                 : '?'; // Fallback if empty or missing
+
+             this.joinGameInfo.innerHTML = `
+                 <p>Host: <strong>${gameInfo.hostName || '?'}</strong></p>
+                 <p>Onderwerpen: <strong>${formattedSheets}</strong></p>
+                 <p>Niveau: <strong>${gameInfo.difficulty || '?'}</strong></p>
+                 <p>Aantal spelers: <strong>${gameInfo.playerCount || '?'}</strong></p>
+            `;
+        }
+        this.joinConfirmView?.classList.remove('hidden');
+        console.log("MultiplayerController: Showing join confirmation screen.");
+    }
+
+     showWaitingForGameStart() {
+        this.hideAllScreens();
+        this.showConnectionDialog();
+         this.waitingForStartView?.classList.remove('hidden');
+         console.log("MultiplayerController: Showing waiting for game start screen.");
+    }
+
+    copyHostCode() {
+        const code = this.hostCodeDisplay?.textContent;
+        if (code) {
+            navigator.clipboard.writeText(code).then(() => {
+                this.mainMenuController.toastNotification?.show("Code gekopieerd!");
+            }).catch(err => {
+                console.error('Failed to copy code: ', err);
+                this.mainMenuController.toastNotification?.show("Kopiëren mislukt.", 3000);
+            });
+        }
+    }
+
+    activate() {
+        console.log("MultiplayerController activating (likely for choice screen).");
+        if (this.mainMenuController.currentGame?.playerName) {
+             this.showChoiceScreen(this.mainMenuController.currentGame.playerName);
+        } else {
+             console.warn("MultiplayerController activate: Cannot show choice screen, player name missing.");
+             this.mainMenuController?.showView('mainMenu');
+         }
     }
 }

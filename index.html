@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>🦄💩</title>
     <link href="fredoka.css" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?final"> <!-- Link to final CSS -->
+    <link rel="stylesheet" href="styles.css"> <!-- Link to final CSS -->
 
 
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
@@ -28,7 +28,7 @@
 </head>
 <body>
     <div id="app">
-        <h1>🦄 Unicorn Poep 💩<br>
+        <h1 style="view-transition-name: page-title;">🦄 Unicorn Poep 💩<br>
             <small>Door SchizoDuckie, voor Sanne <img src="heart.gif" alt="<3"></small></h1>
         <div id="gameContainer">
             <!-- Loading Indicator -->
@@ -39,7 +39,7 @@
 
             <!-- Main Menu & Sheet Selection -->
             <div id="mainMenu" class="hidden">
-                 <div id="menuItems">
+                 <div id="menuItems" style="view-transition-name: main-content;">
                     <button id="practice">📚 Oefenen</button>
                     <button id="takeTest">⏱ Toets</button>
                     <button id="viewHighscores">🥇 Hoogste Scores</button>
@@ -47,72 +47,105 @@
                     <button id="multiplayer">👥 Samen spelen</button>
                     <button id="hoeDan">🦄 Wat is Unicorn Poep?</button>
                  </div>
-                 <!-- Sheet Selection (SubMenu) -->
-                 <div id="sheetSelection" class="hidden">
-                    <!-- Moved Back Button outside sheetNavigation -->
-                    <button id="sheetSelectBack" class="backToMain hidden">Terug</button>
+            </div>
 
-                    <div id="sheetsCol">
-                        <h1>Wat wil je doen?</h1>
-                        <div id="sheetsCheckboxes">
-                            <!-- Checkboxes populated by JS -->
-                        </div>
-                    </div>
-                    <div id="difficultyCol" class="hidden">
-                        <h1>Ben je daar goed in?</h1>
-                        <div id="difficultySelection">
-                            <label><input type="radio" name="difficulty" value="easy"> Denk het niet (⏱ 60)</label>
-                            <label><input type="radio" name="difficulty" value="medium" checked> Misschien (⏱ 30)</label>
-                            <label><input type="radio" name="difficulty" value="hard"> Zeker wel! (⏱ 10)</label>
-                        </div>
-                    </div>
-                    <!-- Sheet Navigation NOW ONLY CONTAINS Start Button -->
-                    <div id="sheetNavigation" style="/* CSS controls positioning */">
-                        <button id="startGame" disabled>Start!</button> <!-- No general button class needed if specific style used -->
-                    </div>
-                 </div>
+            <!-- Sheet Selection (NOW A TOP-LEVEL VIEW) -->
+            <div id="sheetSelection" class="hidden">
+               <!-- Moved Back Button outside sheetNavigation -->
+               <button id="sheetSelectBack" class="backToMain">Terug</button> <!-- Removed hidden class, showView will manage -->
+
+               <div id="sheetsCol" style="view-transition-name: sheets-column;">
+                   <h1>Wat wil je doen?</h1>
+                   <div id="sheetsCheckboxes">
+                       <!-- Checkboxes populated by JS -->
+                   </div>
+               </div>
+               <div id="difficultyCol" class="hidden" style="view-transition-name: difficulty-column;">
+                   <h1>Ben je daar goed in?</h1>
+                   <div id="difficultySelection">
+                       <label><input type="radio" name="difficulty" value="easy"> Denk het niet (⏱ 60)</label>
+                       <label><input type="radio" name="difficulty" value="medium" checked> Misschien (⏱ 30)</label>
+                       <label><input type="radio" name="difficulty" value="hard"> Zeker wel! (⏱ 10)</label>
+                   </div>
+               </div>
+               <!-- Sheet Navigation NOW ONLY CONTAINS Start Button -->
+               <div id="sheetNavigation" style="/* CSS controls positioning */">
+                   <button id="startGame" disabled>Start!</button> <!-- No general button class needed if specific style used -->
+               </div>
             </div>
 
              <!-- Game Area -->
             <div id="gameArea" class="hidden">
-                <!-- Score Displays -->
-                <div id="playerScores" class="hidden">
-                    <div id="player1Score" class="player-score-display">Speler 1: 0</div>
-                    <div id="progressIndicator">Vraag <span id="currentQuestionNumber">0</span> van <span id="totalQuestions">0</span></div>
-                    <div id="player2Score" class="player-score-display">Speler 2: 0</div>
-                </div>
-                <div id="score" class="hidden">Score: 0</div>
-                <div id="timer" class="hidden">⏱ 0</div>
+                <!-- Opponent List (Positioned via CSS) -->
+                <div id="opponentList" class="hidden"></div>
 
-                <!-- Question & Answers -->
-                <div id="question"></div>
-                <div id="answers"></div>
+                <!-- Wrapper for core game elements -->
+                <div id="gameElements" style="view-transition-name: main-content;">
+                    <!-- Score Displays -->
+                    <div id="playerScores" class="hidden">
+                        <!-- Note: These might be deprecated if opponentList replaces them -->
+                        <div id="player1Score" class="player-score-display">Speler 1: 0</div>
+                        <div id="progressIndicator">Vraag <span id="currentQuestionNumber">0</span> van <span id="totalQuestions">0</span></div>
+                        <div id="player2Score" class="player-score-display">Speler 2: 0</div>
+                    </div>
+                    <!-- Single player score/timer/name (visibility controlled by JS/CSS) -->
+                    <div id="playerNameDisplayInGame" class="player-score-display hidden" style="top: 23%; right: 12%; z-index: 10; position: fixed; text-align: right;"></div>
+                    <div id="score" class="hidden">Score: 0</div>
+                    <div id="timer" class="hidden">⏱ 0</div>
 
-                <!-- Navigation -->
+                    <!-- Question & Answers -->
+                    <div id="questionDisplay"> <!-- Changed ID for clarity -->
+                         <div id="question"></div>
+                    </div>
+                    <div id="answerGrid"> <!-- Changed ID for clarity -->
+                        <div id="answers"></div>
+                    </div>
+                </div> <!-- End #gameElements -->
+
+                <!-- Countdown Display -->
+                <div id="countdownDisplay" class="hidden">5</div>
+
+                <!-- Waiting UI (for player finished state) -->
+                <div id="waitingUi" class="hidden">
+                     <p id="waitingMessageText">Wachten op andere spelers...</p>
+                     <img src="loading.gif" alt="Waiting..." class="waiting-kirby">
+                     <!-- Chat UI (placeholder) -->
+                     <div id="chatContainer" class="hidden">
+                         <h3>Chat</h3>
+                         <div id="chatMessages"></div>
+                         <input type="text" id="chatInput" placeholder="Typ bericht...">
+                     </div>
+                 </div>
+
+                <!-- Navigation (Next Button Bar) -->
                 <div id="gameNavigation" class="hidden">
                     <button id="nextButton" disabled>Volgende</button>
                 </div>
+                <!-- Stop Button -->
                 <div id="exitGame">
                     <button id="stopGame" class="backToMain">Stop</button>
                 </div>
             </div>
 
             <!-- Multiplayer Choice Screen -->
-            <div id="multiplayerChoice" class="hidden">
+            <div id="multiplayerChoice" class="hidden" >
                 <button class="backToMain">Terug</button>
                 <h2>Samen spelen</h2>
                 <div class="name-input-container">
                     <label for="playerNameInput">Jouw naam:</label>
                     <input type="text" id="playerNameInput" placeholder="Typ je naam...">
+                     <p id="choiceError" style="color: red;"></p> <!-- Added error display -->
                 </div>
                 <button id="hostGame" class="menuButton">Ik wil een spel starten</button>
                 <button id="joinGame" class="menuButton">Ik wil meedoen met een spel</button>
             </div>
 
-            <!-- Multiplayer Connection Status (Now a Dialog) -->
-            <dialog id="connectionStatus" class="unicorn-theme hidden"> <!-- Changed to dialog, added theme -->
+            <!-- Multiplayer Connection Status Dialog -->
+            <dialog id="connectionStatus" class="unicorn-theme hidden">
                 <button class="backToMain">Terug</button>
                 <h2>Samen spelen</h2>
+
+                <!-- Host View -->
                 <div id="connectionCode" class="connectionBox hidden">
                     <p class="help-text">Deel deze code met de andere speler:</p>
                     <div class="host-code-wrapper">
@@ -120,19 +153,17 @@
                         <button id="copyCodeButton" class="copy-button" title="Kopieer code">
                             <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
                         </button>
-                        <!-- Added WhatsApp Share Button -->
                         <a id="whatsappShareButton" class="share-button whatsapp-button" href="#" target="_blank" title="Deel via WhatsApp">
-                            <!-- Simple WhatsApp Icon SVG -->
-                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF">
-                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
-                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
                         </a>
                     </div>
-                    <img src="loading.gif" alt="Waiting..." class="waiting-kirby">
-                    <div id="waitingMessage" class="waitingText">
-                        <span>Wachten op andere speler</span><span class="dot1">.</span><span class="dot2">.</span><span class="dot3">.</span>
-                    </div>
-                </div>
+                    <!-- Text indicating waiting status -->
+                    <p id="hostWaitingText" class="waitingText">Wachten op andere spelers om mee te doen...</p>
+                    <!-- !!! MOVED Start Button HERE !!! -->
+                    <button id="hostStartButton" class="menuButton yellow-button hidden">Start Spel!</button>
+                 </div>
+
+                <!-- Client Join View -->
                 <div id="joinView" class="connectionBox hidden">
                     <div class="input-wrapper">
                         <input type="number" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Voer 6-cijferige code in" id="connectionCodeInput">
@@ -140,10 +171,36 @@
                         <p class="help-text">Vraag de andere speler om de code</p>
                     </div>
                 </div>
-            </dialog> <!-- Closed dialog -->
+
+                <!-- Client Fetching Info View -->
+                <div id="fetchingInfoView" class="connectionBox hidden">
+                    <p class="waitingText">Spel informatie ophalen...</p>
+                    <img src="loading.gif" alt="Loading..." class="waiting-kirby">
+                </div>
+
+                <!-- Client Join Confirmation View -->
+                <div id="joinConfirmView" class="connectionBox hidden">
+                     <h3>Meedoen?</h3>
+                     <div id="joinGameInfo">
+                         <!-- Game info populated by JS -->
+                     </div>
+                     <button id="confirmJoinButton" class="menuButton yellow-button">Ja, doe mee!</button>
+                     <button id="cancelJoinButton" class="menuButton">Annuleren</button>
+                </div>
+
+                <!-- Client Waiting For Start View -->
+                <div id="waitingForStartView" class="connectionBox hidden">
+                     <p class="waitingText">Verbonden! Wachten tot host het spel start...</p>
+                     <img src="loading.gif" alt="Waiting..." class="waiting-kirby">
+                 </div>
+
+                 <!-- Error Message Display Area -->
+                 <div id="connectionErrorMessage" class="hidden" style="color: red; margin-top: 15px; font-weight: bold;"></div>
+
+            </dialog> <!-- End #connectionStatus Dialog -->
 
             <!-- Highscores Screen -->
-            <div id="highscores" class="hidden">
+            <div id="highscores" class="hidden" style="view-transition-name: main-content;">
                 <h1>Deze mensen zijn de allerbeste!</h1>
                 <table>
                     <thead>
@@ -162,7 +219,7 @@
             </div>
 
             <!-- Custom Questions Screen -->
-            <div id="customQuestionsManager" class="hidden">
+            <div id="customQuestionsManager" class="hidden" style="view-transition-name: main-content;">
                 <button class="backToMain">Terug</button>
                  <h2>Jouw Vragen Beheren</h2>
                 <div id="customSheetSelection">
@@ -188,7 +245,7 @@
             </div>
 
             <!-- About Screen -->
-            <div id="about" class="hidden">
+            <div id="about" class="hidden" style="view-transition-name: main-content;">
                 <button class="backToMain">Terug</button>
                 <h2>Wat is Unicorn Poep?</h2>
                 <p>Unicorn Poep is een heel simpel spelletje wat je helpt snel beter te worden in de tafels,
@@ -243,32 +300,6 @@
             </div>
          </dialog>
 
-         <dialog id="multiplayerEndGame" class="unicorn-theme hidden">
-            <h1>En de winnaar is...</h1>
-            <div class="player-result winner">
-                <span class="player-emoji">🦄</span>
-                <span class="player-name" id="winnerName"></span>
-                <div class="score-badge">
-                    <span class="score-label">Score</span>
-                    <span class="score-value" id="winnerScore"></span>
-                </div>
-            </div>
-            <div class="player-result">
-                <span class="player-emoji">💩</span>
-                <span class="player-name" id="loserName"></span>
-                <div class="score-badge">
-                    <span class="score-label">Score</span>
-                    <span class="score-value" id="loserScore"></span>
-                </div>
-            </div>
-            <div id="endGameButtons">
-                <button id="saveMultiplayerHighscore">Mijn Score Opslaan</button>
-                <button onclick="location.reload()">Opnieuw Spelen</button>
-                <!-- NOTE: Leaving menuButton class here as it's an action within the dialog, not strictly a 'back' navigation -->
-                <button class="backToMain menuButton">Hoofdmenu</button>
-            </div>
-         </dialog>
-
          <dialog id="disconnectionDialog" class="unicorn-theme hidden">
              <h2>Verbinding verbroken</h2>
              <p id="disconnectionMessage">De andere speler heeft de verbinding verbroken.</p>
@@ -289,45 +320,75 @@
              </div>
          </dialog>
 
-         <dialog id="multiplayerEndDialog" class="dialog hidden">
+         <dialog id="errorDialog" class="unicorn-theme hidden"> <!-- Assuming generic error dialog exists -->
+             <h2>Fout</h2>
+             <p id="errorMessage"></p>
+             <button id="errorOkButton">Ok</button>
+         </dialog>
+
+         <!-- New Multiplayer End Results Dialog -->
+         <dialog id="multiplayerEndDialog" class="dialog unicorn-theme hidden"> <!-- Added theme -->
            <h2 id="multiplayerEndTitle">Spel Voorbij!</h2>
            <div id="multiplayerEndResults">
-             <!-- Results will be populated here -->
+             <!-- Results populated by JS -->
            </div>
-           <button id="multiplayerEndBackButton" class="button">Terug naar menu</button>
+           <button id="multiplayerEndBackButton" class="menuButton yellow-button">Terug naar menu</button> <!-- Styled button -->
          </dialog>
+
+         <!-- Toast Notification -->
+         <div id="toastNotification" class="hidden" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 5px; z-index: 100;"></div>
 
     </div> <!-- End #app -->
 
-    <!-- Script Includes -->
+    <!-- Script Includes (Corrected Order) -->
+    <!-- External Libs -->
     <script src="peerjs.min.js"></script>
-    <script src="confetti.js"></script>
-    <script src="timer.js?final"></script>
-    <script src="scoretimer.js?final"></script>
-    <script src="questionsmanager.js?final"></script>
-    <script src="highscores-manager.js?final"></script>
-    <script src="webrtcmanager.js?final"></script>
-    <script src="loading-controller.js?final"></script>
-    <script src="mainmenu-controller.js?final"></script>
-    <script src="gamearea-controller.js?final"></script>
-    <script src="multiplayer-controller.js?final"></script>
-    <script src="highscores-controller.js?final"></script>
-    <script src="customquestions-controller.js?final"></script>
-    <script src="about-controller.js?final"></script>
-    <script src="dialog-controller.js?final"></script>
-    <script src="game.js?final"></script> <!-- Game class last -->
+    <!-- Base Classes & Managers First -->
+    <script src="messagetypes.js"></script>
+    <script src="questionsmanager.js"></script>
+    <script src="highscores-manager.js"></script>
+    <script src="webrtcmanager.js"></script>
+    <script src="timer.js"></script>
+    <script src="scoretimer.js"></script>
+    <script src="toast-notification.js"></script>
+    <script src="base-dialog.js"></script> <!-- Load Base Dialog FIRST -->
 
-    <!-- Initialization -->
+    <!-- Specific Dialog Classes -->
+    <script src="single-player-end-dialog.js"></script>
+    <script src="multiplayer-end-dialog.js"></script>
+    <script src="disconnection-dialog.js"></script>
+    <script src="error-dialog.js"></script>
+    <script src="name-prompt-dialog.js"></script>
+
+    <!-- Controllers (Depend on Managers/Dialogs) -->
+    <script src="loading-controller.js"></script>
+    <script src="dialog-controller.js"></script> <!-- DialogController AFTER specific dialogs -->
+    <script src="game.js"></script> <!-- Base Game BEFORE controllers that use it -->
+    <script src="multiplayer-game.js"></script>
+    <script src="mainmenu-controller.js"></script> <!-- Main orchestrator -->
+    <script src="gamearea-controller.js"></script>
+    <script src="multiplayer-controller.js"></script>
+    <script src="highscores-controller.js"></script>
+    <script src="customquestions-controller.js"></script>
+    <script src="about-controller.js"></script>
+
+    <!-- Global Constants -->
+
+    <!-- Initialization Logic -->
     <script>
-        window.addEventListener('DOMContentLoaded', (event) => {
-            const game = new Game();
-            game.start();
+        // Entry point: Initialize the Main Menu orchestrator on DOM load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log("INIT: DOM Loaded. Initializing MainMenu."); // Renamed log
+            // Create the central orchestrator (using the renamed class)
+            const mainMenu = new MainMenu();
+            // NO window assignment needed unless absolutely required elsewhere (try to avoid)
+            // window.mainMenu = mainMenu;
+            mainMenu.init(); // Start the application initialization
         });
     </script>
 
     <!-- Analytics -->
     <script data-goatcounter="https://unicornpoep.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
-
 
 </body>
 </html>

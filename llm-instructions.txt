@@ -1,15 +1,10 @@
----
-description: 
-globs: 
-alwaysApply: true
----
 # UnicornPoep Project LLM Instructions
 
 These instructions will help you understand the structure, patterns, and conventions of the UnicornPoep project codebase.
 
 **1. Core Architecture & Design Patterns:**
 
-*   **Central Orchestrator (`MainMenu`)**: The `MainMenu` (`mainmenu-controller.js`) acts as the **primary application entry point and central coordinator**. It is instantiated in `index.html`'s `DOMContentLoaded` listener.
+*   **Central Orchestrator (`MainMenuController`)**: The `MainMenuController` (`mainmenu-controller.js`) acts as the **primary application entry point and central coordinator**. It is instantiated in `index.html`'s `DOMContentLoaded` listener.
     *   It is responsible for initializing core managers (`QuestionsManager`, `HighscoresManager`) and other UI controllers (`GameAreaController`, `DialogController`, etc.).
     *   It holds direct references to these created instances.
     *   It manages the main application navigation flow using a central `showView(viewId)` method, which handles showing/hiding the main view container `div` elements (`#mainMenu`, `#gameArea`, `#highscores`, etc.).

@@ -138,6 +138,48 @@ class QuestionsManager {
     }
 
     /**
+     * Retrieves and aggregates questions from multiple specified sheets.
+     * Handles both predefined and custom sheets.
+     * @param {string[]} sheetNames - An array of sheet names to load questions from.
+     * @returns {Promise<Array<{question: string, answer: string}>>} A promise that resolves with an array containing all questions from the specified sheets.
+     * @throws {Error} If any of the specified sheets cannot be found or read.
+     * @async
+     */
+    async getQuestionsForSheets(sheetNames) {
+        console.log(`QuestionsManager: Getting questions for sheets: ${sheetNames.join(', ')}`);
+        if (!Array.isArray(sheetNames) || sheetNames.length === 0) {
+            console.warn("QuestionsManager: getQuestionsForSheets called with invalid input:", sheetNames);
+            return []; // Or throw? Let's return empty for invalid input, but throw for failed lookups below.
+        }
+
+        let allQuestions = [];
+        try {
+            for (const sheetName of sheetNames) {
+                // Use the existing readSheet method which handles custom/predefined logic
+                const questionsFromSheet = await this.readSheet(sheetName);
+                // readSheet throws if not found, so we only concat if successful
+                allQuestions = allQuestions.concat(questionsFromSheet);
+                console.log(`QuestionsManager: Added ${questionsFromSheet.length} questions from "${sheetName}".`);
+            }
+
+            if (allQuestions.length === 0) {
+                 // This case might happen if all sheets existed but were empty.
+                 // The original code threw an error if the final list was empty. Let's maintain that.
+                 throw new Error("No questions found for any of the selected sheets.");
+            }
+
+            console.log(`QuestionsManager: Successfully aggregated ${allQuestions.length} questions.`);
+            return allQuestions;
+
+        } catch (error) {
+            // Log the specific error from readSheet or the "No questions found" error
+            console.error("QuestionsManager: Error getting questions for sheets:", error);
+            // Re-throw the error to be handled by the calling Game/MultiplayerGame instance
+            throw error;
+        }
+    }
+
+    /**
      * Gets a formatted string of sheet names based on an array of sheet names.
      * @param {string[]} sheetNames - An array of sheet names.
      * @returns {string} A comma-separated string of sheet names, or an empty string if input is invalid.

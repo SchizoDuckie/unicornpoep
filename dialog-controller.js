@@ -1,193 +1,73 @@
 /**
- * Manages various modal dialogs: End of Game (Single/Multi), Disconnection, Opponent Quit, and generic errors.
+ * Manages instances of specific dialog classes.
+ * Acts as a facade to show/hide different dialogs.
  */
 class DialogController {
     /**
-     * Initializes the controller, gets dialog elements, and sets up listeners.
-     * @param {Game} game - The main game instance.
+     * @param {MainMenu} mainMenuController - The central orchestrator instance.
      */
-    constructor(game) {
-        this.game = game;
-        // Single Player End Dialog
-        this.singlePlayerEndDialog = document.getElementById('endOfGameDialog');
-        this.finalScoreSpan = document.getElementById('finalScore');
-        this.playerNameInputSingle = document.getElementById('playerName'); // Input in single player dialog
-        this.saveScoreButtonSingle = document.getElementById('saveHighscore');
-        this.restartButtonSingle = document.getElementById('restartGame');
+    constructor(mainMenuController) {
+        this.mainMenuController = mainMenuController;
 
-        // Multiplayer End Dialog
-        this.multiplayerEndDialog = document.getElementById('multiplayerEndDialog');
-        this.multiplayerEndTitle = document.getElementById('multiplayerEndTitle');
-        this.multiplayerEndResults = document.getElementById('multiplayerEndResults');
-        this.multiplayerEndBackButton = document.getElementById('multiplayerEndBackButton');
-        this.winnerNameSpan = document.getElementById('winnerName');
-        this.winnerScoreSpan = document.getElementById('winnerScore');
-        this.loserNameSpan = document.getElementById('loserName');
-        this.loserScoreSpan = document.getElementById('loserScore');
-        this.saveScoreButtonMulti = document.getElementById('saveMultiplayerHighscore'); // Button in multi dialog
-        this.restartButtonMulti = this.multiplayerEndDialog?.querySelector('button[onclick="location.reload()"]'); // Restart via reload
+        // --- Instantiate Specific Dialog Handlers ---
+        try {
+            this.singlePlayerEndDialog = new SinglePlayerEndDialog(mainMenuController);
+            this.multiplayerEndDialog = new MultiplayerEndDialog(mainMenuController);
+            this.disconnectionDialog = new DisconnectionDialog(mainMenuController);
+            this.errorDialog = new ErrorDialog(mainMenuController); // Instantiate ErrorDialog
+            this.namePromptDialog = new NamePromptDialog(mainMenuController); // Instantiate NamePromptDialog
 
-        // Disconnection / Opponent Quit Dialog
-        this.disconnectionDialog = document.getElementById('disconnectionDialog');
-        this.disconnectionMessageSpan = document.getElementById('disconnectionMessage');
-        this.backToMenuButtonDisconnect = document.getElementById('backToMainMenu'); // Button within this specific dialog
+            // Store instances for hideAll
+            this.dialogInstances = [
+                this.singlePlayerEndDialog,
+                this.multiplayerEndDialog,
+                this.disconnectionDialog,
+                this.errorDialog,
+                this.namePromptDialog
+            ].filter(instance => instance); // Filter out any potentially failed instantiations
 
-        this.setupEventListeners();
+        } catch (error) {
+            console.error("DialogController FATAL: Failed to instantiate dialog classes.", error);
+            this.dialogInstances = [];
+             alert("FATAL ERROR: Could not initialize application dialogs.");
+        }
+        // --- End Instantiation ---
     }
 
     /**
-     * Sets up listeners for buttons within all managed dialogs.
-     */
-    setupEventListeners() {
-        // Single Player End Dialog
-        if (this.singlePlayerEndDialog) {
-            this.saveScoreButtonSingle?.addEventListener('click', () => this.handleSaveSinglePlayer());
-            this.restartButtonSingle?.addEventListener('click', () => this.game.restartGame());
-            // Listener for the pre-rendered '.backToMain' button
-            this.singlePlayerEndDialog.querySelectorAll('.backToMain').forEach(btn => {
-                btn.addEventListener('click', () => this.closeAndGoToMenu(this.singlePlayerEndDialog));
-            });
-             // Close event handler (e.g., pressing ESC)
-             this.singlePlayerEndDialog.addEventListener('close', () => {
-                 // If closed without specific action, default to going back to menu
-                 // Check if game is still potentially active to avoid double navigation
-                 if (!this.game.gameAreaController.isVisible()) {
-                     // this.game.backToMainMenu(); // Let closeAndGoToMenu handle state reset
-                 }
-             });
-        }
-
-        // Multiplayer End Dialog
-        if (this.multiplayerEndDialog) {
-             this.saveScoreButtonMulti?.addEventListener('click', () => this.handleSaveMultiplayer());
-             // Restart button uses onclick="location.reload()" in HTML
-
-             // Listener for the pre-rendered '.backToMain' button
-             this.multiplayerEndDialog.querySelectorAll('.backToMain').forEach(btn => {
-                 btn.addEventListener('click', () => this.closeAndGoToMenu(this.multiplayerEndDialog));
-             });
-             // Close event handler
-             this.multiplayerEndDialog.addEventListener('close', () => {
-                // If closed via backdrop/esc, ensure state is reset and go to menu
-                // Check if game is potentially active
-                 if (!this.game.gameAreaController.isVisible()) {
-                     // this.game.backToMainMenu();
-                 }
-             });
-        }
-
-        // Disconnection Dialog
-        if (this.disconnectionDialog) {
-            // The button ID 'backToMainMenu' is specific to this dialog in the HTML
-            this.backToMenuButtonDisconnect?.addEventListener('click', () => this.closeAndGoToMenu(this.disconnectionDialog));
-             this.disconnectionDialog.addEventListener('close', () => {
-                 // Always go to main menu when disconnection dialog is closed (either by button or ESC)
-                 this.game.backToMainMenu();
-             });
-        }
-
-        // Listener for the new dialog's back button
-        this.multiplayerEndBackButton?.addEventListener('click', () => {
-            this.hideAll(); // Close this dialog
-            this.game.backToMainMenu(); // Trigger return and cleanup
-        });
-    }
-
-    /**
-     * Checks if any of the managed dialogs are currently visible/open.
+     * Checks if any managed dialog instance is currently open.
      * @returns {boolean} True if any dialog is open, false otherwise.
      */
     isDialogVisible() {
-        return (this.singlePlayerEndDialog?.open ||
-                this.multiplayerEndDialog?.open ||
-                this.disconnectionDialog?.open) ?? false; // Use nullish coalescing for default false
+        return this.dialogInstances.some(instance => instance.isOpen());
     }
 
     /**
-     * Hides all managed dialogs by calling their close() method.
+     * Hides all managed dialog instances.
      */
     hideAll() {
-        [this.singlePlayerEndDialog, this.multiplayerEndDialog, this.disconnectionDialog].forEach(dialog => {
-            if (dialog && typeof dialog.close === 'function' && dialog.open) {
-                dialog.close();
-            }
-        });
-        if (this.multiplayerEndDialog && this.multiplayerEndDialog.open) {
-            this.multiplayerEndDialog.close();
-        }
-        this.multiplayerEndDialog?.classList.add('hidden'); // Also add hidden class if using CSS
+        console.log("DialogController: Hiding all managed dialog instances.");
+        this.dialogInstances.forEach(instance => instance.hide());
     }
+
+    // --- Facade Methods ---
 
     /**
      * Shows the end-of-game dialog for single player.
      * @param {number} score - The final score.
      */
     showSinglePlayerEnd(score) {
-        this.hideAll(); // Ensure others are closed
-        if (!this.singlePlayerEndDialog) return;
-
-        if (this.finalScoreSpan) this.finalScoreSpan.textContent = score;
-        if (this.playerNameInputSingle) this.playerNameInputSingle.value = this.game.playerName; // Pre-fill name
-        // Check if already open to prevent errors, though hideAll should handle it
-        if (!this.singlePlayerEndDialog.open) {
-            this.singlePlayerEndDialog.showModal();
-        }
+        this.hideAll();
+        this.singlePlayerEndDialog?.show(score);
     }
 
     /**
      * Shows the end-of-game dialog for multiplayer matches.
-     * @param {string} hostName
-     * @param {number} hostScore
-     * @param {string} clientName
-     * @param {number} clientScore
+     * @param {string} hostName, @param {number} hostScore, @param {string} clientName, @param {number} clientScore
      */
     showMultiplayerEndDialog(hostName, hostScore, clientName, clientScore) {
-        this.hideAll(); // Ensure no other dialogs are open
-
-        if (!this.multiplayerEndDialog || !this.multiplayerEndTitle || !this.multiplayerEndResults) {
-            console.error("Multiplayer end dialog elements not found!");
-            return;
-        }
-
-        let winnerName = '';
-        let loserName = '';
-        let winnerScore = 0;
-        let loserScore = 0;
-        let title = '';
-
-        if (hostScore > clientScore) {
-            winnerName = hostName; winnerScore = hostScore;
-            loserName = clientName; loserScore = clientScore;
-            title = `${winnerName} wint!`;
-        } else if (clientScore > hostScore) {
-            winnerName = clientName; winnerScore = clientScore;
-            loserName = hostName; loserScore = hostScore;
-             title = `${winnerName} wint!`;
-        } else {
-            // Tie
-            winnerName = hostName; winnerScore = hostScore; // Arbitrarily pick one for display consistency if needed
-            loserName = clientName; loserScore = clientScore;
-            title = "Gelijkspel!";
-        }
-
-        this.multiplayerEndTitle.textContent = title;
-
-        // Display results - Customize formatting as needed
-        this.multiplayerEndResults.innerHTML = `
-            <p><strong>${winnerName}:</strong> ${winnerScore} punten</p>
-            <p><strong>${loserName}:</strong> ${loserScore} punten</p>
-        `;
-
-        // Trigger confetti, targeting the dialog or body
-        confetti({
-            particleCount: 150,
-            spread: 100,
-            origin: { y: 0.6 }
-        });
-
-         // Make sure the dialog element is visible before showing
-         this.multiplayerEndDialog.classList.remove('hidden');
-        this.multiplayerEndDialog.showModal();
+        this.hideAll();
+        this.multiplayerEndDialog?.show(hostName, hostScore, clientName, clientScore);
     }
 
     /**
@@ -196,15 +76,7 @@ class DialogController {
      */
     showDisconnection(opponentName) {
         this.hideAll();
-        if (!this.disconnectionDialog) return;
-
-        const name = opponentName || 'De andere speler';
-        if (this.disconnectionMessageSpan) {
-             this.disconnectionMessageSpan.textContent = `${name} heeft de verbinding verbroken.`;
-        }
-        if (!this.disconnectionDialog.open) {
-             this.disconnectionDialog.showModal();
-        }
+        this.disconnectionDialog?.show(opponentName, false); // false = disconnect
     }
 
      /**
@@ -213,112 +85,115 @@ class DialogController {
      */
     showOpponentQuit(opponentName) {
          this.hideAll();
-         if (!this.disconnectionDialog) return; // Reuse disconnection dialog
-
-         const name = opponentName || 'De andere speler';
-         if (this.disconnectionMessageSpan) {
-             this.disconnectionMessageSpan.textContent = `${name} heeft het spel verlaten.`;
-         }
-         if (!this.disconnectionDialog.open) {
-            this.disconnectionDialog.showModal();
-         }
+         this.disconnectionDialog?.show(opponentName, true); // true = quit
      }
 
      /**
-      * Shows a generic error message using an alert.
+      * Shows a generic error message using the ErrorDialog instance.
       * @param {string} message - The error message to display.
+      * @param {string} [title='Fout'] - Optional title for the dialog.
       */
-     showError(message) {
-         // Simple implementation using alert. Could be replaced with a dedicated dialog later.
-         alert(`Fout: ${message}`);
+     showError(message, title = 'Fout') {
+         // Maybe don't hideAll for errors? Depends on UX choice. Let ErrorDialog handle its state.
+         this.errorDialog?.show(title, message);
+         // Log alert usage is no longer needed if ErrorDialog is implemented
      }
-
-    /** Handles saving score from the single player end dialog. */
-    handleSaveSinglePlayer() {
-        if (!this.playerNameInputSingle) return;
-        const name = this.playerNameInputSingle.value;
-        if (!name.trim()) { alert("Vul je naam in om op te slaan!"); return; }
-        this.game.updatePlayerName(name);
-        this.game.saveHighscore(name); // Game handles closing dialog and navigation
-    }
-
-    /** Handles saving score from the multiplayer end dialog (local player's score). */
-    handleSaveMultiplayer() {
-        // Save with game's current name, as dialog has no input
-        alert("Score wordt opgeslagen voor " + this.game.playerName); // Give feedback
-        this.game.saveHighscore(this.game.playerName); // Game handles closing dialog and navigation
-    }
-
-    /**
-     * Closes a specified dialog and triggers navigation back to the main menu via the Game class.
-     * @param {HTMLDialogElement | null} dialogElement - The dialog element to close.
-     */
-    closeAndGoToMenu(dialogElement) {
-        if (dialogElement && typeof dialogElement.close === 'function' && dialogElement.open) {
-            dialogElement.close(); // Close the dialog first
-        }
-        // Then call the central method in Game to handle state reset and navigation
-        this.game.backToMainMenu();
-    }
 
     /**
      * Shows a dialog prompting the user to enter their name.
-     * @returns {Promise<string|null>} A promise that resolves with the entered name, 
-     *                                  or null if the dialog was cancelled or closed.
+     * @returns {Promise<string|null>} A promise that resolves with the entered name, or null.
      */
-    promptForPlayerName() {
-        return new Promise((resolve) => {
-            const dialog = document.getElementById('namePromptDialog');
-            const input = document.getElementById('namePromptInput');
-            const confirmButton = document.getElementById('namePromptConfirm');
-            // const cancelButton = document.getElementById('namePromptCancel'); // If you add one
+    async promptForPlayerName() {
+        // No need to hideAll here, prompt should show over existing UI if needed
+        // Let the prompt method handle its own visibility.
+        if (this.namePromptDialog) {
+             return this.namePromptDialog.prompt();
+        } else {
+             console.error("NamePromptDialog instance not available!");
+             return Promise.resolve(null); // Return null if dialog cannot be shown
+        }
+    }
 
-            if (!dialog || !input || !confirmButton) {
-                console.error("Name prompt dialog elements not found!");
-                resolve(null); // Cannot proceed
-                return;
-            }
+    /**
+     * Sets up common listeners for dialog actions.
+     * @private
+     */
+    _setupCommonListeners() {
+        // *** REMOVE THIS ENTIRE METHOD ***
+        // Back to Main Menu buttons (applies to multiple dialogs)
+        // this.container.querySelectorAll('.backToMain').forEach(button => {
+        //     button.addEventListener('click', () => {
+        //         console.log("DialogController: Back to Main Menu button clicked.");
+        //         this._closeAllDialogs(); // Close the dialog itself
+        //         this.mainMenu.showView('mainMenu'); // Navigate
+        //         // *** Call MainMenu cleanup ***
+        //         this.mainMenu._handleEndOfGameCleanup();
+        //     });
+        // });
 
-            // Function to handle closing and resolving
-            const closeDialog = (name = null) => {
-                confirmButton.removeEventListener('click', handleConfirm);
-                // if (cancelButton) cancelButton.removeEventListener('click', handleCancel);
-                dialog.removeEventListener('close', handleClose); // Handle closing via ESC
-                dialog.close();
-                dialog.classList.add('hidden'); // Re-hide after closing
-                resolve(name); // Resolve with the name or null
-            };
+        // Specific listeners per dialog are set up in show... methods
+        // ... (Error OK button) ...
+    }
 
-            const handleConfirm = () => {
-                const name = input.value.trim();
-                if (name) {
-                    closeDialog(name);
-                } else {
-                    alert("Voer alsjeblieft een naam in."); // Basic validation
-                    input.focus();
-                }
-            };
+    /**
+     * Sets up listeners specific to the Multiplayer End Dialog.
+     * @private
+     */
+    _setupMultiplayerEndListeners() {
+        // Assuming this.multiplayerEndDialog has a 'backButton' property referencing the button element
+        this.multiplayerEndDialog.backButton?.addEventListener('click', () => {
+            console.log("DialogController: MP End Dialog Back button clicked.");
+            this.multiplayerEndDialog.hide(); // Use hide() method of the specific dialog instance
+            this.mainMenuController.showView('mainMenu'); // Use mainMenuController reference
+             // *** Call MainMenu cleanup ***
+             this.mainMenuController._handleEndOfGameCleanup(); // Use mainMenuController reference
+        });
+    }
 
-            // const handleCancel = () => {
-            //     closeDialog(null);
-            // };
+    /**
+     * Sets up listeners specific to the Disconnection Dialog.
+     * @private
+     */
+    _setupDisconnectionListeners() {
+         // Assuming this.disconnectionDialog has a 'backButton' property referencing the button element
+        this.disconnectionDialog.backButton?.addEventListener('click', () => {
+             console.log("DialogController: Disconnect Dialog Back button clicked.");
+             this.disconnectionDialog.hide(); // Use hide() method of the specific dialog instance
+             this.mainMenuController.showView('mainMenu'); // Use mainMenuController reference
+             // *** Call MainMenu cleanup ***
+             this.mainMenuController._handleEndOfGameCleanup(); // Use mainMenuController reference
+        });
+    }
 
-            const handleClose = () => { // Handle ESC key closing
-                 // Resolve with null if closed without confirmation
-                 // Check dialog.returnValue if needed, but simple null resolution is often fine
-                 closeDialog(null); 
-            }
+    /**
+     * Sets up listeners specific to the Single Player End Dialog.
+     * Need to ensure its 'backToMain' button also calls the cleanup.
+     * (This method might need adjustment based on the actual SinglePlayerEndDialog implementation)
+     * @private
+     */
+    _setupSinglePlayerEndListeners() {
+        // Example: Assuming singlePlayerEndDialog has references like this.saveButton, this.restartButton, this.menuButton
+        this.singlePlayerEndDialog?.saveButton?.addEventListener('click', async () => {
+            // ... save logic ...
+            // After saving, usually go back to menu
+            this.singlePlayerEndDialog.hide();
+            this.mainMenuController.showView('mainMenu');
+            this.mainMenuController._handleEndOfGameCleanup();
+        });
 
-            // Setup listeners
-            confirmButton.addEventListener('click', handleConfirm);
-            // if (cancelButton) cancelButton.addEventListener('click', handleCancel);
-            dialog.addEventListener('close', handleClose);
+        this.singlePlayerEndDialog?.restartButton?.addEventListener('click', () => {
+            this.singlePlayerEndDialog.hide();
+            this.mainMenuController.currentGame?.restartGame();
+            // No cleanup here, restarting the game
+        });
 
-            // Show the dialog
-            input.value = ''; // Clear previous input
-            dialog.classList.remove('hidden'); // <<< --- ADD THIS LINE to remove hidden class
-            dialog.showModal();
-            input.focus();
+        // Assuming the main menu button within this dialog has class 'backToMain' or a specific ID
+        const spMenuButton = this.singlePlayerEndDialog?.dialogElement?.querySelector('.backToMain, #someSpecificId'); // Adjust selector if needed
+        spMenuButton?.addEventListener('click', () => {
+            console.log("DialogController: SP End Dialog Back button clicked.");
+             this.singlePlayerEndDialog.hide();
+             this.mainMenuController.showView('mainMenu');
+             this.mainMenuController._handleEndOfGameCleanup();
         });
     }
 }

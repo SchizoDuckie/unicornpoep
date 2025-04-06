@@ -147,4 +147,35 @@ class HighscoresManager {
             }
         });
     }
+
+    /**
+     * Checks if a given score qualifies as a new highscore for the specified sheet/difficulty.
+     * @param {string} sheetKey - The identifier for the sheets played.
+     * @param {string|null} difficulty - The difficulty level.
+     * @param {number} score - The score to check.
+     * @returns {boolean} True if the score is a new highscore, false otherwise.
+     */
+    isNewHighScore(sheetKey, difficulty, score) {
+        // Practice mode doesn't have highscores handled here
+        if (!difficulty || score <= 0) {
+            return false;
+        }
+
+        try {
+            const currentScores = this.getScoresForSheetSync(sheetKey, difficulty);
+
+            // If the list isn't full, any positive score is "new"
+            if (currentScores.length < this.maxEntriesPerSheet) {
+                return true;
+            }
+
+            // If the list is full, check against the lowest score
+            const lowestScore = currentScores[currentScores.length - 1]?.score ?? 0;
+            return score > lowestScore;
+
+        } catch (error) {
+            console.error(`Error checking for new highscore for ${sheetKey} (${difficulty}):`, error);
+            return false; // Fail safe: assume not a highscore on error
+        }
+    }
 }

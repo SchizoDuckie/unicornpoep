@@ -5,11 +5,12 @@
 class AboutController {
     /**
      * Initializes the controller, gets the container element, and sets up listeners.
-     * @param {Game} game - The main game instance.
+     * @param {MainMenu} mainMenuController - The main menu controller instance.
      */
-    constructor(game) {
-        this.game = game;
-        this.container = document.getElementById('about');
+    constructor(mainMenuController) {
+        this.mainMenuController = mainMenuController;
+        this.aboutElement = document.getElementById('about');
+        this.backButton = this.aboutElement?.querySelector('.backToMain');
 
         this.setupEventListeners();
         this.hide(); // Add .hidden class initially
@@ -19,8 +20,8 @@ class AboutController {
      * Sets up listeners for buttons within the about view.
      */
     setupEventListeners() {
-        this.container?.querySelectorAll('.backToMain').forEach(btn => {
-            btn.addEventListener('click', () => this.game.backToMainMenu());
+        this.backButton?.addEventListener('click', () => {
+            this.mainMenuController.showView('mainMenu', 'backward');
         });
     }
 
@@ -28,13 +29,18 @@ class AboutController {
      * Shows the about container. Assumes base style is display: flex.
      */
     show() {
-        this.container?.classList.remove('hidden');
+        this.aboutElement?.classList.remove('hidden');
     }
 
     /**
      * Hides the about container.
      */
     hide() {
-        this.container?.classList.add('hidden');
+        this.aboutElement?.classList.add('hidden');
+    }
+
+    activate() {
+        console.log("AboutController activating.");
+        // No specific setup needed currently, but method exists for consistency
     }
 }
