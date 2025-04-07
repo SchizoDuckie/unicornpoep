@@ -135,14 +135,23 @@ class MultiplayerGame {
         this.selectedSheets = sheetKeys;
         this.difficulty = difficulty;
 
+        // Show loading immediately
         this.mainMenu.loadingController.show("Hosting starten...");
 
         try {
+            // Load questions first
             await this.loadQuestionsForMultiplayer();
             this.shuffleQuestions(); // Shuffle once for the whole game
 
+            // Initialize WebRTC Host (async)
             const hostPeerId = await this.webRTCManager.initializeHost();
             console.log("MP: WebRTC Host Initialized, Peer ID:", hostPeerId);
+
+            // *** FIX: Navigate away from sheet selection view BEFORE showing host dialog ***
+            console.log("MP: Navigating back to main menu view before showing host screen.");
+            await this.mainMenu.showView('mainMenu'); // Navigate back to main menu view
+            console.log("MP: Navigation complete.");
+            // *** END FIX ***
 
             // Add host to the player list using their own peerId
             this.players.set(hostPeerId, {
@@ -152,16 +161,19 @@ class MultiplayerGame {
                 isFinished: false
             });
 
+            // Hide loading indicator only AFTER navigation and setup is done
             this.mainMenu.loadingController.hide();
-            this.mainMenu.multiplayerController.showHostScreen(hostPeerId); // Show code, waiting message
-            // Do not show game area yet
+
+            // Now show the host screen dialog over the main menu
+            this.mainMenu.multiplayerController.showHostScreen(hostPeerId);
 
         } catch (error) {
+            // Ensure loading is hidden on error
             this.mainMenu.loadingController.hide();
             console.error("MP: Failed to initialize host:", error);
             this.handleFatalError(`Host init error: ${error.message || 'Unknown'}`);
-            // Consider navigating back to main menu or showing error dialog
-            this.mainMenu.showView('mainMenu'); // Example fallback
+            // Attempt to navigate back to main menu on error as well
+            await this.mainMenu.showView('mainMenu');
         }
     }
 
