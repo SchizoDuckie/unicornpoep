@@ -1182,22 +1182,33 @@ class MultiplayerGame {
         this.gamePhase = 'ended'; // Ensure phase is correct
         this.mainMenu.gameAreaController.hide(); // Hide game area
 
+        // <<< NEW: Navigate to Highscores View FIRST >>>
+        console.log("MP _handleFinalResults: Navigating to highscores view before showing dialog.");
+        try {
+            await this.mainMenu.showView('highscores'); // Ensure this navigation happens
+            console.log("MP _handleFinalResults: Navigation to highscores view initiated/completed.");
+        } catch (error) {
+             console.error("MP _handleFinalResults: Error navigating to highscores view:", error);
+             // Continue anyway? Or show an error? Let's try to continue.
+        }
+        // <<< END NEW >>>
+
         // <<< Store results for validation >>>
-        this._lastReceivedWinnerInfo = winnerInfo; 
+        this._lastReceivedWinnerInfo = winnerInfo;
 
         // CLIENT: Check if local client won and save highscore
         if (!this.isHost && winnerInfo && winnerInfo.peerId === localPlayerId && playersArray.length > 1) { // Only save if winner AND > 1 player
             const gameName = this._getMultiplayerNameForHighscore();
             console.log(`MP CLIENT WIN: Saving highscore for ${this.playerName} (Score: ${winnerInfo.score}, Game: ${gameName})`);
-            
-            // --- Defensive Logging Removed --- 
+
+            // --- Defensive Logging Removed ---
 
             try {
                 // <<< CORRECTED CALL: Use HighscoresManager >>>
                  await this.mainMenu.highscoresManager.addScore(
-                    gameName, 
-                    this.playerName, 
-                    winnerInfo.score, 
+                    gameName,
+                    this.playerName,
+                    winnerInfo.score,
                     this.isMultiplayer, // Pass true for multiplayer
                     this.difficulty // Pass the game difficulty
                 );
@@ -1209,7 +1220,8 @@ class MultiplayerGame {
              console.log("MP CLIENT: Client did not win or tied, not saving highscore.");
         }
 
-        // Use DialogController to show the results
+        // Use DialogController to show the results (OVER the highscores view)
+        console.log("MP _handleFinalResults: Displaying multiplayer results dialog.");
         this.mainMenu.dialogController.displayMultiplayerResults(playersArray, winnerInfo, localPlayerId);
 
         // Cleanup is handled in endMultiplayerGame after this call returns

@@ -24,6 +24,7 @@ class Game {
         this.isTestMode = false;
         this.difficulty = null;
         this.playerName = localStorage.getItem('unicornPoepPlayerName') || 'Speler 1';
+        this.blockInteraction = false;
 
         // Validate essential dependencies are available via the hub
         if (!this.mainMenu.questionsManager || !this.mainMenu.gameAreaController || !this.mainMenu.dialogController || !this.mainMenu.loadingController || !this.mainMenu.highscoresManager) {
@@ -138,6 +139,24 @@ class Game {
          }
 
         return this.shuffleArray(answersToShuffle);
+    }
+
+    /**
+     * Generates a standardized game name string for high score saving (Single Player).
+     * Uses selected sheet names and difficulty (if in test mode).
+     * @returns {string} The formatted game name (e.g., "Tafel van 1, Tafel van 2 (Medium)")
+     */
+    getGameNameForHighscore() {
+        const sheetString = this.selectedSheets && this.selectedSheets.length > 0
+            ? this.selectedSheets.join(', ')
+            : "Onbekende Oefening"; // Default for SP
+
+        // Only add difficulty if it's a test mode game
+        const difficultyString = this.isTestMode && this.difficulty
+            ? ` (${this.difficulty.charAt(0).toUpperCase() + this.difficulty.slice(1)})`
+            : ""; // Empty string for practice mode
+
+        return `${sheetString}${difficultyString}`;
     }
 
     /**

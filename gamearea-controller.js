@@ -39,7 +39,11 @@ class GameAreaController {
             console.warn("GameAreaController: Waiting UI element (#waitingUi) not found.");
         }
 
-        this.hide(); // Add .hidden class initially
+        // Initial state setup (ensure elements start hidden if needed, CSS handles this mainly)
+        console.log("GameAreaController initialized.");
+
+        // Bind methods that might lose context if needed (e.g., event handlers)
+        this._handleAnswerClick = this._handleAnswerClick.bind(this);
     }
 
     /** Shows the game area UI and sets up session listeners. */
@@ -47,81 +51,14 @@ class GameAreaController {
         console.log("GameAreaCtrl: show() called.");
         this.container.classList.remove('hidden');
 
-        // --- Force Listener Setup ---
-        console.log("GameAreaCtrl: Force removing/adding listeners in show().");
+        // Ensure critical UI elements are in a known state when the view first shows.
+        this.hideWaitingUi(); // Ensure waiting UI is hidden initially
 
-        const currentGame = this.mainMenu.currentGame;
-        if (!currentGame) {
-            console.error("GameAreaCtrl show(): Cannot set up listeners, currentGame is null.");
-            return;
-        }
+        // Setup listeners etc.
+        this._setupEventListeners(); // Setup listeners for this session
+        this.observeResize(); // Start observing resize events for this view
 
-        // --- Next Button Listener ---
-        if (this.nextButton) {
-            // Remove any existing listener first (using the stored reference if it exists)
-            if (this._nextButtonClickListener) {
-                console.log("GameAreaCtrl show(): Removing previous nextButton listener.");
-                this.nextButton.removeEventListener('click', this._nextButtonClickListener);
-            } else {
-                 console.log("GameAreaCtrl show(): No previous nextButton listener reference found to remove.");
-            }
-
-            // Define the new listener function
-            this._nextButtonClickListener = () => {
-                console.log("--- NEXT BUTTON CLICKED ---"); // <<< Make this log stand out
-                this.hideNextButton();
-                this.resetAnswerHighlights();
-
-                if (typeof currentGame.proceedToNextQuestion === 'function') {
-                    console.log(`GameAreaCtrl (Next): Calling proceedToNextQuestion on ${currentGame.constructor.name}`);
-                    currentGame.proceedToNextQuestion();
-                } else {
-                    console.error(`GameAreaCtrl (Next): currentGame (${currentGame.constructor.name}) does not have proceedToNextQuestion method!`);
-                }
-            };
-
-            // Add the new listener
-            console.log("GameAreaCtrl show(): Adding new nextButton listener.");
-            this.nextButton.addEventListener('click', this._nextButtonClickListener);
-        } else {
-            console.error("GameAreaCtrl show(): Cannot add Next button listener, element not found.");
-        }
-
-        // --- Answer Button Listener (Delegate) ---
-         if (this.answersElement) {
-             if (this._answerClickListener) {
-                 this.answersElement.removeEventListener('click', this._answerClickListener);
-             }
-             this._answerClickListener = (event) => {
-                 if (event.target.classList.contains('answer-button')) {
-                     this._handleAnswerClick(event);
-                 }
-             };
-             this.answersElement.addEventListener('click', this._answerClickListener);
-             console.log("GameAreaCtrl show(): Added Answer listener.");
-         } else {
-             console.error("GameAreaCtrl show(): Cannot add Answer listener, element not found.");
-         }
-
-
-        // --- Stop Button Listener ---
-        if (this.stopButton) {
-            if (this._stopButtonClickListener) {
-                this.stopButton.removeEventListener('click', this._stopButtonClickListener);
-            }
-            this._stopButtonClickListener = () => {
-                console.log("--- STOP BUTTON CLICKED ---");
-                if (typeof currentGame.stopGame === 'function') {
-                    currentGame.stopGame();
-                } else { console.error("Current game instance lacks stopGame()!"); }
-            };
-            this.stopButton.addEventListener('click', this._stopButtonClickListener);
-             console.log("GameAreaCtrl show(): Added Stop listener.");
-        } else {
-             console.error("GameAreaCtrl show(): Cannot add Stop listener, element not found.");
-        }
-
-        console.log("GameAreaCtrl show(): Listener setup complete.");
+        console.log("GameAreaCtrl show(): View shown, listeners set up, observing resize.");
     }
 
     /** Hides the game area container and explicitly removes listeners. */
@@ -168,6 +105,10 @@ class GameAreaController {
         this.hideGameCoreElements(); // Ensure core elements hidden on hide
         this.hideWaitingUi(); // Ensure waiting UI hidden on hide
         // --- End Original hide actions ---
+
+        // Stop observing when hidden.
+        this.stopObservingResize();
+        console.log("GAC: Hide method called (stopped observing).");
     }
     /** Checks if the game area is currently visible. @returns {boolean} */
     isVisible() { return !this.container.classList.contains('hidden'); }
@@ -553,15 +494,18 @@ class GameAreaController {
     /** Shows the countdown overlay element. */
     showCountdownOverlay() {
         if (this.countdownDisplay) {
+            console.log("GAC: Showing countdown overlay.");
             this.countdownDisplay.classList.remove('hidden');
+            this.countdownDisplay.classList.remove('active'); // Remove pulse class initially
         } else {
-            console.warn("GameAreaController: countdownDisplay element not found.");
+            console.error("GAC: Cannot show countdown, element not found.");
         }
     }
 
     /** Hides the countdown overlay element. */
     hideCountdownOverlay() {
         if (this.countdownDisplay) {
+            console.log("GAC: Hiding countdown overlay.");
             this.countdownDisplay.classList.add('hidden');
         }
     }
@@ -689,43 +633,209 @@ class GameAreaController {
 
     /** Resets the game area UI elements and removes listeners. */
     resetUI() {
-        console.log("GameAreaCtrl: Resetting UI.");
-        this.hide(); // Call hide which now removes listeners and hides container
+        console.log("GAC: Resetting UI");
         this.hideQuestion();
         this.hideAnswers();
         this.hideTimer();
         this.hideNextButton();
-        this.hideWaitingUi();
+        this.updateProgress(0, 0);
         this.hideCountdownOverlay();
-        this.resetAnswerHighlights();
-        this.questionElement.textContent = '';
-        this.answersElement.innerHTML = '';
-        this.timerElement.textContent = '⏱ --';
-        this.scoreElement.textContent = 'Score: 0';
-        this.progressIndicatorElement.classList.add('hidden');
-        this.opponentListElement.classList.add('hidden');
-        this.opponentListElement.innerHTML = '';
-        this.playerScoresElement.classList.add('hidden');
-        this.playerNameElement.classList.add('hidden');
+        this.hideWaitingUi();
+        this.clearOpponentDisplay();
+        this.hideOpponentDisplay();
+        this.updateScore(0);
+        this.hideGameCoreElements();
+        this.stopObservingResize();
+
+        this.updatePlayerNameDisplay('');
+        if (this.playerNameElement) this.playerNameElement.classList.add('hidden');
+
+        this._removeEventListeners();
+    }
+
+    /** Clears the content of the opponent display container. */
+    clearOpponentDisplay() {
+        if (this.playerScoresElement) {
+            this.playerScoresElement.innerHTML = '';
+            // console.log("GAC: Cleared opponent display (#playerScores)."); // Less verbose log
+        } else {
+             console.warn("GAC: Cannot clear opponent display - playerScoresElement not found.");
+        }
+    }
+
+    /** Hides the opponent display container. */
+    hideOpponentDisplay() {
+        if (this.playerScoresElement) {
+            this.playerScoresElement.classList.add('hidden');
+            // console.log("GAC: Hid opponent display (#playerScores)."); // Less verbose log
+        } else {
+             console.warn("GAC: Cannot hide opponent display - playerScoresElement not found.");
+        }
     }
 
     /**
-     * Handles clicks on answer buttons. (Keep intensive logging for now)
-     * @param {Event} event - The click event.
-     * @private
+     * Handles clicks on answer buttons (called by the delegated listener).
+     * Delegates to the current game instance.
+     * @param {Event} event - The click event object.
+     * @param {HTMLElement} button - The button element that was clicked.
+     * @private Note: Method renamed to _handleAnswerClick for convention
      */
-    _handleAnswerClick(event) {
-        // ... (Keep the intensive logging block from the previous step here) ...
+    _handleAnswerClick(event, button) { // Added button parameter
+        const selectedAnswer = button.getAttribute('data-answer'); // Get answer from the button
 
-        const currentGame = this.mainMenu.currentGame; // Re-fetch current game just in case
+        if (!this.answersAreEnabled || !selectedAnswer) {
+            // console.log("GAC _handleAnswerClick: Interaction blocked or invalid target.");
+            return;
+        }
 
-        // Explicit check before calling
+        console.log(`GAC _handleAnswerClick: Click detected on answer "${selectedAnswer}"`);
+        const currentGame = this.mainMenu.currentGame; // Use mainMenu reference
+
         if (currentGame && typeof currentGame.handleAnswerSelection === 'function') {
-            console.log("GameAreaCtrl (Answer): OK - Calling currentGame.handleAnswerSelection...");
+            console.log("GAC (Answer): OK - Calling currentGame.handleAnswerSelection...");
+            // Pass the original event, which might contain the specific target clicked if needed by the game logic
             currentGame.handleAnswerSelection(selectedAnswer, event);
         } else {
-            console.error(`GameAreaCtrl (Answer): FAILED - Method 'handleAnswerSelection' not found or not a function on currentGame! (Type: ${currentGame.constructor.name})`);
+            console.error(`GAC (Answer): FAILED - Method 'handleAnswerSelection' not found or not a function on currentGame! (Type: ${currentGame?.constructor?.name})`);
+        }
+    }
+
+    // --- Define _debounce helper method if it's part of this class ---
+    /**
+     * Basic debounce function.
+     * @param {Function} func - The function to debounce.
+     * @param {number} delay - The debounce delay in milliseconds.
+     * @returns {Function} The debounced function.
+     * @private
+     */
+    _debounce(func, delay) {
+        let debounceTimer;
+        return function() {
+            const context = this;
+            const args = arguments;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => func.apply(context, args), delay);
+        }
+    }
+
+    // --- Define handleResize method ---
+    /**
+     * Handles resize events, potentially adjusting UI elements.
+     * @private
+     */
+    handleResize() {
+        // Example: Adjust layout based on width
+        const currentWidth = window.innerWidth;
+        if (currentWidth !== this.lastWidth) {
+             console.log(`GAC HandleResize: Width changed from ${this.lastWidth} to ${currentWidth}`);
+             // Add resize-specific logic here if needed (e.g., font size adjustments)
+             this.lastWidth = currentWidth;
+        }
+    }
+
+    // --- Methods to start/stop observing ---
+    /** Starts observing resize events on the container. */
+    observeResize() {
+        if (!this.resizeObserver) {
+            this.resizeObserver = new ResizeObserver(this._debounce(this.handleResize.bind(this), 100));
+        }
+        // Observe the main app container or body for general layout changes
+        this.resizeObserver.observe(document.body);
+        console.log("GAC: Started observing resize.");
+        // Initial call to set width
+        this.lastWidth = window.innerWidth;
+    }
+
+    /** Stops observing resize events. */
+    stopObservingResize() {
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            console.log("GAC: Stopped observing resize.");
+            // Optionally nullify observer if needed: this.resizeObserver = null;
+        }
+    }
+
+    // --- Helper methods for event listeners ---
+    /**
+     * Removes all event listeners from the current instance.
+     * @private
+     */
+    _removeEventListeners() {
+        console.log("GAC _removeEventListeners: Attempting to remove listeners.");
+        if (this.nextButton && this._nextButtonClickListener) {
+            this.nextButton.removeEventListener('click', this._nextButtonClickListener);
+            this._nextButtonClickListener = null; // Clear reference
+            console.log("   - Removed Next button listener.");
+        }
+        if (this.answersElement && this._answerClickListener) {
+            this.answersElement.removeEventListener('click', this._answerClickListener);
+            this._answerClickListener = null; // Clear reference
+            console.log("   - Removed delegated Answer listener.");
+        }
+        if (this.stopButton && this._stopButtonClickListener) {
+            this.stopButton.removeEventListener('click', this._stopButtonClickListener);
+            this._stopButtonClickListener = null; // Clear reference
+            console.log("   - Removed Stop button listener.");
+        }
+    }
+
+    /** Sets up event listeners for buttons within the game area. */
+    _setupEventListeners() {
+        console.log("GAC _setupEventListeners: Setting up listeners.");
+        const currentGame = this.mainMenu.currentGame;
+        if (!currentGame) {
+            console.error("GAC _setupEventListeners: Cannot set up, currentGame is null.");
             return;
+        }
+
+        // Remove previous listeners before adding new ones to prevent duplicates
+        this._removeEventListeners(); // Call removal first
+
+        // --- Next Button ---
+        if (this.nextButton) {
+            // Define the listener function
+            this._nextButtonClickListener = () => {
+                console.log("--- NEXT BUTTON CLICKED ---");
+                this.hideNextButton();
+                this.resetAnswerHighlights();
+                if (typeof currentGame.proceedToNextQuestion === 'function') {
+                    currentGame.proceedToNextQuestion();
+                } else {
+                    console.error(`GAC (Next): currentGame (${currentGame.constructor.name}) missing proceedToNextQuestion!`);
+                }
+            };
+            // Add the new listener
+            this.nextButton.addEventListener('click', this._nextButtonClickListener);
+            console.log("   - Added Next button listener.");
+        }
+
+        // --- Answer Buttons (Event Delegation) ---
+        if (this.answersElement) {
+            // Define the listener function using the bound private method
+            this._answerClickListener = (event) => {
+                // Check if the clicked element OR its parent is an answer button
+                const button = event.target.closest('.answerButton'); // Use closest to handle clicks on potential inner elements
+                if (button) {
+                    this._handleAnswerClick(event, button); // Pass the button reference
+                }
+            };
+            // Add the new listener
+            this.answersElement.addEventListener('click', this._answerClickListener);
+            console.log("   - Added delegated Answer listener.");
+        }
+
+        // --- Stop Button ---
+        if (this.stopButton) {
+            // Define the listener function
+            this._stopButtonClickListener = () => {
+                console.log("--- STOP BUTTON CLICKED ---");
+                if (typeof currentGame.stopGame === 'function') {
+                    currentGame.stopGame();
+                } else { console.error(`GAC (Stop): currentGame (${currentGame.constructor.name}) missing stopGame!`); }
+            };
+            // Add the new listener
+            this.stopButton.addEventListener('click', this._stopButtonClickListener);
+            console.log("   - Added Stop button listener.");
         }
     }
 }

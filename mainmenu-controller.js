@@ -568,11 +568,7 @@ class MainMenu {
                      // Call view-specific logic AFTER transition finishes
                      this._handleViewSpecificLogic(viewId, this.currentViewId);
 
-                     // Ask controller to observe resize AFTER view transition is fully done
-                     if (targetController && typeof targetController.observeResize === 'function' && viewId !== 'mainMenu' && viewId !== 'sheetSelection') {
-                        console.log(`MainMenu: Asking ${targetController.constructor.name} to observe after transition.`);
-                        targetController.observeResize();
-                     }
+
                 });
             } else {
                  // View Transitions not supported, update DOM directly
@@ -587,11 +583,7 @@ class MainMenu {
                      // Call view-specific logic AFTER direct update
                      this._handleViewSpecificLogic(viewId, this.currentViewId);
 
-                     // Ask controller to observe resize AFTER direct update
-                     if (targetController && typeof targetController.observeResize === 'function' && viewId !== 'mainMenu' && viewId !== 'sheetSelection') {
-                         console.log(`MainMenu: Asking ${targetController.constructor.name} to observe after direct update.`);
-                         targetController.observeResize();
-                     }
+                     
                       transitionPromise = Promise.resolve(); // Resolve immediately as there's no transition
                  } catch (domUpdateError) {
                       console.error(`MainMenu: Error during direct DOM update for ${viewId}:`, domUpdateError);
@@ -757,25 +749,7 @@ class MainMenu {
          }
     }
 
-    // Extracted resize observer logic into its own method
-    _handleResizeObserver(viewId) {
-        // Ensure gameAreaController exists before trying to call methods
-        if (!this.gameAreaController) {
-            console.warn("MainMenu: GameAreaController not available for resize observation.");
-            return;
-        }
-
-        if (viewId === 'gameArea') {
-            // Assuming the method is named 'observe' in GameAreaController
-            console.log("MainMenu: Asking GameAreaController to observe.");
-            this.gameAreaController.observe(); // Use optional chaining on the method itself too
-        } else {
-            // Assuming the method is named 'unobserve' in GameAreaController
-            console.log("MainMenu: Asking GameAreaController to unobserve.");
-            this.gameAreaController.unobserve(); // Use optional chaining on the method itself too
-        }
-    }
-
+ 
     /**
      * Hides the bottom navigation bar used for sheet selection.
      */
