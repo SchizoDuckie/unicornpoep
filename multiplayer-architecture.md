@@ -2,14 +2,14 @@
 
 ## 1. Introduction
 
-This document outlines the plan for refactoring the Unicorn Poep multiplayer functionality to use a **Host-as-Server** architecture via WebRTC (PeerJS). The primary goal is to create a robust foundation for multiplayer gameplay, supporting features like synchronized start/end, pre-game information, waiting states, and chat, while centralizing game logic on the host.
+This document outlines the plan for refactoring the Unicorn Poep multiplayer functionality to use a **Host-as-Server** architecture via WebRTC (PeerJS). The primary goal is to create a robust foundation for multiplayer gameplay, supporting features like synchronized start/end, pre-game information, waiting states, while centralizing game logic on the host.
 
 **Core Principles:**
 
 *   **Host Authority:** The player initiating the game (Host) acts as the central authority, managing the definitive game state and connections.
 *   **Client Simplicity:** Client instances connect only to the host, send their actions, and react to state updates broadcast by the host.
 *   **Synchronized Experience:** Game events like starting, ending, and player progress are synchronized across all participants via the host.
-*   **Enhanced User Experience:** Provide clearer pre-game information, a waiting lobby/state, and in-game chat.
+*   **Enhanced User Experience:** Provide clearer pre-game information and a waiting lobby/state.
 
 *(Assumption: This plan ignores potential performance bottlenecks related to browser limitations or host bandwidth when scaling to a very large number of players, focusing purely on the logical architecture.)*
 
@@ -18,7 +18,7 @@ This document outlines the plan for refactoring the Unicorn Poep multiplayer fun
 *   **Initialization:** The Host player starts a game, generating a unique PeerJS ID.
 *   **Connection:** All Client players use the Host's PeerJS ID to establish a direct WebRTC data connection *only* to the Host. Clients do **not** connect to each other.
 *   **Data Flow:**
-    *   Clients send messages (actions, chat, state changes) exclusively to the Host.
+    *   Clients send messages (actions, state changes) exclusively to the Host.
     *   The Host receives messages from all Clients, processes them, updates the authoritative game state, and broadcasts necessary updates or events back to all connected Clients (or specific clients as needed).
 
 ```javascript
@@ -76,8 +76,7 @@ This document outlines the plan for refactoring the Unicorn Poep multiplayer fun
     *   Displays local player score and list/scores of all connected opponents.
     *   Displays game timer (potentially synchronized/controlled by host).
     *   Manages and displays the **Countdown Overlay**.
-    *   Manages and displays the **Waiting State UI** (hiding game elements, showing "Waiting for others...", activating chat input/display).
-    *   Displays received chat messages.
+    *   Manages and displays the **Waiting State UI** (hiding game elements, showing "Waiting for others...").
     *   Receives updates from either `Game` (single-player) or `MultiplayerGame` (multiplayer) instance (e.g., `updateOpponentDisplay` called by `MultiplayerGame`).
     *   Forwards user actions (answer selection, next button) to the *active* game instance (`Game` or `MultiplayerGame`).
 
@@ -107,34 +106,6 @@ This document outlines the plan for refactoring the Unicorn Poep multiplayer fun
     *   `C_PLAYER_FINISHED { finalScore }`
     *   `H_FINAL_RESULTS { resultsList: [{peerId, playerName, score, rank}, ...], winnerName }`
 
-*   **Chat:**
-    *   `C_CHAT_MESSAGE { text }`
-    *   `H_CHAT_MESSAGE { senderPeerId, senderName, text }`
-
 ## 5. Detailed Flows
 
-*(Flows remain conceptually the same, but interactions now involve `MultiplayerGame` coordinating with `WebRTCManager`, Controllers, and its internal `coreGame` instance where appropriate. Message types now use constants.)*
-
-*(Example: Gameplay Loop)*
-*   User interacts (MP Client) -> `GameAreaController` calls `currentGame.handleAnswerSelection(answer)` (`currentGame` is `MultiplayerGame` instance) -> `MultiplayerGame` sends `MessageTypes.C_SUBMIT_ANSWER` via `WebRTCManager`.
-*   Host `WebRTCManager` receives message -> `MultiplayerGame.handleMultiplayerMessage` processes `MessageTypes.C_SUBMIT_ANSWER` -> `MultiplayerGame.handleClientAnswer` -> `MultiplayerGame.processAnswerLocally` (updates `this.players`) -> `MultiplayerGame.broadcastGameState`.
-*   Client `WebRTCManager` receives message -> `MultiplayerGame.handleMultiplayerMessage` processes `MessageTypes.H_GAME_STATE_UPDATE` -> `MultiplayerGame.handleGameStateUpdate` updates `this.players` -> Calls `GameAreaController.updateOpponentDisplay(this.players)`.
-
-## 6. Data Structures (`MultiplayerGame` State - Conceptual)
-
-```javascript
-this.isHost = false;
-this.players = new Map(); // Key: peerId, Value: { playerName: string, score: number, isFinished: boolean }
-this.gamePhase = 'idle'; // etc.
-this.localPlayerFinished = false;
-this.webRTCManager = new WebRTCManager(this); // Passes self (MultiplayerGame)
-this.coreGame = new Game(...); // Internal instance for core logic/state
-// Game settings like selectedSheets, difficulty stored here or in coreGame? Likely here.
-this.selectedSheets = [];
-this.difficulty = '';
-this.currentQuestionIndex = 0; // MP needs to track this for sync
-```
-
-## 7. Conclusion
-
-This refactored architecture separates single-player (`Game`) and multiplayer (`MultiplayerGame`) logic using composition. `MultiplayerGame` orchestrates the network interactions and multiplayer state, delegating core game mechanics to the base `Game` class when needed. Using `MessageTypes` constants improves code clarity and maintainability. 
+*(Flows remain conceptually the same, but interactions now involve `MultiplayerGame`

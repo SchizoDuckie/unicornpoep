@@ -1609,15 +1609,26 @@ th {
 
 .host-code-text {
     font-family: 'Fredoka One', cursive;
-    font-size: 0.8rem; 
+    font-size: 0.8rem; /* Reduced font size slightly */
     font-weight: bold;
     color: #614ae2; /* Use theme colors? Maybe keep specific for contrast */
-    letter-spacing: 5px;
+    letter-spacing: 1px; /* Reduced letter spacing */
     background-color: rgba(255, 255, 255, 0.8); /* Lighter background inside dialog */
-    padding: 10px 20px;
+    padding: 10px 15px; /* Adjusted padding */
     border-radius: 10px;
     border: 2px dashed #614ae2;
-    margin-right: 15px;
+    margin-right: 15px; /* Keep some space before buttons */
+    line-height: 1.4; /* Added line-height for wrapping */
+    text-align: left; /* Align text left for better readability when wrapped */
+    overflow-wrap: break-word; /* Allow breaking long words/URLs */
+    word-break: break-all; /* Force breaks if needed */
+    /* Remove fixed width if it was previously set */
+}
+
+/* Optional: Add specific style if only the link needs breaking */
+.join-link-text {
+    letter-spacing: normal; /* Reset letter spacing for better URL readability */
+    /* word-break: break-all; /* Already applied to host-code-text, but could be specific here */
 }
 
 .copy-button {
@@ -1798,31 +1809,6 @@ th {
     height: auto;
     margin-bottom: 20px;
     animation: jumpAndFlip 1.0s infinite;
-}
-
-/* Chat container styles (basic placeholder) */
-#chatContainer {
-    width: 80%;
-    max-width: 500px;
-    margin-top: 20px;
-    /* Add more styles for background, border, etc. */
-}
-#chatMessages {
-    height: 150px; /* Example height */
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    background-color: rgba(255, 255, 255, 0.7);
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 5px;
-    text-align: left;
-}
-#chatInput {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    box-sizing: border-box;
 }
 
 

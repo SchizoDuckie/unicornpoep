@@ -23,7 +23,20 @@ class WebRTCManager {
             // host: 'your-peerjs-server.com', // If self-hosting
             // port: 9000, // Default PeerJS server port
             // path: '/myapp', // If server uses a path
-             debug: 2 // 0: none, 1: errors, 2: warnings/errors, 3: verbose
+            debug: 2, // <--- Increased debug level
+            config: { // This nested config is standard for ICE servers
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' },
+                    // Add TURN servers here if complex NAT traversal is needed
+                    // (Requires hosting a TURN server or using a paid service)
+                ],
+                // Optional: Change ICE transport policy if needed, but default usually best
+                // iceTransportPolicy: 'all', // 'all' or 'relay'
+            }
         };
     }
 

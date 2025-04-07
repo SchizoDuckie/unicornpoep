@@ -55,6 +55,15 @@ class MultiplayerGame {
         this.currentQuestions = [];
         this.timer = null; // Will be ScoreTimer instance
         this._countdownInterval = null;
+        this.heartbeatInterval = null; // Client: Interval ID for sending heartbeats
+        this.clientLastContact = new Map(); // Host: Map<peerId, timestamp>
+        this.heartbeatCheckInterval = null; // Host: Interval ID for checking timeouts
+        this.HEARTBEAT_INTERVAL_MS = 5000; // Send every 5 seconds
+        this.CLIENT_TIMEOUT_MS = 15000; // Consider client gone after 15 seconds of silence
+        this.hostHeartbeatBroadcastInterval = null; // Host: Interval ID for broadcasting heartbeats
+        this.lastHostContact = null; // Client: Timestamp of last message from host
+        this.hostTimeoutCheckInterval = null; // Client: Interval ID for checking host timeout
+        this.HOST_TIMEOUT_MS = 15000; // Consider host gone after 15 seconds of silence (adjust as needed)
 
         // --- Access Managers & Controllers via Hub ---
         // this.questionsManager = this.mainMenuController.questionsManager; (Example)
@@ -167,6 +176,9 @@ class MultiplayerGame {
             // Now show the host screen dialog over the main menu
             this.mainMenu.multiplayerController.showHostScreen(hostPeerId);
 
+            // *** Start checking for client timeouts ***
+            this.startHostHeartbeatCheck();
+
         } catch (error) {
             // Ensure loading is hidden on error
             this.mainMenu.loadingController.hide();
@@ -174,6 +186,8 @@ class MultiplayerGame {
             this.handleFatalError(`Host init error: ${error.message || 'Unknown'}`);
             // Attempt to navigate back to main menu on error as well
             await this.mainMenu.showView('mainMenu');
+            // Ensure check interval is cleared on error too
+            this.stopHostHeartbeatCheck();
         }
     }
 
@@ -260,6 +274,15 @@ class MultiplayerGame {
             console.warn("MP: Received invalid message structure:", message);
             return;
         }
+        // *** HOST: Update last contact time on ANY message from a client ***
+        if (this.isHost && senderId !== this.webRTCManager.peerId) {
+             this.clientLastContact.set(senderId, Date.now());
+        }
+        // *** CLIENT: Update last contact time on ANY message from the host ***
+        else if (!this.isHost && senderId === this.webRTCManager?.hostId) {
+            this.lastHostContact = Date.now();
+        }
+
         console.log(`MP Route: Received '${message.type}' from ${senderId}. IsHost: ${this.isHost}`);
 
         // --- Host-specific handlers ---
@@ -282,13 +305,11 @@ class MultiplayerGame {
                 case MessageTypes.C_PLAYER_FINISHED:
                     this.handleClientFinished(senderId, message.finalScore);
                     break;
-                case MessageTypes.C_CHAT_MESSAGE:
-                    // Placeholder: Handle chat message forwarding
-                    console.log(`Chat from ${senderId}: ${message.text}`);
-                    this.broadcastChatMessage(senderId, this.players.get(senderId).playerName || 'Unknown', message.text);
-                    break;
                 case MessageTypes.C_UPDATE_NAME:
                     this.handleClientNameUpdate(senderId, message.newName);
+                    break;
+                case MessageTypes.C_HEARTBEAT:
+                    // Handled above by updating timestamp
                     break;
                 default:
                     console.warn(`MP Host: Received unexpected message type from client ${senderId}: ${message.type}`);
@@ -336,14 +357,12 @@ class MultiplayerGame {
                      // Perform client-side cleanup if needed AFTER showing results
                      // this.cleanupMultiplayer(); // Be cautious if this navigates away
                      break;
-                case MessageTypes.H_CHAT_MESSAGE:
-                    // Placeholder: Display chat message in UI
-                    console.log(`Chat from ${message.senderName}: ${message.text}`);
-                    this.mainMenu.gameAreaController.displayChatMessage(message.senderName, message.text);
-                    break;
                 case MessageTypes.H_RECORD_HIGHSCORE:
                      this.handleRecordHighscore(message);
                      break;
+            case MessageTypes.H_HEARTBEAT:
+                    // Handled above by updating timestamp
+                    break;
             default:
                     console.warn(`MP Client: Received unexpected message type from host: ${message.type}`);
             }
@@ -484,19 +503,25 @@ class MultiplayerGame {
     }
 
     /**
-     * CLIENT: Handles the welcome message from the host. Populates the initial player list.
+     * CLIENT: Handles the welcome message from the host. Populates the initial player list,
+     * starts sending client heartbeats, AND starts checking for host heartbeats.
      * @param {object} welcomeMessage - The welcome message data.
      */
     handleWelcome(welcomeMessage) {
         console.log("MP Client: Received Welcome from host.", welcomeMessage);
         if (this.gamePhase === 'lobby') { // Should be in lobby after confirming join
-            this.players.clear(); // Clear any potential stale data
+            this.players.clear();
             welcomeMessage.playerList.forEach(pInfo => {
                  this.players.set(pInfo.peerId, pInfo)
              });
             console.log("MP Client: Player list initialized:", Array.from(this.players.values()));
-            // UI already shows "Waiting for game start" from confirmJoin()
-            this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, this.webRTCManager.peerId); // Update game area if visible
+            this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, this.webRTCManager.peerId);
+
+            // Start sending client heartbeats TO host
+            this.startClientHeartbeat();
+            // Start checking FOR host heartbeats (or any message)
+            this.startHostTimeoutCheck(); // <-- ADDED
+
         } else {
              console.warn("MP Client: Received welcome message in unexpected phase:", this.gamePhase);
         }
@@ -584,22 +609,41 @@ class MultiplayerGame {
 
         if (this.isHost) {
             if (this.players.has(peerId)) {
-                const disconnectedPlayerName = this.players.get(peerId).playerName;
+                const disconnectedPlayerName = this.players.get(peerId)?.playerName || 'Een speler'; // Get name before deleting
                 console.log(`MP Host: Client ${disconnectedPlayerName} (${peerId}) disconnected.`);
-                this.players.delete(peerId);
+                this.players.delete(peerId); // Remove player FIRST
+
+                // *** ADDED CHECK: End game if host is now alone ***
+                if (this.players.size === 1) {
+                    console.log(`MP Host: ${disconnectedPlayerName} was the last opponent. Ending game.`);
+                    // Perform internal cleanup immediately
+                    this._internalCleanup();
+                    // Show a specific disconnection message via the dialog controller
+                    if (this.mainMenu && this.mainMenu.dialogController && typeof this.mainMenu.dialogController.showDisconnectionDialog === 'function') {
+                         // Use the disconnection dialog but with a specific message
+                         this.mainMenu.dialogController.showDisconnectionDialog(
+                             `${disconnectedPlayerName} heeft de verbinding verbroken. Het spel stopt omdat je alleen bent.`
+                         );
+                    } else {
+                        console.error("MP Host: Cannot show disconnection dialog - DialogController missing.");
+                         // Fallback navigation if dialog fails
+                         if (this.mainMenu && typeof this.mainMenu.showView === 'function') {
+                            this.mainMenu.showView('mainMenu');
+                         }
+                    }
+                    return; // Stop further processing for this disconnect event
+                }
+                // *** END MODIFIED CHECK ***
+
+                // If we reach here, other players might still be connected
                 this.webRTCManager.broadcast({ type: MessageTypes.H_PLAYER_DISCONNECTED, peerId: peerId });
                 this.mainMenu.multiplayerController.updateLobbyPlayerCount(this.players.size);
                 this.mainMenu.gameAreaController.updateOpponentDisplay(this.players, this.webRTCManager.peerId);
 
-                // *** FIX: Re-check game end if player disconnected during playing OR waiting_for_finish phase ***
+                 // Re-check game end if player disconnected during playing/waiting phase
                  if (this.gamePhase === 'playing' || this.gamePhase === 'waiting_for_finish') {
                     console.log(`MP Host: Player disconnected during ${this.gamePhase} phase. Re-checking game end.`);
-                    this.checkMultiplayerEnd(); // Check if remaining players are all finished
-                 } else if (this.players.size === 0) {
-                     // If host is alone now (e.g., last client left lobby/countdown)
-                     console.log("MP Host: Last client disconnected. Game cannot proceed alone.");
-                     // Maybe go back to menu or wait? For now, let's stop.
-                     this.handleFatalError("Laatste speler heeft de verbinding verbroken.");
+                    this.checkMultiplayerEnd();
                  }
 
             } else {
@@ -633,39 +677,54 @@ class MultiplayerGame {
 
 
     /**
-     * CLIENT: Handles the host disconnecting. Shows a dialog and cleans up.
+     * CLIENT: Handles the host disconnecting. Shows a dialog and cleans up internal state.
+     * Navigation is handled by the dialog closure.
      */
     handleHostDisconnect(reason) {
         console.error("MP Client: Host disconnected.");
-        if (this.gamePhase !== 'idle' && this.gamePhase !== 'results') {
-             this.mainMenu.dialogController.showDisconnectionDialog(reason);
-             this.cleanup(); // Clean up WebRTC connection and state
-             this.gamePhase = 'idle';
+        const currentPhase = this.gamePhase; // Store phase before cleanup
+        // Perform internal cleanup FIRST to stop activity
+        this._internalCleanup();
+        this.gamePhase = 'idle'; // Set phase after cleanup
+
+        // Show dialog only if the game was actually in progress/connecting
+        if (currentPhase !== 'idle' && currentPhase !== 'results' && currentPhase !== 'ended') {
+             // Ensure DialogController exists before calling
+            if (this.mainMenu && this.mainMenu.dialogController && typeof this.mainMenu.dialogController.showDisconnectionDialog === 'function') {
+                 this.mainMenu.dialogController.showDisconnectionDialog(reason);
+             } else {
+                  console.error("MP Client: Cannot show disconnection dialog - DialogController missing or method not found.");
+                  // Attempt navigation as fallback if dialog fails
+                  if (this.mainMenu && typeof this.mainMenu.showView === 'function') {
+                     this.mainMenu.showView('mainMenu');
+                  }
+             }
         } else {
-            // If already idle or in results, just ensure cleanup
-            this.cleanup();
+            // If already idle or in results, just ensure cleanup happened. No dialog needed.
+             console.log("MP Client: Host disconnected while game was idle or finished. Dialog skipped.");
         }
     }
 
     /**
-     * Handles a fatal error, cleans up, and shows an error message.
+     * Handles a fatal error, cleans up internal state, and shows an error message.
+     * Navigation is handled by the dialog closure.
      * @param {string} errorMessage - The error message to display.
      */
     handleFatalError(errorMessage) {
         console.error("MP: Fatal Error:", errorMessage);
-        this.cleanup(); // Clean up connections and state
+        this._internalCleanup(); // Clean up connections and state FIRST
 
         // Explicitly check if mainMenu and its dialogController AND the showError method exist before calling.
-        // NO optional chaining.
         if (this.mainMenu && this.mainMenu.dialogController && typeof this.mainMenu.dialogController.showError === 'function') {
             this.mainMenu.dialogController.showError(errorMessage); // Show error
         } else {
             console.error("MP: Cannot show fatal error dialog - MainMenu, DialogController, or showError method not available.");
-            // Fallback? Maybe alert, but rules say no alerts.
-            // Relying on console error for now.
+            // Attempt navigation as fallback if dialog fails
+            if (this.mainMenu && typeof this.mainMenu.showView === 'function') {
+                this.mainMenu.showView('mainMenu');
+            }
         }
-
-        // Navigation is handled within cleanup()
+        // Navigation is handled by the dialog controller now.
     }
 
     // --- Countdown/Start ---
@@ -1324,50 +1383,16 @@ class MultiplayerGame {
          }
     }
 
-     // --- Chat --- (Placeholders - Requires UI implementation in GameAreaController)
-
-     /**
-      * Sends a chat message to the host (if client).
-      * @param {string} text - The chat message text.
-      */
-     sendChatMessage(text) {
-         if (this.isHost || !text.trim()) return;
-         console.log("MP Client: Sending chat message:", text);
-         this.webRTCManager.send({
-             type: MessageTypes.C_CHAT_MESSAGE,
-             text: text.trim()
-         });
-     }
-
-     /**
-      * HOST: Broadcasts a received chat message to all clients.
-      * @param {string} senderId - PeerId of the original sender.
-      * @param {string} senderName - Name of the original sender.
-      * @param {string} text - The chat message text.
-      */
-     broadcastChatMessage(senderId, senderName, text) {
-         if (!this.isHost) return;
-         console.log(`MP Host: Broadcasting chat from ${senderName}: ${text}`);
-         this.webRTCManager.broadcast({
-             type: MessageTypes.H_CHAT_MESSAGE,
-             senderPeerId: senderId,
-             senderName: senderName,
-             text: text
-         });
-         // Display chat message for host locally too
-         this.mainMenu.gameAreaController.displayChatMessage(senderName, text);
-     }
-
+     
     /**
      * Stops the current multiplayer game session prematurely.
      * Performs cleanup (disconnects peers), resets state, and navigates back.
      */
     stopGame() {
         console.log("MP: Stopping game via stop button.");
-        // cleanup() handles internal reset and navigation
-        this.cleanup(); // Calls resetMultiplayerState and showView('mainMenu')
-        // *** Call MainMenu cleanup AFTER internal cleanup/navigation attempt ***
-        this.mainMenu._handleEndOfGameCleanup();
+        // Use the combined cleanup and navigate method for stop button
+        this.cleanupAndNavigate();
+        // MainMenu cleanup is called within cleanupAndNavigate
     }
 
     /**
@@ -1786,15 +1811,12 @@ class MultiplayerGame {
              this.mainMenu.multiplayerController.showConnectionError(errorMessage, true); // Keep join view visible
         } else {
              console.error("MP Game: Cannot display connection error - MultiplayerController or showConnectionError missing.");
-             // Fallback? Maybe alert?
-             // alert(`Connection Failed: ${errorMessage}`); 
         }
         // Cleanup WebRTC even on non-fatal connection error to ensure clean state
         if (this.webRTCManager) {
              console.log("MP Game: Cleaning up WebRTCManager after connection failure.");
              this.webRTCManager.cleanup();
         }
-        // Don't cleanup the MultiplayerGame instance itself here, let the user decide to go back via UI
         this.gamePhase = 'idle'; // Set phase to idle so they can retry or go back
     }
 
@@ -1859,6 +1881,208 @@ class MultiplayerGame {
             console.error(`MP handleRecordHighscore: Failed to save score locally:`, error);
             // Maybe show a non-critical toast notification? 
             this.mainMenu?.toastNotification?.show("Fout bij opslaan highscore.", 3000);
+        }
+    }
+
+    /**
+     * Resets the multiplayer state, cleaning up connections, timers, and UI elements, AND heartbeats.
+     * Does NOT navigate.
+     * @private
+     */
+    _internalCleanup() {
+        console.log("MP: Resetting internal multiplayer state (no navigation)");
+        this.mainMenu.gameAreaController.resetUI();
+
+        if (this.timer) {
+            this.timer.stop();
+        }
+        this.timer = null;
+
+        // Stop ALL heartbeats/checks
+        this.stopClientHeartbeat();
+        this.stopHostHeartbeatCheck(); // Stops both host checks and broadcasts
+        this.stopHostTimeoutCheck(); // Stops client check
+
+        if (this.webRTCManager) {
+            this.webRTCManager.cleanup();
+        } else {
+            console.warn("MP _internalCleanup: webRTCManager not found, skipping its cleanup.");
+        }
+        this.players = new Map();
+        this.gamePhase = 'lobby';
+        this.currentQuestionIndex = -1;
+        this.currentQuestions = [];
+        this.mainMenu.multiplayerController.resetUI();
+    }
+
+     /**
+      * Cleans up the WebRTC connection, resets the game state, AND navigates back to the main menu.
+      * Use this for explicit actions like "Stop Game".
+      */
+     cleanupAndNavigate() {
+         console.log("MP: Cleaning up multiplayer game session AND navigating to main menu.");
+         this._internalCleanup(); // Perform internal cleanup first
+
+         // Explicitly check if mainMenu and showView method are available before navigating
+         if (this.mainMenu && typeof this.mainMenu.showView === 'function') {
+            this.mainMenu.showView('mainMenu'); // Navigation happens here
+         } else {
+              console.warn("MP: Cannot navigate back to main menu - MainMenu or showView not available during cleanupAndNavigate.");
+         }
+         // Call MainMenu's cleanup handler AFTER navigation attempt
+         if (this.mainMenu && typeof this.mainMenu._handleEndOfGameCleanup === 'function') {
+            this.mainMenu._handleEndOfGameCleanup();
+         }
+     }
+
+    // --- Heartbeat Methods ---
+
+    /**
+     * CLIENT: Starts sending heartbeat messages to the host.
+     * @private
+     */
+    startClientHeartbeat() {
+        if (this.isHost || this.heartbeatInterval) return; // Only for clients, don't start multiple intervals
+        console.log("MP Client: Starting heartbeat interval.");
+        this.heartbeatInterval = setInterval(() => {
+            if (this.webRTCManager && this.webRTCManager.isActive()) {
+                // console.log("MP Client: Sending heartbeat."); // Can be noisy
+                this.webRTCManager.send({ type: MessageTypes.C_HEARTBEAT });
+            } else {
+                console.warn("MP Client: Stopping heartbeat, WebRTC not active.");
+                this.stopClientHeartbeat(); // Stop if connection lost
+            }
+        }, this.HEARTBEAT_INTERVAL_MS);
+    }
+
+    /**
+     * CLIENT: Stops sending heartbeat messages.
+     * @private
+     */
+    stopClientHeartbeat() {
+        if (this.heartbeatInterval) {
+            console.log("MP Client: Stopping heartbeat interval.");
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+    }
+
+    /**
+     * HOST: Starts periodically checking for client timeouts AND broadcasting host heartbeats.
+     * @private
+     */
+    startHostHeartbeatCheck() {
+        if (!this.isHost) return;
+
+        // --- Start checking for client timeouts ---
+        if (!this.heartbeatCheckInterval) {
+            console.log("MP Host: Starting client timeout check interval.");
+            this.clientLastContact.clear();
+            this.players.forEach((player) => {
+                 if (player.peerId !== this.webRTCManager.peerId) {
+                     this.clientLastContact.set(player.peerId, Date.now());
+                 }
+             });
+
+            this.heartbeatCheckInterval = setInterval(() => {
+                // ... (existing client timeout check logic) ...
+                 const now = Date.now();
+                 const clientIds = Array.from(this.players.keys()).filter(id => id !== this.webRTCManager.peerId);
+
+                 clientIds.forEach(clientId => {
+                     const lastContact = this.clientLastContact.get(clientId);
+                     if (!lastContact) {
+                         console.warn(`MP Host Heartbeat Check: Initializing last contact time for newly joined client ${clientId}`);
+                         this.clientLastContact.set(clientId, now);
+                     } else if (now - lastContact > this.CLIENT_TIMEOUT_MS) {
+                         console.warn(`MP Host: Client ${clientId} timed out (Last contact: ${new Date(lastContact).toLocaleTimeString()}). Disconnecting.`);
+                         this.handleDisconnect(clientId, new Error('Heartbeat timeout'));
+                         this.clientLastContact.delete(clientId);
+                     }
+                 });
+
+                 const trackedIds = Array.from(this.clientLastContact.keys());
+                 trackedIds.forEach(trackedId => {
+                     if (!this.players.has(trackedId)) {
+                         console.log(`MP Host Heartbeat Check: Removing ${trackedId} from tracking (already disconnected).`);
+                         this.clientLastContact.delete(trackedId);
+                     }
+                 });
+
+            }, this.HEARTBEAT_INTERVAL_MS);
+        }
+
+        // --- Start broadcasting host heartbeats ---
+        if (!this.hostHeartbeatBroadcastInterval) {
+            console.log("MP Host: Starting host heartbeat broadcast interval.");
+            this.hostHeartbeatBroadcastInterval = setInterval(() => {
+                if (this.webRTCManager && this.webRTCManager.isActive() && this.players.size > 1) {
+                     // console.log("MP Host: Broadcasting heartbeat."); // Can be noisy
+                     this.webRTCManager.broadcast({ type: MessageTypes.H_HEARTBEAT });
+                 }
+            }, this.HEARTBEAT_INTERVAL_MS);
+        }
+    }
+
+    /**
+     * HOST: Stops checking for client timeouts AND stops broadcasting host heartbeats.
+     * @private
+     */
+    stopHostHeartbeatCheck() {
+        // Stop client timeout check
+        if (this.heartbeatCheckInterval) {
+            console.log("MP Host: Stopping client timeout check interval.");
+            clearInterval(this.heartbeatCheckInterval);
+            this.heartbeatCheckInterval = null;
+            this.clientLastContact.clear();
+        }
+        // Stop broadcasting host heartbeats
+        if (this.hostHeartbeatBroadcastInterval) {
+            console.log("MP Host: Stopping host heartbeat broadcast interval.");
+            clearInterval(this.hostHeartbeatBroadcastInterval);
+            this.hostHeartbeatBroadcastInterval = null;
+        }
+    }
+
+
+    // --- Add Client-side Host Timeout Check ---
+
+    /**
+     * CLIENT: Starts checking if the host has timed out.
+     * @private
+     */
+    startHostTimeoutCheck() {
+        if (this.isHost || this.hostTimeoutCheckInterval) return; // Only clients, don't start multiple
+        console.log("MP Client: Starting host timeout check interval.");
+        this.lastHostContact = Date.now(); // Initialize contact time
+
+        this.hostTimeoutCheckInterval = setInterval(() => {
+            if (!this.webRTCManager || !this.webRTCManager.isActive()) {
+                console.warn("MP Client: Stopping host timeout check, WebRTC not active.");
+                this.stopHostTimeoutCheck();
+                // Optionally trigger disconnect immediately if connection is lost?
+                // this.handleHostDisconnect("Verbinding verloren.");
+                return;
+            }
+
+            const now = Date.now();
+            if (now - this.lastHostContact > this.HOST_TIMEOUT_MS) {
+                console.error(`MP Client: Host timed out! Last contact: ${new Date(this.lastHostContact).toLocaleTimeString()}`);
+                this.stopHostTimeoutCheck(); // Stop checking
+                this.handleHostDisconnect("Verbinding met host verloren (timeout).");
+            }
+        }, this.HEARTBEAT_INTERVAL_MS); // Check frequency
+    }
+
+    /**
+     * CLIENT: Stops checking for host timeouts.
+     * @private
+     */
+    stopHostTimeoutCheck() {
+        if (this.hostTimeoutCheckInterval) {
+            console.log("MP Client: Stopping host timeout check interval.");
+            clearInterval(this.hostTimeoutCheckInterval);
+            this.hostTimeoutCheckInterval = null;
         }
     }
 

@@ -38,7 +38,7 @@ These instructions will help you understand the structure, patterns, and convent
 
 *   **Application Initialization (`index.html`, `MainMenuController.init`)**: `index.html`'s primary role in the `DOMContentLoaded` listener is **minimal**: it should only instantiate the `MainMenuController` and call its `init()` method. **Avoid placing significant application logic, navigation, or component creation directly within `index.html`.** `MainMenuController.init()` then takes over, creating managers/controllers, fetching initial data, setting up global listeners, and showing the initial view (usually main menu).
 *   **Main Menu (`MainMenuController`)**: Handles menu options, sheet/difficulty selection UI, and triggers the start of game sessions (SP or MP).
-*   **Game Area (`GameAreaController`)**: Manages the UI during active gameplay (question, answers, score, timer, progress, opponent list, chat). Receives updates from the active `Game` or `MultiplayerGame` instance.
+*   **Game Area (`GameAreaController`)**: Manages the UI during active gameplay (question, answers, score, timer, progress, opponent list). Receives updates from the active `Game` or `MultiplayerGame` instance.
 *   **Dialogs (`DialogController`)**: Manages common modal dialogs (End of Game, Disconnection, Errors). Interacts with `MainMenuController` for navigation after closing.
 *   **Multiplayer UI (`MultiplayerController`)**: Manages pre-game MP screens (Host/Join choice, connection codes, status messages). Interacts with `MainMenuController` for navigation and the active `MultiplayerGame` instance.
 *   **Multiplayer Logic (`MultiplayerGame`, `WebRTCManager`)**: `MultiplayerGame` orchestrates the MP session state and logic, using `WebRTCManager` for network communication.

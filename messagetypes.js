@@ -5,9 +5,9 @@ const MessageTypes = Object.freeze({
     C_CONFIRM_JOIN: 'c_confirmJoin',
     C_SUBMIT_ANSWER: 'c_submitAnswer',
     C_PLAYER_FINISHED: 'c_playerFinished',
-    C_CHAT_MESSAGE: 'c_chatMessage',
     C_UPDATE_NAME: 'c_updateName',
     C_DISCONNECTING: 'c_disconnecting', // Optional graceful disconnect
+    C_HEARTBEAT: 'c_heartbeat', // Client -> Host
 
     // Host -> Client
     H_GAME_INFO: 'h_gameInfo',
@@ -21,8 +21,8 @@ const MessageTypes = Object.freeze({
     H_GAME_STATE_UPDATE: 'h_gameStateUpdate',
     // H_PLAYER_FINISHED_UPDATE: 'h_playerFinishedUpdate', // Merged into gameStateUpdate
     H_FINAL_RESULTS: 'h_finalResults',
-    H_CHAT_MESSAGE: 'h_chatMessage',
-    H_RECORD_HIGHSCORE: 'h_recordHighscore' // <<< NEW: For broadcasting winner details to save
+    H_RECORD_HIGHSCORE: 'h_recordHighscore', // <<< NEW: For broadcasting winner details to save
+    H_HEARTBEAT: 'h_heartbeat' // Host -> Client
 });
 
 // Make available globally if not using modules

@@ -253,8 +253,7 @@ class MainMenu {
 
     /** Shows the main menu view elements */
     show() {
-        // *** REMOVE RECURSIVE CALL ***
-        // this.showView('mainMenu'); // <<< DO NOT call showView here
+        
 
         // Just ensure the main menu items are visible if needed
         this.mainMenuElement.classList.remove('hidden');
