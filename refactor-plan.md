@@ -20,6 +20,7 @@
         *   **Assets:** Copy necessary asset directories (e.g., `css/`, `js/lib/`, `images/`, `fonts/`) from the root directory into the `v2` directory.
         *   **Path Adjustments:** Modify all paths within `v2/index.html` (for CSS, JS, images) and within copied assets (like CSS `url()` paths) to use relative paths that correctly point to resources *within* the `v2` directory structure. This ensures `v2` runs independently.
     *   **Benefit:** This approach allows side-by-side comparison of the original and refactored code and enables independent testing of the `v2` version by serving `v2/index.html`.
+    *   **Mandatory V2 Code Verification:** Before implementing or modifying *any* component, service, or utility within the `v2` directory based on this plan, the developer **MUST** first check if a corresponding file already exists in the `v2/js/...` structure. If a V2 file exists, its current implementation **MUST** be read, understood, and used as the basis for any changes. **DO NOT** overwrite existing V2 code without review. If V1 code exists but no V2 code does, use V1 as a reference for refactoring into the V2 structure. If unsure, ask.
 
 4.  **Proposed Solution: Event Bus & Component-Based UI**
 
@@ -482,6 +483,7 @@
 
     *   **UI Manager & Components:** Introduce a `UIManager` class responsible for initializing UI components and managing top-level view transitions.
         *   **`BaseComponent`:** A base class providing common functionality (e.g., reference to its root element, basic show/hide, event listener management).
+        *   **`BaseDialog`:** A base class extending `BaseComponent` specifically for managing HTML `<dialog>` elements using `showModal()` and `close()`.
 
             ```javascript
             // Example: base-component.js
@@ -502,13 +504,6 @@
                     this._listeners = []; // Stores { eventName, callback, handler } tuples
                     this.isVisible = false;
 
-                    if (!this.rootElement) {
-                        console.warn(`[BaseComponent] Element not found for selector: ${this.selector}. Component ${this.name} might not function.`);
-                        // Depending on requirements, could throw an error instead.
-                    } else {
-                        // Assume components start hidden unless explicitly shown
-                        this.isVisible = !this.rootElement.classList.contains(HIDDEN_CLASS);
-                    }
 
                     // Emit an initialized event after basic setup
                     eventBus.emit(Events.Component.Initialized, { component: this, componentName: this.name });
@@ -570,59 +565,84 @@
                 }
             }
             ```
-        *   **Specialized Components (Examples):** Classes like `PlayerListComponent`, `QuestionDisplayComponent`, `ScoreboardComponent` will extend `BaseComponent`. They will define their own HTML element selector internally (e.g., `super('#player-list-container', 'PlayerList')`), listen for specific application events using `this.listen(Events.Game.ScoreUpdated, this.handleScoreUpdate)`, and update only their own part of the DOM. They might override `show`/`hide` or `destroy` if they need custom logic *in addition* to the base behavior (remembering to call `super.show()`, etc.).
-        *   **`UIManager`:** Instantiates the required components. It listens for high-level navigation events like `Events.Navigation.ShowView` to manage which components/views are active, hiding others. It replaces the UI orchestration logic previously found in older controller classes. It may also listen for specific UI interaction events (like `Events.UI.MainMenu.*`) to trigger broader application actions (like emitting `Events.Game.StartRequested`).
-    *   **New UI Components (Replacing Old Controllers/Dialogs):** The following components, extending `BaseComponent`, will be created to handle specific UI sections and interactions:
-        *   `MainMenuComponent`: Manages `#mainMenu`, emits menu selection events.
-        *   `SheetSelectionComponent`: Manages `#sheetSelection`, emits game start config event.
-        *   `QuestionDisplayComponent`: Manages `#question`, listens for `QuestionNew`.
-        *   `AnswerListComponent`: Manages `#answers`, listens for `QuestionNew`, emits `AnswerSubmitted`, handles feedback.
-        *   `TimerDisplayComponent`: Manages `#timer`, listens for `TimeTick`.
-        *   `ScoreDisplayComponent`: Manages `#score` (SP) / `#playerScores` (MP placeholder), listens for score update events. (See `PlayerListComponent` for detailed MP player display).
-        *   `ProgressDisplayComponent`: Manages `#progressIndicator`, listens for `QuestionNew`.
-        *   `GameNavigationComponent`: Manages `#gameNavigation`/`#stopGame`, emits `LeaveGameClicked`.
-        *   `GameFeedbackComponent`: Handles answer highlighting/confetti (on correct answer), listens for `AnswerChecked`.
-        *   `CountdownComponent`: Manages `#countdownDisplay`, listens for countdown events.
-        *   `MultiplayerChoiceComponent`: Manages `#multiplayerChoice`, emits host/join events.
-        *   `HostLobbyComponent`: Manages host waiting screen (`#connectionCode`), displays code/link, player count/names, copy/share buttons, handles start button click. Manages error display within its view (e.g., `#connectionErrorMessage`).
-        *   `JoinLobbyComponent`: Manages join screens (`#joinView`, `#fetchingInfoView`, `#joinConfirmView`, `#waitingForStartView`), handles code input/submit, displays game info, handles confirm/cancel clicks. Manages error display within its view (e.g., `#connectionErrorMessage`).
-        *   **`PlayerListComponent`:** Manages a dedicated player list display (e.g., `#playerListContainer`) shown in MP lobby and game area. Listens for `PlayerListUpdated`, `PlayerUpdated`. Shows player names, scores, finished status.
-        *   `HighscoresComponent`: Manages `#highscores`, listens for `Highscores.Loaded`, renders list, handles back button.
-        *   `CustomQuestionsComponent`: Manages `#customQuestionsManager`, emits save/delete events, handles back button.
-        *   `AboutComponent`: Manages `#about`, handles back button.
-        *   `LoadingComponent`: Manages `#loading`, listens for loading start/finish events.
-        *   Dialog Components:
-            *   `NamePromptComponent`: Manages Name Prompt dialog.
-            *   `SinglePlayerEndComponent`: Manages SP End dialog.
-            *   `MultiplayerEndComponent`: Manages MP End dialog (`#multiplayerEndDialog`). Displays results from `Game.Finished` event. Triggers confetti when shown.
-            *   `PracticeEndComponent`: Manages Practice End dialog.
-            *   `DisconnectionComponent`: Manages Disconnection dialog.
-            *   `ErrorComponent`: Manages generic Error dialog (or use Toast).
-        *   `ToastComponent`: Manages `#toastNotification`, listens for `System.ShowFeedback` for transient messages.
+        *   **Specialized Components (Examples):** Classes like `MainMenuComponent`, `PlayerListComponent`, `QuestionDisplayComponent` will extend `BaseComponent` to manage standard UI sections. Dialog classes like `NamePromptDialog`, `SinglePlayerEndDialog`, `MultiplayerEndDialog` will extend `BaseDialog` to manage modal dialogs. They will define their own HTML element selector, listen for specific application events, and update their respective DOM sections.
+        *   **`UIManager`:** Instantiates the required components (both `BaseComponent` views and `BaseDialog` dialogs). It listens for high-level navigation events like `Events.Navigation.ShowView` to manage which VIEW components are active, hiding others. Dialogs are typically shown/hidden based on game state events (e.g., `Game.Finished`) or specific programmatic calls (e.g., `NamePromptDialog.prompt()`).
+    *   **New UI Components (Replacing Old Controllers/Dialogs):** The following components will be created to handle specific UI sections and interactions:
+        *   `MainMenuComponent` (extends `BaseComponent`): Manages `#mainMenu`.
+        *   `SheetSelectionComponent` (extends `BaseComponent`): Manages `#sheetSelection`.
+        *   `QuestionDisplayComponent` (extends `BaseComponent`): Manages `#question`.
+        *   `AnswerListComponent` (extends `BaseComponent`): Manages `#answers`.
+            *   **(Note:** Implementation added basic keyboard navigation (arrow keys/enter/space) for accessibility.)*
+        *   `TimerDisplayComponent` (extends `BaseComponent`): Manages `#timer`.
+        *   `ScoreDisplayComponent` (extends `BaseComponent`): Manages `#score` (SP) / `#playerScores` (MP placeholder).
+        *   `ProgressDisplayComponent` (extends `BaseComponent`): Manages `#progressIndicator`.
+            *   **(Note:** Implementation added updating a visual `<progress>` bar alongside text.)*
+        *   `GameNavigationComponent` (extends `BaseComponent`): Manages `#gameNavigation`/`#stopGame`.
+        *   `GameFeedbackComponent` (extends `BaseComponent`): Handles answer highlighting/confetti (on correct answer).
+        *   `CountdownComponent` (extends `BaseComponent`): Manages `#countdownDisplay`.
+        *   `MultiplayerChoiceComponent` (extends `BaseComponent`): Manages `#multiplayerChoice`.
+        *   `HostLobbyComponent` (extends `BaseComponent`): Manages host waiting screen (`#connectionCode`), displays code/link, player count/names, copy/share buttons, handles start button click.
+        *   `JoinLobbyComponent` (extends `BaseComponent`): Manages join screens (`#joinView`, `#fetchingInfoView`, `#joinConfirmView`, `#waitingForStartView`), handles code input/submit, displays game info, handles confirm/cancel clicks.
+        *   `PlayerListComponent` (extends `BaseComponent`): Manages a dedicated player list display (e.g., `#playerListContainer`) shown in MP lobby and game area. Listens for `PlayerListUpdated`, `PlayerUpdated`. Shows player names, scores, finished status.
+        *   `HighscoresComponent` (extends `BaseComponent`): Manages `#highscores`, listens for `Highscores.Loaded`, renders list, handles back button.
+        *   `CustomQuestionsComponent` (extends `BaseComponent`): Manages `#customQuestionsManager`, emits save/delete events, handles back button.
+        *   `AboutComponent` (extends `BaseComponent`): Manages `#about`, handles back button.
+        *   `LoadingComponent` (extends `BaseComponent`): Manages `#loading`, listens for loading start/finish events.
+        *   Dialog Components (extending `BaseDialog`):
+            *   `NamePromptDialog`: Manages `#namePromptDialog`.
+            *   `SinglePlayerEndDialog`: Manages `#endOfGameDialog`.
+                *   **(Note:** Implementation added `Events.System.ShowFeedback` emission on empty name save attempt.)*
+            *   `MultiplayerEndDialog`: Manages `#multiplayerEndDialog`.
+            *   `PracticeEndDialog`: Manages `#practiceEndDialog`.
+            *   `DisconnectionDialog`: Manages `#disconnectionDialog`.
+            *   `ErrorDialog`: Manages `#errorDialog`.
+        *   `ToastComponent` (extends `BaseComponent`): Manages `#toastNotification`.
         *   **Application Initialization (`UnicornPoep`):** A dedicated class or entry-point script (`UnicornPoep.js` or similar) responsible *only* for the initial setup:
             *   Instantiate core singleton services: `EventBus`, `UIManager`, `QuestionsManager`, `HighscoreManager`, `WebRTCManager` (and potentially others like a `ConfigurationLoader`).
-            *   Initialize the `UIManager` (which internally creates its managed UI components).
+            *   Initialize the `UIManager` (which internally creates its managed UI components and dialogs).
             *   Trigger the display of the initial view (e.g., `eventBus.emit(Events.Navigation.ShowView, { viewName: 'MainMenu' });`).
             *   **Crucially, it does *not* directly handle UI interaction events for starting games.** That logic belongs elsewhere (see Step 5).
+            *   **Ensure the local `v2/js/lib/peerjs.min.js` is used.** Do not rely on external CDNs for PeerJS. Verify that `v2/index.html` correctly references this local file.
+            *   **(Added Requirement):** The `v2/js/services/WebRTCManager.js` **MUST** implement robust heartbeat mechanisms (e.g., sending periodic pings) and timeout detection logic for client connections (on the host) and the host connection (on the client) to handle silent disconnections gracefully, similar to the functionality present in the V1 codebase.
+
+    *   **Architectural Principle: Avoid Defensive Programming (Mandatory):**
+        *   **Trust the Setup:** Components (especially those extending `BaseComponent` or `BaseDialog`) should trust that their `rootElement` exists after the superclass constructor runs. The `BaseComponent` constructor *must* throw an error if the root element cannot be found.
+        *   **Child Element Validation:** When querying essential child elements within a component's constructor (e.g., buttons, input fields, display areas critical for functionality), the constructor *must* check if these elements were found. If any essential child element is missing, the constructor *must* `throw new Error(...)` immediately, clearly indicating the missing element(s) and the component that requires them. Do *not* use flags (like `isFunctional`) or return early to silently handle missing elements.
+        *   **No Redundant Checks:** Subsequent methods within the component (e.g., event handlers, `show`, `hide`, `destroy`, `_removeEventListeners`) should *not* re-check for the existence of the root element or essential child elements whose presence was already verified (or guaranteed by throwing an error) in the constructor. Avoid unnecessary `if (this.element)` checks or optional chaining (`?.`) on elements confirmed during construction.
+        *   **Exception: Event Payloads/External Data:** Defensive checks (like `payload?.property` or `typeof data === 'expectedType'`) *are* appropriate and necessary when handling data from external sources like event payloads or API responses, where the structure is not guaranteed at compile time.
+
+    *   **Architectural Principle: UI Event Decoupling (Mandatory):**
+        *   **UI Components** are responsible ONLY for capturing user interactions and emitting corresponding `Events.UI.*` events with the necessary payload.
+        *   **Service Classes** (e.g., `QuestionsManager`, `HighscoreManager`, `WebRTCManager`, `QuizEngine`) should NEVER directly listen for `Events.UI.*` events.
+        *   **Coordinator Services** (e.g., `GameCoordinator`, a potential `MenuCoordinator` or similar) are responsible for listening to relevant `Events.UI.*` events.
+        *   Upon receiving a UI event, the **Coordinator** validates the request (if necessary), calls the appropriate method(s) on the relevant **Service Class(es)**, and then emits feedback events (`Events.System.ShowFeedback`, `Events.System.ErrorOccurred`) or domain-specific events (e.g., `Events.Menu.CustomQuestions.SaveSuccess`, `Events.Game.Started`) based on the outcome of the service call.
+        *   This maintains a clear separation of concerns: UI signals intent, Coordinator orchestrates the action, Service performs the core logic/data manipulation.
+        *   **Asset Management:** Ensure all necessary assets (CSS, JS libraries like `peerjs.min.js`, images, fonts) are correctly copied into the `v2` structure and placed in appropriate subdirectories (e.g., `v2/fonts/`, `v2/js/lib/`). Avoid copying unused V1 assets. **Verify that all required CSS from V1, including potentially separate files like `mobile.css`, is either integrated into `v2/css/styles.css` or copied to `v2/css/` and correctly referenced in `v2/index.html`.**
+
+    *   **UI Pattern: Use `<template>` for Repeating Elements (Recommended):** When dynamically generating lists or other repeating structures within UI components (e.g., player lists, high score lists, custom sheet lists), prefer using the HTML `<template>` element. Define the structure of a single item within the `<template>` tag in your HTML file. In the component's JavaScript, query for the template, clone its `content` (`template.content.cloneNode(true)`), populate the clone with data, and then append the clone to the container. This is generally more performant and maintainable than numerous `document.createElement` calls.
+
+    *   **Verification Against V1:** When implementing features or refactoring logic (especially UI structure, data handling, core game rules), **always attempt to verify assumptions and implementation details against the original V1 codebase (`/js`, `/css`, `index.html`) where applicable.** While the goal is improvement and decoupling, preserving existing *intended* functionality and structure (unless explicitly decided otherwise) is crucial. Use V1 as a reference to avoid accidentally dropping features or misinterpreting requirements during the refactor.
+
+    *   **Progress Tracking:** Maintain a separate `refactor-progress.md` file in the workspace root. After completing significant steps or sections of the refactoring, update this file to reflect the current status, including which components/services have been refactored, adherence to the plan, and any deviations or pending items. This provides a clear overview of the refactoring progress.
 
 5.  **Refactoring Steps:**
 
     *   **Step 0: Setup `v2` Directory:**
         *   Create the `v2/` subdirectory.
         *   Duplicate `index.html` to `v2/index.html`.
-        *   Copy required asset folders (e.g., `css`, `js/lib`, `images`) into `v2/`.
-        *   Adjust all paths within `v2/index.html` and copied assets (CSS `url()`) to be relative to the `v2` directory.
+        *   Copy required asset folders (e.g., `css`, `js/lib`, `images`) into `v2/`. **Ensure all necessary V1 CSS files (including `mobile.css` if used) are copied or integrated.**
+        *   Adjust all paths within `v2/index.html` and copied assets (CSS `url()`) to be relative to the `v2` directory. **Verify `v2/index.html` uses the local `js/lib/peerjs.min.js`.**
     *   **Step 1: Implement Core Infrastructure (within `v2/js/`):**
         *   Create `v2/js/core/event-bus.js` (singleton export), `v2/js/core/event-constants.js` (export `Events` with JSDoc payloads), `v2/js/components/base-component.js`.
         *   Create structure for services like `v2/js/services/QuizEngine.js`, `v2/js/services/QuestionsManager.js`, `v2/js/services/HighscoreManager.js`, `v2/js/services/WebRTCManager.js`, `v2/js/ui/UIManager.js`. Define interfaces/expected methods.
     *   **Step 2: Implement Application Initialization & Game Coordination (within `v2/js/`):**
         *   Create `v2/js/UnicornPoep.js` (or `v2/js/main.js` / `v2/js/app.js`) for core service instantiation and initial view trigger as described above.
-        *   **Game Mode Instantiation:** **A dedicated `GameCoordinator.js` service will be responsible for coordinating the start of different game modes.**
-            *   The `GameCoordinator` will listen for relevant UI events (e.g., `Events.UI.MainMenu.StartSinglePlayerClicked`, `Events.UI.MultiplayerChoice.HostClicked`, `Events.UI.JoinLobby.SubmitCodeClicked`).
-            *   Upon receiving such an event, it will perform necessary validation (potentially interacting with other services like `WebRTCManager` for joining logic).
-            *   If valid, it will instantiate the appropriate game mode class (`SinglePlayerGame`, `MultiplayerGame` [which uses `WebRTCManager`], `PracticeGame`) with the necessary configuration/settings derived from the event payload.
-            *   It may also emit `Events.Game.StartRequested` if further decoupling is desired, or directly manage the game instance lifecycle.
-        *   This approach decouples UI components (like `MainMenuComponent`) from the specifics of game creation. The UI component simply signals user intent; the `GameCoordinator` handles the "how".
+        *   **Game Mode Instantiation & Coordination:** Introduce a dedicated `GameCoordinator.js` service responsible for coordinating the start of different game modes.
+            *   The `GameCoordinator` listens for relevant UI events (e.g., `Events.UI.MainMenu.StartSinglePlayerClicked`, `Events.UI.MultiplayerChoice.HostClicked`, `Events.UI.JoinLobby.SubmitCodeClicked`). **It MUST NOT be handled by UI components or core game/data services directly.**
+            *   Upon receiving such an event, it performs necessary validation and orchestrates interactions with other services (e.g., `WebRTCManager`, `QuestionsManager`).
+            *   If valid, it instantiates the appropriate game mode class (`SinglePlayerGame`, `MultiplayerGame`, `PracticeGame`) or emits further events as needed.
+            *   Handles the overall game start/setup flow triggered by user actions.
+        *   **Menu Action Coordination (Mandatory):** Similarly, UI events related to non-game actions (like saving custom questions: `Events.UI.CustomQuestions.SaveClicked`, deleting sheets, loading high scores: `Events.Menu.Highscores.ShowRequested`) **MUST** be handled by a dedicated Coordinator (e.g., a new `MenuCoordinator` or potentially integrated into `UIManager` or the main `UnicornPoep` initializer if simple) rather than directly by the target service (`QuestionsManager`, `HighscoreManager`). This Coordinator will call the service methods and emit feedback/result events.
     *   **Step 3: Create Core UI Components:**
         *   Refactor `MainMenu` into `MainMenuComponent.js` extending `BaseComponent`. Implement its UI event emissions (`Events.UI.MainMenu.*`).
         *   Create other essential UI components (`PlayerListComponent`, `QuestionDisplayComponent`, `ScoreboardComponent`, Dialog components like `NamePromptComponent`, `EndGameComponent`, etc.) extending `BaseComponent`, managed by `UIManager`.
@@ -630,31 +650,9 @@
     *   **Step 4: Implement `QuizEngine` & Game Mode Classes:**
         *   Flesh out `QuizEngine.js` with core quiz logic (question loading/serving, answer checking).
         *   Create and implement the structure for `SinglePlayerGame.js`, `PracticeGame.js`, `MultiplayerGame.js`. They should instantiate `QuizEngine`, listen for relevant UI events (like `AnswerSubmitted`), interact with `QuizEngine`, manage mode-specific elements (timers, WebRTC via its manager), and emit `Events.Game.Finished`.
+        *   **Refinement Note:** If significant duplication arises between `SinglePlayerGame.js` and `PracticeGame.js` (or other future modes), consider introducing a `BaseGameMode.js` class to contain common game flow logic (start, nextQuestion, finish, basic event handling), keeping `QuizEngine` focused solely on quiz mechanics (question data, answer checking, progress). The specific game mode classes would then extend `BaseGameMode` and implement mode-specific features (timers, scoring, networking).
     *   **Step 5: Refactor Event Producers:**
-        *   Modify remaining classes (`WebRTCManager`, `Timer`, dialog components, input handlers) and the Game Mode classes to `emit` events using `Events` constants instead of direct calls.
-        *   Ensure all necessary data is included in event payloads.
-        *   Remove cross-dependencies (like `mainMenuController` references).
-    *   **Step 6: Refactor Event Consumers (Logic - Game Mode Classes & Services):**
-        *   Ensure `SinglePlayerGame`, `MultiplayerGame`, `PracticeGame` correctly handle the full lifecycle for their mode by listening to UI, `QuizEngine`, Timer, and WebRTC events.
-        *   Ensure services like `HighscoreManager` listen for appropriate events (e.g., `Events.Game.Finished`).
-    *   **Step 7: Refactor Event Consumers (UI Components):**
-        *   Ensure all UI Components update correctly based on listening to events from Game Mode classes, `QuizEngine`, `UIManager`, etc.
-    *   **Step 8: Remove Old Code & Refine:**
-        *   Delete old controller/logic classes (`mainmenu-controller.js`, `game.js`, `multiplayer-game.js`, `dialog-controller.js`, `gamearea-controller.js`, etc.).
-        *   Delete `base-dialog.js`.
-        *   Review all interactions, **ensure payload definitions in `event-constants.js` are complete and accurate**, refine event names if needed.
-        *   Enhance logging within the `EventBus` and key components for better traceability.
-
-6.  **Potential Challenges & Considerations:**
-
-    *   **Global Scope vs. Modules:** (Addressed in Section 4) Do not use globals (attach to window.) use es6 imports and singletons.
-    *   **Event Payload Rigor:** Ensuring all payloads are accurately defined, documented (JSDoc), and consistently used is crucial but requires discipline. Inconsistent or missing payload data is a common source of bugs in event-driven systems.
-    *   **Debugging Event Flow:** Tracing issues can sometimes be harder than following direct method calls. Use browser developer tools, enhanced logging in the `EventBus` (logging event names and payloads), and potentially logging within component event handlers (`this.listen('event', (payload) => { console.log('Handling event', payload); ... })`) to help track the flow.
-    *   **Error Handling Strategy:** Define a clear strategy:
-        *   Which components are responsible for catching errors? **Services (e.g., `WebRTCManager`, `QuizEngine`) and UI Components (e.g., for input validation) will catch errors specific to their domain.**
-        *   When should an error be handled locally versus being emitted globally? **Caught errors should be translated into standardized system events. Use `Events.System.ShowFeedback` for transient, non-blocking issues (handled by `ToastComponent`). Use `Events.System.ErrorOccurred` for critical errors requiring user attention or action (handled by `ErrorComponent` or a similar modal dialog).**
-        *   Which component(s) listen for `Events.System.ErrorOccurred`? **A dedicated component (e.g., `ErrorComponent`) will listen for critical errors and display an appropriate modal dialog.**
-        *   Ensure the `ErrorOccurred` payload includes sufficient context (originating component/service, error details).
-    *   **State Management Consistency:** While the event bus handles communication, the application's state (current view, player list, game progress) is distributed. Be mindful of ensuring this state remains consistent, especially with asynchronous operations (network, timers) and in multiplayer. Ensure event payloads carry all necessary data for components to update correctly. `Events.Multiplayer.Common.GameStateSync` helps, but managing incremental updates via events requires care.
-    *   **Component Lifecycle:** `BaseComponent` provides basic `show`/`hide`/`destroy`. Complex components might need more lifecycle hooks (e.g., `initialize` after DOM is ready, `render` for complex updates). Evaluate if this is needed as components are built.
-    *   **Potential for "Event Soup":** In very complex applications, overuse of fine-grained events can lead to complex, hard-to-follow interactions ("event soup"). Strive for meaningful, well-defined events representing significant state changes or user actions rather than events for every minor internal change.
+        *   Modify remaining classes (`WebRTCManager`, `Timer`, dialog components, input handlers) and the Game Mode classes to `emit`
+    *   **Step 6: Refactor Remaining UI Controllers/Logic:**
+    *   **Step 7: Integration & Testing:**
+    *   **Step 8: Cleanup & Documentation:**

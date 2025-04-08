@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>🦄💩</title>
+    <link href="css/fredoka.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css?v=1743986807">
+
+    <!-- PeerJS Library (Local) -->
+    <script src="js/lib/peerjs.min.js"></script>
+
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+    <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="57x57" href="img/apple-touch-icon-57x57.png" />
+    <link rel="apple-touch-icon" sizes="72x72" href="img/apple-touch-icon-72x72.png" />
+    <link rel="apple-touch-icon" sizes="76x76" href="img/apple-touch-icon-76x76.png" />
+    <link rel="apple-touch-icon" sizes="114x114" href="img/apple-touch-icon-114x114.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="img/apple-touch-icon-120x120.png" />
+    <link rel="apple-touch-icon" sizes="144x144" href="img/apple-touch-icon-144x144.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="img/apple-touch-icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon-180x180.png" />
+
+    <link rel="manifest" href="img/site.webmanifest">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Unicorn Poep">
+
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <div id="app">
+        <h1 style="view-transition-name: page-title;">🦄 Unicorn Poep 💩<br>
+            <small>Door SchizoDuckie, voor Sanne <img src="img/heart.gif" alt="<3"></small></h1>
+        <div id="gameContainer">
+            <!-- Loading Indicator -->
+            <div id="loading"> <!-- Starts visible -->
+                <img src="img/loading.gif" alt="Loading...">
+                <h1>Even wat laden, momentje!</h1>
+            </div>
+
+            <!-- Main Menu & Sheet Selection -->
+            <div id="mainMenu" class="hidden">
+                 <div id="menuItems" style="view-transition-name: main-content;">
+                    <button id="practice">📚 Oefenen</button>
+                    <button id="takeTest">⏱ Toets</button>
+                    <button id="viewHighscores">🥇 Hoogste Scores</button>
+                    <button id="myQuestions">🎒 Zelf vragen maken</button>
+                    <button id="multiplayer">👥 Samen spelen</button>
+                    <button id="hoeDan">🦄 Wat is Unicorn Poep?</button>
+                 </div>
+            </div>
+
+            <!-- Sheet Selection (NOW A TOP-LEVEL VIEW) -->
+            <div id="sheetSelection" class="hidden">
+               <!-- Moved Back Button outside sheetNavigation -->
+               <button id="sheetSelectBack" class="backToMain">Terug</button> <!-- Removed hidden class, showView will manage -->
+
+               <div id="sheetsCol" style="view-transition-name: sheets-column;">
+                   <h1>Wat wil je doen?</h1>
+                   <div id="sheetsCheckboxes">
+                       <!-- Checkboxes populated by JS -->
+                   </div>
+               </div>
+               <div id="difficultyCol" class="hidden" style="view-transition-name: difficulty-column;">
+                   <h1>Ben je daar goed in?</h1>
+                   <div id="difficultySelection">
+                       <label><input type="radio" name="difficulty" value="easy"> Denk het niet (⏱ 60)</label>
+                       <label><input type="radio" name="difficulty" value="medium" checked> Misschien (⏱ 30)</label>
+                       <label><input type="radio" name="difficulty" value="hard"> Zeker wel! (⏱ 10)</label>
+                   </div>
+               </div>
+               <!-- Sheet Navigation NOW ONLY CONTAINS Start Button -->
+               <div id="sheetNavigation" style="/* CSS controls positioning */">
+                   <button id="startGame" disabled>Start!</button> <!-- No general button class needed if specific style used -->
+               </div>
+            </div>
+
+             <!-- Game Area -->
+            <div id="gameArea" class="hidden" style="view-transition-name: main-content;">
+                <div id="gameHeader">
+                    <!-- NEW: Container for left items -->
+                    <div id="gameHeaderLeft">
+                        <div id="scoreDisplay">Score: 0</div> 
+                        <div id="timerDisplay">00:00</div>
+                        <!-- NEW: Placeholder for sheet title -->
+                        <div id="sheetTitleDisplay">Laden...</div> 
+                    </div>
+                    <!-- END NEW -->
+    
+                    <div id="progressIndicator" class=""> <!-- Removed hidden -->
+                        <span id="progressText">Vraag 0 / 0</span>
+                        <progress id="progressBar" value="0" max="100"></progress>
+                    </div>
+                    
+                    <div id="playerListContainer">
+                        <!-- Template for Player List Item (Previously Missing) -->
+                        <template id="player-list-item-template">
+                            <div class="opponent-entry" data-peer-id="">
+                                <span class="opponent-name"></span>
+                                <span class="opponent-score"></span>
+                                <span class="opponent-status"></span>
+                            </div>
+                        </template>
+                        <!-- Player list items will be added here by JS -->
+                    </div> 
+                </div>
+                <div id="question">Laden...</div>
+                <div id="answers"> 
+                </div>
+                <div id="gameFeedback"></div> <!-- For confetti, etc. -->
+                <div id="gameNavigation">
+                    <button id="stopGame" class="button danger">Stop</button>
+                </div>
+            </div>
+
+            <!-- Multiplayer Choice Screen -->
+            <div id="multiplayerChoice" class="hidden" >
+                <button class="backToMain">Terug</button>
+                <h2>Samen spelen</h2>
+                <div class="name-input-container">
+                    <label for="playerNameInput">Jouw naam:</label>
+                    <input type="text" id="playerNameInput" placeholder="Typ je naam...">
+                     <p id="choiceError" style="color: red;"></p> <!-- Added error display -->
+                </div>
+
+                <!-- Difficulty Selection -->
+                <div class="difficulty-selection-mp">
+                    <h3>Kies Moeilijkheidsgraad:</h3>
+                    <label>
+                        <input type="radio" name="mpDifficulty" value="easy">
+                        Makkelijk
+                    </label>
+                    <label>
+                        <input type="radio" name="mpDifficulty" value="medium" checked>
+                        Gemiddeld
+                    </label>
+                    <label>
+                        <input type="radio" name="mpDifficulty" value="hard">
+                        Moeilijk
+                    </label>
+                </div>
+
+                <div class="button-group">
+                    <button id="hostGame" class="button primary">Host Spel</button>
+                    <button id="joinGame" class="button secondary">Join Spel</button>
+                </div>
+            </div>
+
+            <!-- Multiplayer Connection Status Dialog -->
+            <dialog id="connectionStatus" class="unicorn-theme hidden">
+                <button class="backToMain">Terug</button>
+                <h2>Samen spelen</h2>
+
+                <!-- Host View -->
+                <div id="connectionCode" class="connectionBox hidden">
+                    <p class="help-text">Deel deze code met de andere speler:</p>
+                    <!-- Restored Original Code Display Wrapper -->
+                    <div class="host-code-wrapper">
+                        <span id="hostCodeDisplay" class="host-code-text"></span>
+                        <!-- Restored Copy Code Button with SVG -->
+                        <button id="copyCodeButton" class="copy-button" title="Kopieer code">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                        </button>
+                        <!-- Restored WhatsApp Share Button with SVG -->
+                        <a id="whatsappShareButton" class="share-button whatsapp-button" href="#" target="_blank" title="Deel via WhatsApp" data-whatsapp-url="">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                        </a>
+                    </div>
+
+                    <!-- Adapted Join Link Section with original styling approach -->
+                    <p class="help-text" style="margin-top: 15px;">Of deel deze directe link:</p>
+                    <div class="host-code-wrapper"> <!-- Reuse wrapper class -->
+                        <span id="hostJoinLinkDisplay" class="host-code-text join-link-text">Laden...</span> <!-- Reuse text class, add specific class -->
+                        <!-- New Copy Link Button using the same SVG -->
+                        <button id="copyJoinLinkButton" class="copy-button" title="Kopieer link">
+                             <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                        </button>
+                    </div>
+                    <!-- End Adapted Join Link Section -->
+
+                    <p id="hostWaitingText" class="waitingText">Wachten op andere spelers...</p>
+                    <button id="hostStartButton" class="menuButton yellow-button hidden">Start Spel!</button>
+                </div>
+
+                <!-- Client Join View -->
+                <div id="joinView" class="connectionBox hidden">
+                    <p id="joinWelcomeMessage" class="help-text" style="font-size: 1.2em; margin-bottom: 20px;">Hoi! Iemand heeft je uitgenodigd om Unicorn Poep te spelen! Voer hieronder de code in die je hebt gekregen.</p>
+                    <input type="number" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Voer 6-cijferige code in" id="connectionCodeInput">
+                    <button id="submitCode" class="menuButton yellow-button">Verbinden</button>
+                    <p class="help-text">Vraag de andere speler om de code</p>
+                    <p id="connectionErrorMessage" class="hidden"></p>
+                </div>
+
+                <!-- Client Fetching Info View -->
+                <div id="fetchingInfoView" class="connectionBox hidden">
+                    <p class="waitingText">Spel informatie ophalen...</p>
+                    <img src="img/loading.gif" alt="Loading..." class="waiting-kirby">
+                </div>
+
+                <!-- Client Join Confirmation View -->
+                <div id="joinConfirmView" class="connectionBox hidden">
+                    <h2>Meedoen met spel?</h2>
+                    <div id="joinGameInfo">
+                        <!-- Game info populated by JS -->
+                    </div>
+                    <!-- Added Player Name Input -->
+                    <div class="name-input-container">
+                        <label for="joinConfirmPlayerNameInput">Jouw Naam:</label>
+                        <input type="text" id="joinConfirmPlayerNameInput" class="name-input" placeholder="Naam" required>
+                    </div>
+                    <!-- End Added Player Name Input -->
+                    <div class="button-group">
+                        <button id="confirmJoinButton" class="menuButton green-button">Ja, doe mee!</button>
+                        <button id="cancelJoinButton" class="menuButton red-button">Annuleren</button>
+                    </div>
+                </div>
+
+                <!-- Client Waiting For Start View -->
+                <div id="waitingForStartView" class="connectionBox hidden">
+                     <p class="waitingText">Verbonden! Wachten tot host het spel start...</p>
+                     <img src="img/loading.gif" alt="Waiting..." class="waiting-kirby">
+                 </div>
+
+                 <!-- Error Message Display Area -->
+                 <p id="connectionErrorMessage" class="hidden"></p>
+
+            </dialog> <!-- End #connectionStatus Dialog -->
+
+            <!-- Highscores Screen -->
+            <div id="highscores" class="hidden" style="view-transition-name: main-content;">
+                <h1>Deze mensen zijn de allerbeste!</h1>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Plek</th>
+                        <th>Level</th>
+                        <th>Naam</th>
+                        <th>Score</th>
+                        <th>Datum</th>
+                    </tr></thead>
+                    <tbody id="scoreList"></tbody>
+                </table>
+                <!-- Template for a single high score row -->
+                <template id="highscore-row-template">
+                    <tr>
+                        <td class="rank"></td>
+                        <td class="level"></td>
+                        <td class="name"></td>
+                        <td class="score"></td>
+                        <td class="date"></td>
+                    </tr>
+                </template>
+                <div>
+                    <button class="backToMain">Terug</button>
+                </div>
+            </div>
+
+            <!-- Custom Questions Screen -->
+            <div id="customQuestionsManager" class="hidden" style="view-transition-name: main-content;">
+                <button class="backToMain">Terug</button>
+                 <h2>Jouw Vragen Beheren</h2>
+                <div id="customSheetSelection">
+                    <div id="customSheetsCol">
+                        <h3>Nieuwe lijst / Bewerken:</h3>
+                        <div id="customQuestionsInput">
+                            <input type="text" id="customSheetName" placeholder="Naam van je vragenlijst">
+                            <textarea id="customQuestionsTextarea" rows="10" placeholder="Typ je vragen hier. Elke vraag + antwoord op een nieuwe regel. Zorg dat er ' => ' tussen vraag en antwoord staat. Voorbeeld: Hoeveel is 2 x 2? => 4"></textarea>
+                            <button id="saveCustomQuestionsButton">Opslaan</button>
+                        </div>
+                    </div>
+                    <div id="customDifficultyCol">
+                        <h3>Bestaande lijsten:</h3>
+                        <div id="customDifficultySelection">
+                            <select id="existingCustomQuestions">
+                                <option value="">-- Nieuwe lijst maken --</option>
+                            </select>
+                            <button id="editCustomQuestionsButton">Bewerken</button>
+                            <button id="deleteCustomQuestionsButton">Verwijderen</button>
+                        </div>
+                         <!-- List container for existing sheets -->
+                         <div id="customSheetList">
+                            <template id="custom-sheet-item-template">
+                                <li class="custom-sheet-item" data-sheet-id="">
+                                    <span class="sheet-name">Sheet Name</span>
+                                    <span class="sheet-actions">
+                                        <button class="edit-button" title="Bewerk deze lijst">Bewerk</button>
+                                        <button class="delete-button warn" title="Verwijder deze lijst">Verwijder</button>
+                                    </span>
+                                </li>
+                            </template>
+                            <!-- Custom sheets will be loaded here -->
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About Screen -->
+            <div id="about" class="hidden" style="view-transition-name: main-content;">
+                <button class="backToMain">Terug</button>
+                <h2>Wat is Unicorn Poep?</h2>
+                <p>Unicorn Poep is een heel simpel spelletje wat je helpt snel beter te worden in de tafels,
+                    woordjes, en andere dingen die je moet onthouden voor school.</p>
+                <h3>Hoe speel je het spel?</h3>
+                <p>Het is heel eenvoudig! <br>
+                    Wanneer je het spel start, zie je vragen met een paar antwoorden.<br>
+                    Jouw taak is om het juiste antwoord te kiezen.<br>
+                    Als je het goed hebt, zie je confetti 🎉 en krijg je punten.<br>
+                    Hoe sneller je bent, hoe meer punten je krijgt!<br>
+                    Als je het fout hebt zie je 😿 maar OOK het goede antwoord in groen,<br> goed onthouden voor de volgende keer dus!
+                </p>
+                <h3>Oefenen of een Examen</h3>
+                <p>Je kan kiezen om te oefenen of om een toets te doen die kijkt hoe goed je bent.<br>
+                    Bij oefenen is er geen tijdslimiet, dus je kunt rustig nadenken.<br>
+                    Bij de toets moet je snel zijn en voor elke vraag punten verzamelen.<br>
+                    Hoe meer punten je haalt, hoe hoger je naam op de lijst van Hoogste Scores komt!
+                </p>
+                <h3>Maak je eigen vragen</h3>
+                <p>Weet je alle tafels al uit je hoofd? Je kan Unicorn Poep blijven gebruiken door je eigen vragen spelletje maken van alles wat je moet leren!<br>
+                    Klik op 'Mijn Vragen' en type je vragen in het grote vak.<br>
+                    Type een nieuwe vraag op elke regel, daarna <em>=></em> en daarna het antwoord.<br>
+                    Elke vraag + antwoord moet dus op een eigen regel!
+                    Bijvoorbeeld:
+                </p>
+                    <code>
+                    Hoeveel is 1 + 1? => 2<br>
+                    Wat smeer je op je boterham? => Unicornpoep<br>
+                    Wat voor kleur is unicornpoep? => Regenboog
+                    </code>
+                <p> Je kan ook een naam geven aan je vragenlijst.<br>
+                    Zo kun je altijd terugkomen en jouw eigen spelletjes spelen.</p>
+                <h3>Veel plezier!</h3>
+                <p>Veel plezier met het spelen van Unicorn Poep.<br> Vergeet niet, elke keer dat je speelt word je weer beter dan de vorige keer!</p>
+            </div>
+
+        </div> <!-- End #gameContainer -->
+
+         <!-- Dialogs (visibility controlled by JS showModal/close) -->
+         <dialog id="endOfGameDialog" class="unicorn-theme hidden">
+            <h1>Goed gedaan!</h1>
+            <p>Je score is: <strong id="finalScore"></strong>!</p>
+            <div>
+                <label for="playerName">Jouw naam (voor scorelijst):</label>
+                <input type="text" id="playerName" placeholder="Typ hier...">
+            </div>
+            <div id="endGameButtons">
+                <button id="saveHighscore">Opslaan</button>
+                <button id="restartGame">Opnieuw</button>
+                <!-- NOTE: Leaving menuButton class here as it's an action within the dialog, not strictly a 'back' navigation -->
+                <button id="spEndMenuButton" class="backToMain menuButton">Hoofdmenu</button>
+            </div>
+         </dialog>
+
+         <dialog id="disconnectionDialog" class="unicorn-theme hidden">
+             <h2>Verbinding verbroken</h2>
+             <p id="disconnectionMessage">De andere speler heeft de verbinding verbroken.</p>
+             <div id="endGameButtons">
+                 <button id="backToMainMenu">Terug naar hoofdmenu</button>
+             </div>
+         </dialog>
+
+         <!-- Corrected Name Prompt Dialog (Matching Multiplayer Input Pattern) -->
+         <dialog id="namePromptDialog" class="unicorn-theme hidden">
+             <h2>Naam invoeren</h2>
+             <p>Voer je naam in om mee te spelen:</p>
+             <div class="name-input-container"> 
+                 <input type="text" id="namePromptInput" placeholder="Jouw naam" maxlength="20" autocomplete="off">
+             </div>
+             <div id="endGameButtons"> 
+                 <button id="namePromptConfirm">Ok</button>
+             </div>
+         </dialog>
+
+         <dialog id="errorDialog" class="unicorn-theme hidden"> <!-- Assuming generic error dialog exists -->
+             <h2>Fout</h2>
+             <p id="errorMessage"></p>
+             <button id="errorOkButton">Ok</button>
+         </dialog>
+
+         <!-- New Multiplayer End Results Dialog -->
+         <dialog id="multiplayerEndDialog" class="dialog unicorn-theme hidden"> <!-- Added theme -->
+           <h2 id="multiplayerEndTitle">Spel Voorbij!</h2>
+           <div id="multiplayerEndResults">
+             <!-- Added list container and template -->
+             <table id="mpResultsTable">
+                 <thead>
+                     <tr>
+                         <th>Plek</th>
+                         <th>Naam</th>
+                         <th>Score</th>
+                     </tr>
+                 </thead>
+                 <tbody id="mpResultsList">
+                     <!-- Results populated by JS -->
+                 </tbody>
+             </table>
+             <template id="mp-results-row-template">
+                 <tr>
+                     <td class="rank"></td>
+                     <td class="name"></td>
+                     <td class="score"></td>
+                 </tr>
+             </template>
+             <!-- End added elements -->
+           </div>
+           <button id="mpReturnToMenuButton" class="menuButton yellow-button">Sluiten</button> <!-- Renamed button ID -->
+         </dialog>
+
+         <!-- New Practice End Dialog HTML -->
+         <dialog id="practiceEndDialog" class="unicorn-theme hidden">
+            <div class="dialog-container">
+                <h2 class="dialog-title">Oefening Klaar!</h2>
+                <div class="dialog-content content">
+                    <p>Lekker bezig met oefenen! Denk je dat je klaar bent voor een toets?</p>
+                </div>
+                <div class="dialog-buttons buttons">
+                    <button id="practiceTryAgainButton" class="button button-secondary">Probeer Opnieuw</button> 
+                    <button id="practiceMenuButton" class="button button-primary">Hoofdmenu</button>
+                </div>
+            </div>
+         </dialog>
+
+         <!-- Toast Notification Area -->
+         <div id="toastNotification" class="hidden">
+             <span id="toastMessage"></span>
+         </div>
+
+    </div> <!-- End #app -->
+
+    <!-- External Libs (Moved After Local PeerJS) -->
+    <script src="js/lib/confetti.js"></script>
+
+    <!-- V2 Application Entry Point (Module) -->
+    <script type="module" src="js/UnicornPoep.js"></script>
+
+    <!-- Old V1 Scripts (to be removed/commented out) -->
+    <!--
+    <script src="js/utils.js"></script>
+    <script src="js/base-dialog.js"></script>
+    <script src="js/timer.js"></script>
+    <script src="js/questions.js"></script>
+    <script src="js/webrtc-manager.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/multiplayer-game.js"></script>
+    <script src="js/single-player-game.js"></script>
+    <script src="js/dialog-controller.js"></script>
+    <script src="js/gamearea-controller.js"></script>
+    <script src="js/sheet-selection-controller.js"></script>
+    <script src="js/highscore-controller.js"></script>
+    <script src="js/multiplayer-controller.js"></script>
+    <script src="js/mainmenu-controller.js"></script>
+    <script src="js/custom-questions-controller.js"></script>
+    <script src="js/about-controller.js"></script>
+    <script src="js/app.js"></script>
+    -->
+
+    <!-- Analytics -->
+    <script data-goatcounter="https://unicornpoep.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+
+</body>
+</html>
