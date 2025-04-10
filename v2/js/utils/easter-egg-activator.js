@@ -1,5 +1,6 @@
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
+import { getTextTemplate } from '../utils/miscUtils.js';
 
 const KONAMI_SEQUENCE = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight'];
 
@@ -81,7 +82,8 @@ class EasterEggActivator {
         // Remove Konami listener once activated
         this.removeKonamiListener();
 
-        eventBus.emit(Events.System.ShowFeedback, { message: "🦄💩 Easter Egg Activated! 🥳 Click around!", level: 'success', duration: 5000 });
+        // Use template for feedback message
+        eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('easterEggActivated'), level: 'success', duration: 5000 });
     }
 
     /** Removes the confetti listeners. */

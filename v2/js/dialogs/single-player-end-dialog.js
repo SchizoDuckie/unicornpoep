@@ -1,6 +1,7 @@
 import BaseDialog from './base-dialog.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
+import { getTextTemplate } from '../utils/miscUtils.js';
 
 
 /**
@@ -41,6 +42,9 @@ class SinglePlayerEndDialog extends BaseDialog {
         this._addGameEventListeners(); // Add listener for game events
 
         this.currentScore = 0; // Store the score passed via show()
+        this.currentGameName = 'Unknown Game';
+        this.currentDifficulty = 'Unknown Difficulty';
+        this.currentMode = 'single'; // Store game mode, default to single
     }
 
     /** Binds component methods to the class instance. */
@@ -49,6 +53,7 @@ class SinglePlayerEndDialog extends BaseDialog {
         this.handleRestart = this.handleRestart.bind(this);
         this.handleMenu = this.handleMenu.bind(this);
         this.handleGameFinished = this.handleGameFinished.bind(this); // Bind game event handler
+        this._handleNameInputKeyPress = this._handleNameInputKeyPress.bind(this);
     }
 
     /** Adds specific DOM event listeners for this dialog. */
@@ -57,6 +62,9 @@ class SinglePlayerEndDialog extends BaseDialog {
         this.restartButton.addEventListener('click', this.handleRestart);
         this.menuButton.addEventListener('click', this.handleMenu);
         this.rootElement.addEventListener('close', this._boundHandleClose);
+
+        // Add keypress listener for Enter key on name input
+        this.playerNameInput.addEventListener('keypress', this._handleNameInputKeyPress);
     }
 
     /** Adds listeners for game-related events via eventBus. @private */
@@ -75,9 +83,19 @@ class SinglePlayerEndDialog extends BaseDialog {
     handleGameFinished({ mode, results }) {
         if (mode === 'single') {
             console.log(`[${this.name}] Game.Finished event received for single player. Results:`, results);
-            const finalScore = results?.score;
-            // Pass the score to show method (which handles validation)
-            this.show(finalScore);
+            // Store game context along with the score
+            this.currentScore = results.score;
+            const settings = results.settings || {};
+            const sheetIds = settings.sheetIds || [];
+            // Store the raw derived game name, potentially including prefix
+            this.currentGameName = Array.isArray(sheetIds) ? sheetIds.join(', ') : (sheetIds || 'Unknown Game');
+            
+            this.currentDifficulty = settings.difficulty || 'Unknown Difficulty';
+            this.currentMode = mode; // Store the mode
+            
+            console.log(`[${this.name}] Stored Raw Game Name: ${this.currentGameName}, Difficulty: ${this.currentDifficulty}, Mode: ${this.currentMode}`);
+
+            this.show(this.currentScore);
         } else {
              console.debug(`[${this.name}] Ignoring Game.Finished event for mode: ${mode}`);
         }
@@ -100,14 +118,29 @@ class SinglePlayerEndDialog extends BaseDialog {
     handleSave() {
         const playerName = this.playerNameInput.value.trim();
         if (playerName && this.currentScore !== null) { // Check against null (set if score was invalid)
-            console.debug(`[${this.name}] Save highscore requested: Name='${playerName}', Score=${this.currentScore}`);
-            // Emit the specific event defined in the plan
-            eventBus.emit(Events.UI.EndDialog.SaveScoreClicked, { name: playerName, score: this.currentScore });
+            console.debug(`[${this.name}] Save highscore requested: Name='${playerName}', Score=${this.currentScore}, Game='${this.currentGameName}', Difficulty='${this.currentDifficulty}', Mode='${this.currentMode}'`);
+            
+            // Update last used name in localStorage
+            try {
+                localStorage.setItem('unicornPoepPlayerName', playerName);
+            } catch (e) {
+                console.warn(`[${this.name}] Failed to save player name to localStorage:`, e);
+            }
+
+            // Emit the specific event defined in the plan, including game context
+            eventBus.emit(Events.UI.EndDialog.SaveScoreClicked, { 
+                name: playerName, 
+                score: this.currentScore, 
+                gameName: this.currentGameName, 
+                mode: this.currentMode, // Add mode here
+                difficulty: this.currentDifficulty 
+            });
             this.hide();
         } else if (!playerName) {
             console.warn(`[${this.name}] Save attempt failed: Player name is empty.`);
             this.playerNameInput.focus();
-            eventBus.emit(Events.System.ShowFeedback, { message: 'Vul een naam in om op te slaan.', level: 'warn' });
+            // Use template for feedback message
+            eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('spEndErrorSaveName'), level: 'warn' });
         } else {
              console.warn(`[${this.name}] Save attempt failed: Score is invalid (${this.currentScore}). Cannot save.`);
              // Disable button maybe? Or just rely on the initial check in show().
@@ -144,18 +177,29 @@ class SinglePlayerEndDialog extends BaseDialog {
         // Validate score input
         if (typeof score !== 'number' || isNaN(score)) {
             console.error(`[${this.name}] Invalid score provided to show():`, score);
-            this.finalScoreElement.textContent = 'Fout!'; // Display error in score field
+            // Use template for score error display
+            this.finalScoreElement.textContent = getTextTemplate('spEndErrorScore'); 
             this.currentScore = null; // Indicate invalid score state
             this.saveButton.disabled = true; // Disable saving invalid score
             this.playerNameInput.disabled = true; // Disable input if score is invalid
+            this.playerNameInput.value = ''; // Clear input if score invalid
         } else {
             this.currentScore = score;
             this.finalScoreElement.textContent = this.currentScore.toString(); // Display the score
             this.saveButton.disabled = false; // Enable saving valid score
             this.playerNameInput.disabled = false; // Enable name input
+            // Load default name from localStorage
+            try {
+                const defaultName = localStorage.getItem('unicornPoepPlayerName') || '';
+                this.playerNameInput.value = defaultName;
+            } catch (e) {
+                console.warn(`[${this.name}] Failed to load player name from localStorage:`, e);
+                this.playerNameInput.value = ''; // Fallback to empty
+            }
         }
 
-        this.playerNameInput.value = ''; // Clear previous name input
+        // Clear previous name input - MOVED into conditional logic above
+        // this.playerNameInput.value = ''; 
 
         super.show(); // Call BaseDialog showModal
 
@@ -164,6 +208,10 @@ class SinglePlayerEndDialog extends BaseDialog {
             // Check dialog is still open before focusing
              if (this.rootElement.open && !this.playerNameInput.disabled) {
                 this.playerNameInput.focus();
+                // Select text if default name was loaded
+                if (this.playerNameInput.value) {
+                    this.playerNameInput.select();
+                }
              }
         });
     }
@@ -186,6 +234,19 @@ class SinglePlayerEndDialog extends BaseDialog {
         this.restartButton.removeEventListener('click', this.handleRestart);
         this.menuButton.removeEventListener('click', this.handleMenu);
         this.rootElement.removeEventListener('close', this._boundHandleClose);
+        // Remove keypress listener (important to avoid duplicates if dialog is reused)
+        this.playerNameInput.removeEventListener('keypress', this._handleNameInputKeyPress);
+    }
+
+    /**
+     * Handles keypress events on the player name input field.
+     * @param {KeyboardEvent} event - The keypress event.
+     */
+    _handleNameInputKeyPress(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            this.handleSave();
+        }
     }
 }
 

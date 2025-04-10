@@ -1,6 +1,7 @@
 import BaseDialog from './base-dialog.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
+import { getTextTemplate } from '../utils/miscUtils.js';
 
 
 /**
@@ -56,9 +57,9 @@ class DisconnectionDialog extends BaseDialog {
 
     /**
      * Shows the dialog and sets the disconnection message.
-     * @param {string} [message="De andere speler heeft de verbinding verbroken."] - The message to display.
+     * @param {string} [message] - The message to display (defaults to template).
      */
-    show(message = "De andere speler heeft de verbinding verbroken.") {
+    show(message = getTextTemplate('disconnectDefault')) {
         // Constructor throws if messageElement is missing, safe to use here.
 
         console.debug(`[${this.name}] Showing disconnection dialog: ${message}`);

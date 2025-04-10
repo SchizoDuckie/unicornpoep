@@ -2,6 +2,7 @@ import BaseComponent from './base-component.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
+import { getTextTemplate } from '../utils/miscUtils.js';
 
 import HighscoreManager from '../services/HighscoreManager.js';
 import easterEggActivator from '../utils/easter-egg-activator.js';
@@ -44,7 +45,7 @@ export default class HighscoresComponent extends BaseComponent {
      * @private
      */
     addEventListeners() {
-        this.backButton?.addEventListener('click', () => {
+        this.backButton.addEventListener('click', () => {
             console.log("[HighscoresComponent] Back button clicked.");
             eventBus.emit(Events.UI.Highscores.BackClicked);
             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu }); // Use imported constant
@@ -88,7 +89,7 @@ export default class HighscoresComponent extends BaseComponent {
      */
     handleLoadFailed({ message }) {
         console.error(`[HighscoresComponent] Load failed event received: ${message}`);
-        this.renderError(message || "Kon scores niet laden.");
+        this.renderError(message || getTextTemplate('hsLoadErrorDefault'));
     }
 
     /**
@@ -106,7 +107,7 @@ export default class HighscoresComponent extends BaseComponent {
             const row = this.scoreListBody.insertRow();
             const cell = row.insertCell();
             cell.colSpan = 5; // Ensure it spans all columns defined in the template/thead
-            cell.textContent = "Nog geen hoge scores behaald!";
+            cell.textContent = getTextTemplate('hsListEmpty');
             cell.style.textAlign = "center";
             return;
         }
@@ -118,13 +119,42 @@ export default class HighscoresComponent extends BaseComponent {
             // Get the actual <tr> element from the cloned fragment
             const rowElement = templateClone.querySelector('tr');
 
+            // Apply rank class for styling
+            const rank = index + 1;
+            if (rank <= 3) {
+                rowElement.classList.add(`rank-${rank}`);
+            }
+           
             // Populate the cells within the cloned row using their class names
-            rowElement.querySelector('.rank').textContent = index + 1;
-            rowElement.querySelector('.level').textContent = score.level || '-'; // Handle optional level
-            rowElement.querySelector('.name').textContent = score.name;
+            const rankCell = rowElement.querySelector('.rank');
+            if (rank === 1) rankCell.innerHTML = '🥇'; // Medal for 1st
+            else if (rank === 2) rankCell.innerHTML = '🥈'; // Medal for 2nd
+            else if (rank === 3) rankCell.innerHTML = '🥉'; // Medal for 3rd
+            else rankCell.textContent = rank; // Number for others
+            
+            // Display gameName directly as retrieved from V1 data (no prefix stripping needed)
+            let displayGameName = score.gameName || '?';
+            const parts = displayGameName.split(':');
+            rowElement.querySelector('.level').textContent = parts.length > 1 ? parts[1].trim() : displayGameName; // Use second part if split worked, else show full name
+            
+            rowElement.querySelector('.name').textContent = score.player;
             rowElement.querySelector('.score').textContent = score.score;
-            rowElement.querySelector('.date').textContent = score.date ? new Date(score.date).toLocaleDateString('nl-NL') : '-'; // Format date
-
+            // Format date and time like V1 screenshot: D-M-YYYY HH:MM
+            const dateCell = rowElement.querySelector('.date');
+            if (score.date && typeof score.date === 'string') {
+                try {
+                    const dateObj = new Date(score.date);
+                    const formattedDate = `${dateObj.getDate()}-${dateObj.getMonth() + 1}-${dateObj.getFullYear()}`;
+                    const formattedTime = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+                    dateCell.innerHTML = `${formattedDate}<br>${formattedTime}`; // Use innerHTML for line break
+                } catch (e) {
+                    console.warn(`Error formatting date: ${score.date}`, e);
+                    dateCell.textContent = '-';
+                }
+            } else {
+                dateCell.textContent = '-';
+            }
+            
             // Append the populated row to the table body
             this.scoreListBody.appendChild(rowElement);
         });
@@ -141,7 +171,7 @@ export default class HighscoresComponent extends BaseComponent {
         const row = this.scoreListBody.insertRow();
         const cell = row.insertCell();
         cell.colSpan = 5; // Match column count
-        cell.textContent = `Fout: ${message}`;
+        cell.textContent = `${getTextTemplate('hsRenderErrorPrefix')}${message}`;
         cell.style.textAlign = "center";
         cell.style.color = "red";
     }

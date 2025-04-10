@@ -4,6 +4,7 @@ import QuizEngine from '../services/QuizEngine.js';
 import webRTCManager from '../services/WebRTCManager.js'; // Corrected Path & Case
 import Timer from '../core/timer.js';
 import miscUtils from '../utils/miscUtils.js'; // Changed to default import
+import { getTextTemplate } from '../utils/miscUtils.js'; // Import the utility
 
 // Message types sent BY THE HOST
 const MSG_TYPE = {
@@ -100,7 +101,13 @@ class MultiplayerGame {
         try {
             await this.quizEngine.loadQuestions(this.settings.sheetIds, this.settings.difficulty);
             if (this.quizEngine.getQuestionCount() === 0) {
-                throw new Error("No questions loaded for the selected sheets/difficulty.");
+                // Use specific host error event
+                console.error("[MultiplayerGame Host] Error starting game: No questions loaded.");
+                eventBus.emit(Events.Multiplayer.Host.ErrorOccurred, { errorKey: 'mpHostErrorNoQuestions' });
+                // Optionally broadcast generic error to clients?
+                webRTCManager.broadcastMessage(MSG_TYPE.ERROR, { message: 'Host error: Could not load questions.', context: 'game-start' });
+                this.finishGame(); // End game if no questions
+                return; // Stop further execution
             }
             this.isGameOver = false;
 
@@ -122,14 +129,13 @@ class MultiplayerGame {
 
         } catch (error) {
             console.error("[MultiplayerGame Host] Error starting game:", error);
-            const errorMessage = `Host error starting game: ${error.message}`;
-            eventBus.emit(Events.System.ErrorOccurred, {
-                message: errorMessage,
-                error,
-                context: 'MultiplayerGame.start' // More specific context
-            });
-            // Broadcast error to clients
-            webRTCManager.broadcastMessage(MSG_TYPE.ERROR, { message: errorMessage, context: 'game-start' });
+            // Use specific host error event, include original message if needed
+            const errorPayload = { errorKey: 'mpHostErrorStartPrefix', originalMessage: error.message };
+            eventBus.emit(Events.Multiplayer.Host.ErrorOccurred, errorPayload);
+
+            // Broadcast generic error to clients
+            // Consider using a more user-friendly message or the key itself if client handles it
+            webRTCManager.broadcastMessage(MSG_TYPE.ERROR, { message: `Host error starting game.`, context: 'game-start' });
             this.finishGame(); // Attempt to cleanup/notify if possible
             webRTCManager.closeAllConnections(); // Close connections on fatal start error
         }
@@ -187,14 +193,13 @@ class MultiplayerGame {
             // Broadcast initial tick immediately?
             this._hostHandleTimerTick(this.timer.duration); // Send initial time
         } else {
-            const errorMessage = `Host error: Could not retrieve question data for index ${this.quizEngine.currentQuestionIndex}`;
-            console.error(`[MultiplayerGame Host] ${errorMessage}`);
-             // Broadcast error?
-             webRTCManager.broadcastMessage(MSG_TYPE.ERROR, { message: errorMessage, context: 'next-question' });
-             eventBus.emit(Events.System.ErrorOccurred, { // Also emit locally
-                message: errorMessage,
-                context: 'MultiplayerGame._hostNextQuestion'
-             });
+            // Use specific host error event
+            const errorPayload = { errorKey: 'mpHostErrorNextQPrefix', index: this.quizEngine.currentQuestionIndex };
+            console.error(`[MultiplayerGame Host] Error getting next question:`, errorPayload);
+            eventBus.emit(Events.Multiplayer.Host.ErrorOccurred, errorPayload);
+
+             // Broadcast generic error?
+             webRTCManager.broadcastMessage(MSG_TYPE.ERROR, { message: `Host error preparing next question.`, context: 'next-question' });
             this.finishGame();
         }
     }
@@ -305,8 +310,8 @@ class MultiplayerGame {
     /** [Host] Handles an answer submitted by a client. @private */
     _hostHandleAnswerSubmitted(senderPeerId, submittedPayload) {
         const currentIndex = this.quizEngine.currentQuestionIndex;
-        const submittedAnswer = submittedPayload?.answer;
-        const questionIndexReceived = submittedPayload?.questionIndex;
+        const submittedAnswer = submittedPayload.answer;
+        const questionIndexReceived = submittedPayload.questionIndex;
 
         if (this.isGameOver || currentIndex < 0 || submittedAnswer === undefined || questionIndexReceived !== currentIndex) {
             console.warn(`[MultiplayerGame Host] Ignoring invalid/stale answer from ${senderPeerId}`, { currentIndex, questionIndexReceived, submittedPayload });
@@ -362,10 +367,10 @@ class MultiplayerGame {
         const finalResults = {
             scores: Object.fromEntries(this.playerScores), // Convert Map to object for serialization
             rankings: this._calculateRankings(),
-            // Add any other relevant host-calculated final data
+            settings: this.settings // Include game settings in results
         };
         console.log("[MultiplayerGame Host] Broadcasting GAME_OVER:", finalResults);
-        webRTCManager.broadcastMessage(MSG_TYPE.GAME_OVER, finalResults);
+        webRTCManager.broadcastMessage(MSG_TYPE.GAME_OVER, finalResults); // Broadcast results WITH settings
             // Emit locally for host UI
             eventBus.emit(Events.Game.Finished, { mode: 'multiplayer', results: finalResults, role: 'host' });
         // Client logic removed
@@ -380,7 +385,7 @@ class MultiplayerGame {
          return Array.from(this.playerScores.entries())
              .map(([peerId, score]) => ({
                  peerId,
-                 name: playerList.get(peerId)?.name || peerId, // Get name from playerList
+                 name: playerList.get(peerId).name || peerId, // Get name from playerList
                  score,
              }))
              .sort((a, b) => b.score - a.score); // Sort descending by score
@@ -401,8 +406,8 @@ class MultiplayerGame {
     /** Handles WebRTC messages received via the event bus. @private */
     _handleWebRTCMessage({ msg, sender }) { // Renamed parameters for clarity
         // Ensure message has type and payload structure
-        const type = msg?.type;
-        const payload = msg?.payload;
+        const type = msg.type;
+        const payload = msg.payload;
 
         console.debug(`[MultiplayerGame Host] Received message type ${type} from ${sender}`, payload);
         if (this.isGameOver) return; // Ignore messages after game over (except maybe specific ones?)
@@ -427,7 +432,7 @@ class MultiplayerGame {
      /** [Host] Handles a player joining mid-game (if allowed). @private */
     _handlePlayerJoined({ peerId, playerData }) {
         if (this.isGameOver) return;
-        console.log(`[MultiplayerGame Host] Player ${playerData?.name || 'Unknown'} (${peerId}) joined.`); // Safer access to name
+        console.log(`[MultiplayerGame Host] Player ${playerData.name || 'Unknown'} (${peerId}) joined.`); // Safer access to name
         // Add player to score tracking if not already present (e.g., joined late)
         if (!this.playerScores.has(peerId)) {
             this.playerScores.set(peerId, 0);
@@ -470,6 +475,25 @@ class MultiplayerGame {
             this._broadcastPlayerListUpdate();
          }
          // Client UI update handled by PlayerListUpdated from WebRTCManager
+
+        const playerName = webRTCManager.getPlayerName(peerId);
+        if (!playerName) {
+            console.warn(`[MultiplayerGame Host] Player ${peerId} left, but name couldn't be retrieved from WebRTCManager.`);
+            playerName = `Player ${peerId.slice(-4)}`; // Fallback name
+        }
+        // Client UI update handled by PlayerListUpdated from WebRTCManager
+
+        console.log(`[MultiplayerGame Host] Player left: ${peerId}`);
+        // Broadcast to remaining clients that the player left
+        webRTCManager.broadcastMessage(MSG_TYPE.PLAYER_LEFT, { peerId: peerId, playerName: playerName }); // Use correct playerName
+        // Show feedback locally
+        // Use template, substitute name
+        eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('mpHostPlayerLeft', { '%PLAYER_NAME%': playerName }), level: 'info' }); // Use correct playerName
+
+        // Update local player state (remove score, etc.)
+        this.playerScores.delete(peerId);
+        this.playerFinished.delete(peerId);
+        this.playerAnswers.delete(peerId);
     }
 
     /** [Host] Broadcasts the current full player list. @private */

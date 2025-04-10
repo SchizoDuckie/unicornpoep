@@ -77,7 +77,7 @@ class NamePromptDialog extends BaseDialog {
 
         // Focus the input after the dialog is shown
         requestAnimationFrame(() => {
-            if (this.rootElement?.open && this.nameInput) {
+            if (this.rootElement.open && this.nameInput) {
                 this.nameInput.focus();
             }
         });

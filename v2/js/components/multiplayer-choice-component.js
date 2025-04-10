@@ -2,6 +2,7 @@ import BaseComponent from './base-component.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
+import { getTextTemplate } from '../utils/miscUtils.js';
 
 
 /**
@@ -36,19 +37,19 @@ class MultiplayerChoiceComponent extends BaseComponent {
 
     /** Binds DOM event listeners. @private */
     _bindEvents() {
-        this.hostButton?.addEventListener('click', this._handleHostClick);
-        this.joinButton?.addEventListener('click', this._handleJoinClick);
-        this.backButton?.addEventListener('click', this._handleBackClick);
+        this.hostButton.addEventListener('click', this._handleHostClick);
+        this.joinButton.addEventListener('click', this._handleJoinClick);
+        this.backButton.addEventListener('click', this._handleBackClick);
         // Add input listener to clear error on typing?
-         this.nameInput?.addEventListener('input', this._clearError);
+         this.nameInput.addEventListener('input', this._clearError);
     }
 
     /** Removes DOM event listeners. @private */
     _unbindEvents() {
-        this.hostButton?.removeEventListener('click', this._handleHostClick);
-        this.joinButton?.removeEventListener('click', this._handleJoinClick);
-        this.backButton?.removeEventListener('click', this._handleBackClick);
-        this.nameInput?.removeEventListener('input', this._clearError);
+        this.hostButton.removeEventListener('click', this._handleHostClick);
+        this.joinButton.removeEventListener('click', this._handleJoinClick);
+        this.backButton.removeEventListener('click', this._handleBackClick);
+        this.nameInput.removeEventListener('input', this._clearError);
     }
 
     /**
@@ -61,7 +62,7 @@ class MultiplayerChoiceComponent extends BaseComponent {
             console.log(`[${this.name}] Showing view.`);
             this._clearForm();
             this.show();
-            this.nameInput?.focus(); // Focus name input when shown
+            this.nameInput.focus(); // Focus name input when shown
         }
     }
 
@@ -89,15 +90,15 @@ class MultiplayerChoiceComponent extends BaseComponent {
 
     /** Validates the player name and returns it, or shows error. @private */
     _validateAndGetName() {
-        const playerName = this.nameInput?.value.trim();
+        const playerName = this.nameInput.value.trim();
         if (!playerName) {
-            this._showError('Vul alsjeblieft een naam in.');
-            this.nameInput?.focus();
+            this._showError(getTextTemplate('mpChoiceErrorEmptyName'));
+            this.nameInput.focus();
             return null;
         }
          if (playerName.length > 20) { // Example length limit
-             this._showError('Naam mag maximaal 20 tekens lang zijn.');
-             this.nameInput?.focus();
+             this._showError(getTextTemplate('mpChoiceErrorNameTooLong'));
+             this.nameInput.focus();
              return null;
          }
         this._clearError();
@@ -113,7 +114,7 @@ class MultiplayerChoiceComponent extends BaseComponent {
 
         // Get the selected difficulty
         let selectedDifficulty = 'medium'; // Default
-        this.difficultyRadios?.forEach(radio => {
+        this.difficultyRadios.forEach(radio => {
             if (radio.checked) {
                 selectedDifficulty = radio.value;
             }

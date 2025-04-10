@@ -27,7 +27,7 @@ class Highscores {
                 scoreContainer.classList.add('top-score');
             }
             const gameNameCell = document.createElement('td');
-            gameNameCell.textContent = score.gameName || '-';
+            gameNameCell.textContent = score.gameName || score.level || '-';
             gameNameCell.classList.add('score-game-name');
 
             const rankCell = document.createElement('th');

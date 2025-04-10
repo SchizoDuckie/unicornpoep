@@ -476,7 +476,7 @@ class MultiplayerController {
 
         // *** Added: Populate and add listener for name input ***
         if (this.joinConfirmPlayerNameInput) {
-            const currentName = this.mainMenuController.currentGame?.playerName || '';
+            const currentName = this.mainMenuController.currentGame.playerName || '';
             this.joinConfirmPlayerNameInput.value = currentName;
             
             // Remove old listener before adding new one

@@ -94,7 +94,7 @@ class ProgressDisplayComponent extends BaseComponent {
     /** Resets and potentially shows the progress indicator when a game starts. */
     handleGameStart(payload) {
         // Reset on game start
-        const totalQuestions = payload?.settings?.totalQuestions || payload?.totalQuestions || 0; // Get total questions if available in start payload
+        const totalQuestions = payload.settings.totalQuestions || payload.totalQuestions || 0; // Get total questions if available in start payload
         this.handleNewQuestion({ questionIndex: -1, totalQuestions: totalQuestions }); // Show 0 / total
         this.show();
     }

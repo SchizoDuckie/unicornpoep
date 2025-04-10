@@ -67,7 +67,7 @@ class GameFeedbackComponent extends BaseComponent {
         if (typeof confetti === 'function') {
             console.debug(`[${this.name}] 🎉 Firing confetti! 🎉`);
             confetti({
-                particleCount: 100,
+                particleCount: 30,
                 spread: 70,
                 origin: { y: 0.6 }
             });

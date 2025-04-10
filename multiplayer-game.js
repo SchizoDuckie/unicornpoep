@@ -38,7 +38,7 @@ class MultiplayerGame {
 
         // <<< DEBUGGING: Check mainMenu reference during construction >>>
         console.log("MP Constructor DEBUG: Received mainMenu object:", this.mainMenu);
-        console.log("MP Constructor DEBUG: typeof mainMenu.saveHighScore:", typeof this.mainMenu?.saveHighScore);
+        console.log("MP Constructor DEBUG: typeof mainMenu.saveHighScore:", typeof this.mainMenu.saveHighScore);
         // <<< END DEBUGGING >>>
 
         this.wasMultiplayer = true; // Flag for high scores differentiation
@@ -279,7 +279,7 @@ class MultiplayerGame {
              this.clientLastContact.set(senderId, Date.now());
         }
         // *** CLIENT: Update last contact time on ANY message from the host ***
-        else if (!this.isHost && senderId === this.webRTCManager?.hostId) {
+        else if (!this.isHost && senderId === this.webRTCManager.hostId) {
             this.lastHostContact = Date.now();
         }
 
@@ -609,7 +609,7 @@ class MultiplayerGame {
 
         if (this.isHost) {
             if (this.players.has(peerId)) {
-                const disconnectedPlayerName = this.players.get(peerId)?.playerName || 'Een speler'; // Get name before deleting
+                const disconnectedPlayerName = this.players.get(peerId).playerName || 'Een speler'; // Get name before deleting
                 console.log(`MP Host: Client ${disconnectedPlayerName} (${peerId}) disconnected.`);
                 this.players.delete(peerId); // Remove player FIRST
 
@@ -1857,7 +1857,7 @@ class MultiplayerGame {
                 validated: this._lastReceivedWinnerInfo
             });
             // Optionally show a silent warning toast?
-             this.mainMenu?.toastNotification?.show("Highscore info niet gevalideerd.", 3000);
+             this.mainMenu.toastNotification.show("Highscore info niet gevalideerd.", 3000);
             return;
         }
         console.log("MP handleRecordHighscore: Validation passed. Proceeding with save.");
@@ -1880,7 +1880,7 @@ class MultiplayerGame {
         } catch (error) {
             console.error(`MP handleRecordHighscore: Failed to save score locally:`, error);
             // Maybe show a non-critical toast notification? 
-            this.mainMenu?.toastNotification?.show("Fout bij opslaan highscore.", 3000);
+            this.mainMenu.toastNotification.show("Fout bij opslaan highscore.", 3000);
         }
     }
 

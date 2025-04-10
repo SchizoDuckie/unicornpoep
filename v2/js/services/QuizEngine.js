@@ -3,6 +3,7 @@ import Events from '../core/event-constants.js';
 // Import QuestionsManager
 import questionsManager from './QuestionsManager.js';
 import arrayUtils from '../utils/arrayUtils.js'; // Changed to default import
+import { getTextTemplate } from '../utils/miscUtils.js'; // Import the utility
 
 /**
  * @typedef {object} Question
@@ -46,7 +47,8 @@ class QuizEngine {
         this.questions = [];
         this.correctAnswerCount = 0;
 
-        eventBus.emit(Events.System.LoadingStart, { message: 'Vragen laden...' });
+        // Use template for loading message
+        eventBus.emit(Events.System.LoadingStart, { message: getTextTemplate('qeLoading') });
         try {
             let allLoadedQuestions = [];
 
@@ -69,7 +71,8 @@ class QuizEngine {
             }
 
             if (allLoadedQuestions.length === 0) {
-                throw new Error("Failed to load any questions for the selected sheets.");
+                // Use template for error message
+                throw new Error(getTextTemplate('qeLoadError'));
             }
 
             // Shuffle the combined list of questions

@@ -3,6 +3,7 @@ import Events from '../core/event-constants.js';
 
 import QuizEngine from '../services/QuizEngine.js';
 import webRTCManager from '../services/WebRTCManager.js'; // Corrected path
+import { getTextTemplate } from '../utils/miscUtils.js'; // Import the utility
 
 import miscUtils from '../utils/miscUtils.js'; // Changed to default import
 
@@ -118,13 +119,14 @@ class MultiplayerClientManager {
      * @param {string} [payload.reason] - Optional reason for disconnection.
      */
     handleDisconnectedFromHost(payload) {
-        console.warn('[MultiplayerClientManager] Disconnected from host.', payload?.reason || '');
+        console.warn('[MultiplayerClientManager] Disconnected from host.', payload.reason || '');
         const wasActive = this.isGameActive;
         this._stopListeningForAnswers(); // Stop listening on disconnect
         this.resetState();
         // UI should react to DisconnectedFromHost or a specific Game.Finished/Error event
         // Emitting a generic error or feedback might be appropriate here.
-        eventBus.emit(Events.System.ShowFeedback, { message: 'Disconnected from host.', level: 'warn' });
+        // Use template for feedback message
+        eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('mcDisconnect'), level: 'warn' });
         // Potentially emit a game finished event if the game was active
         if (wasActive) {
              // Let _handleGameFinished manage state reset if event is emitted
@@ -170,8 +172,8 @@ class MultiplayerClientManager {
         }
 
         // Assuming msg contains { type: string, payload: any }
-        const type = msg?.type;
-        const payload = msg?.payload;
+        const type = msg.type;
+        const payload = msg.payload;
 
         if (!type) {
             console.warn(`[MultiplayerClientManager] Received message without type from host ${sender}:`, msg);
@@ -202,7 +204,13 @@ class MultiplayerClientManager {
                 eventBus.emit(Events.Game.Started, { mode: 'multiplayer', settings: payload.settings, role: 'client' });
                 // Update player list immediately on start
                 if (payload.players) {
-                     eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: new Map(Object.entries(payload.players)) }); // Assuming players is object, convert to Map
+                     // Use getTextTemplate for default name if needed during conversion (although unlikely here)
+                     const defaultName = getTextTemplate('mcDefaultPlayerName'); 
+                     const playerMap = new Map(Object.entries(payload.players).map(([id, data]) => [
+                         id, 
+                         { ...data, name: data.name || defaultName } // Ensure name exists
+                     ]));
+                     eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: playerMap }); 
                 }
                 break;
 
@@ -215,9 +223,9 @@ class MultiplayerClientManager {
                 // Payload example: { isCorrect: boolean, scoreDelta: number, correctAnswer: string, submittedAnswer: any, totalScore: number }
                  // Note: Emitting AnswerChecked might be confusing as it's usually internal to QuizEngine.
                  // We primarily care about the score update and potentially showing correct/incorrect feedback.
-                const myResult = payload.isCorrect?.[webRTCManager.getMyPeerId()];
-                const myScoreDelta = payload.scoreDelta?.[webRTCManager.getMyPeerId()];
-                const myTotalScore = payload.totalScores?.[webRTCManager.getMyPeerId()];
+                const myResult = payload.isCorrect[webRTCManager.getMyPeerId()];
+                const myScoreDelta = payload.scoreDelta[webRTCManager.getMyPeerId()];
+                const myTotalScore = payload.totalScores[webRTCManager.getMyPeerId()];
 
                 if (myTotalScore !== undefined) {
                     eventBus.emit(Events.Game.ScoreUpdated, { totalScore: myTotalScore });
@@ -246,7 +254,13 @@ class MultiplayerClientManager {
 
              case 'player_list_update': // Full refresh of the player list
                  // Payload example: { players: Map<string, object> }
-                 eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: new Map(Object.entries(payload.players)) }); // Assuming players is object, convert to Map
+                 // Use getTextTemplate for default name if needed during conversion
+                 const defaultPlayerName = getTextTemplate('mcDefaultPlayerName'); 
+                 const updatedPlayerMap = new Map(Object.entries(payload.players).map(([id, data]) => [
+                     id, 
+                     { ...data, name: data.name || defaultPlayerName } // Ensure name exists
+                 ]));
+                 eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: updatedPlayerMap }); 
                  break;
 
             case 'game_over':

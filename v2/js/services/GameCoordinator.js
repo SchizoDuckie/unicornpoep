@@ -1,6 +1,8 @@
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js'; // Import Views constants
+// Add import for translation helper
+import { getTextTemplate } from '../utils/miscUtils.js'; 
 
 // Import game mode classes
 import SinglePlayerGame from '../game/SinglePlayerGame.js'; // Corrected path case
@@ -80,7 +82,8 @@ class GameCoordinator {
         console.log("[GameCoordinator] Received StartSinglePlayerClicked from MainMenu. Navigating to Sheet Selection.");
         if (this.activeGame) {
             console.warn("[GameCoordinator] Cannot navigate to sheet selection, a game is active.");
-            eventBus.emit(Events.System.ShowFeedback, { message: 'Je bent al in een spel!', level: 'warn' });
+            // Use template for feedback
+            eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('gameWarnAlreadyActive'), level: 'warn' });
             return;
         }
         // Navigate to Sheet Selection, passing the intended mode
@@ -96,7 +99,8 @@ class GameCoordinator {
         console.log("[GameCoordinator] Received StartPracticeClicked from MainMenu. Navigating to Sheet Selection.");
         if (this.activeGame) {
             console.warn("[GameCoordinator] Cannot navigate to sheet selection, a game is active.");
-            eventBus.emit(Events.System.ShowFeedback, { message: 'Je bent al in een spel!', level: 'warn' });
+            // Use template for feedback
+            eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('gameWarnAlreadyActive'), level: 'warn' });
             return;
         }
         // Navigate to Sheet Selection, passing the intended mode
@@ -116,7 +120,8 @@ class GameCoordinator {
         console.log(`[GameCoordinator] Received Game.StartRequested. Mode: ${mode}`, { settings, playerName, hostId });
         if (this.activeGame) {
             console.warn("[GameCoordinator] Cannot start new game, another game is active.");
-            eventBus.emit(Events.System.ShowFeedback, { message: 'Kan geen nieuw spel starten, er is al een spel bezig.', level: 'error' });
+            // Use template for feedback
+            eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('gameErrorStartWhileActive'), level: 'error' }); 
             return;
         }
 
@@ -130,31 +135,32 @@ class GameCoordinator {
             switch (mode) {
                 case 'single':
                     console.log(`[GameCoordinator] Starting Single Player game with settings:`, settings);
-                    // TODO: Get player name if not provided? Using placeholder for now.
-                    const spPlayerName = playerName || 'Sanne'; 
+                    // Use template for default name
+                    const spPlayerName = playerName || getTextTemplate('defaultPlayerName'); 
                     this.activeGame = new SinglePlayerGame(settings, spPlayerName, this.questionsManager);
-                    await this.activeGame.start(); // start() should be async if it loads questions
+                    await this.activeGame.start(); 
                     break;
                 case 'practice':
                     console.log(`[GameCoordinator] Starting Practice game with settings:`, settings);
                     this.activeGame = new PracticeGame(settings, this.questionsManager);
-                    await this.activeGame.start(); // start() should be async
+                    await this.activeGame.start(); 
                     break;
                 case 'multiplayer-host':
-                     console.error("[GameCoordinator] Starting multiplayer host via StartRequested is not the standard flow. Use MultiplayerChoice -> HostClicked.");
-                     // If needed, could call handleStartMultiplayerHost here, but it's cleaner via UI events.
-                     eventBus.emit(Events.System.ErrorOccurred, { message: 'Kon multiplayer host niet starten via deze weg.' });
+                     console.error("[GameCoordinator] Internal Error: Attempted to start multiplayer host via unsupported StartRequested event. Use MultiplayerChoice -> HostClicked flow.");
+                     // Log detailed error, show generic feedback
+                     eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('genericInternalError'), level: 'error' });
                      eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
                     break;
                 case 'multiplayer-join':
-                     console.error("[GameCoordinator] Starting multiplayer join via StartRequested is not the standard flow. Use MultiplayerChoice -> JoinClicked.");
-                     // If needed, could call handleShowJoinLobby here.
-                     eventBus.emit(Events.System.ErrorOccurred, { message: 'Kon niet meedoen met multiplayer via deze weg.' });
+                     console.error("[GameCoordinator] Internal Error: Attempted to join multiplayer via unsupported StartRequested event. Use MultiplayerChoice -> JoinClicked flow.");
+                     // Log detailed error, show generic feedback
+                     eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('genericInternalError'), level: 'error' });
                      eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
                     break;
                 default:
-                    console.error(`[GameCoordinator] Unknown game mode requested: ${mode}`);
-                    eventBus.emit(Events.System.ErrorOccurred, { message: `Onbekende spelmodus: ${mode}` });
+                    // Log detailed error, show generic feedback
+                    console.error(`[GameCoordinator] Internal Error: Unknown game mode requested: ${mode}`);
+                    eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('genericInternalError'), level: 'error' });
                     eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
                     return; // Exit early
             }
@@ -162,8 +168,10 @@ class GameCoordinator {
             console.log(`[GameCoordinator] ${mode} game instance created and started.`);
 
         } catch (error) {
+            // Keep specific error logging but show generic message for game start failures
             console.error(`[GameCoordinator] Error starting ${mode} game:`, error);
-            eventBus.emit(Events.System.ErrorOccurred, { message: `Kon ${mode} spel niet starten: ${error.message}`, error });
+            // Show generic feedback, specific error is logged
+            eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('genericInternalError'), level: 'error' }); 
             this.activeGame = null; // Ensure activeGame is nullified on error
             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu }); // Go back to main menu on error
         }
@@ -177,7 +185,8 @@ class GameCoordinator {
         console.log("[GameCoordinator] Received JoinMultiplayerClicked from MainMenu. Navigating to MP Choice.");
         if (this.activeGame) {
             console.warn("[GameCoordinator] Cannot navigate to MP choice, a game is active.");
-             eventBus.emit(Events.System.ShowFeedback, { message: 'Je bent al in een spel!', level: 'warn' });
+             // Use template for feedback
+             eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('gameWarnAlreadyActive'), level: 'warn' });
             return;
         }
         eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MultiplayerChoice });
@@ -197,7 +206,9 @@ class GameCoordinator {
         console.log("[GameCoordinator] Received HostClicked event.", { playerName, settings });
         if (this.activeGame) {
             console.warn("[GameCoordinator] Cannot start host, another game is active.");
-            eventBus.emit(Events.System.ShowFeedback, { message: 'Kan geen host starten, er is al een spel bezig.', level: 'error' });
+            // Use template for feedback - note: this was previously 'Kan geen host starten...'
+            // Let's add a specific template for this case instead of reusing gameErrorStartWhileActive
+            eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('gameErrorHostWhileActive'), level: 'error' }); 
             return;
         }
         // Store potential host info
@@ -231,7 +242,8 @@ class GameCoordinator {
          console.log(`[GameCoordinator] Received JoinClicked event. Player: ${playerName}`);
          if (this.activeGame) {
              console.warn("[GameCoordinator] Cannot show join lobby, a game is active.");
-             eventBus.emit(Events.System.ShowFeedback, { message: 'Je bent al in een spel!', level: 'warn' });
+             // Use template for feedback
+             eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('gameWarnAlreadyActive'), level: 'warn' });
              return;
          }
          this.pendingJoinInfo = { playerName }; // Store player name
@@ -485,7 +497,7 @@ class GameCoordinator {
             console.log(`[GameCoordinator] Stored settings in pendingJoinInfo.`);
         } else {
             console.warn(`[GameCoordinator] Received GameInfo, but no matching pendingJoinInfo found or hostId mismatch.`, 
-                { expectedHost: this.pendingJoinInfo?.hostId, receivedHost: hostId });
+                { expectedHost: this.pendingJoinInfo.hostId, receivedHost: hostId });
             // This might happen if the client cancelled or connection dropped before info arrived.
             // Or if the GameInfo message format changes unexpectedly.
         }

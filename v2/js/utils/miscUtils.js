@@ -32,6 +32,28 @@ function parseQuestionLine(line) {
     }
 }
 
+/**
+ * Gets a text string from a hidden template element in the HTML.
+ * @param {string} key - The value of the data-key attribute.
+ * @param {object} [substitutions] - Optional map of placeholders (e.g., %NAME%) to replacement values.
+ * @returns {string} The fetched and optionally substituted text, or the key itself if not found.
+ */
+export function getTextTemplate(key, substitutions) {
+    const templateElement = document.querySelector(`data[data-translation-key="${key}"]`);
+    if (!templateElement) {
+        console.warn(`[getTextTemplate] Template not found for key: ${key}`);
+        return key; // Return key as fallback
+    }
+    let text = templateElement.textContent || '';
+    if (substitutions) {
+        for (const placeholder in substitutions) {
+            // Use a regex for global replacement
+            text = text.replace(new RegExp(placeholder.replace(/[-\/\\^$*+.()|[\]{}]/g, '\\$&'), 'g'), substitutions[placeholder]);
+        }
+    }
+    return text;
+}
+
 // Export functions individually if needed elsewhere,
 // or export an object as default for consistency.
-export default { generateId, parseQuestionLine }; 
+export default { generateId, parseQuestionLine, getTextTemplate }; 

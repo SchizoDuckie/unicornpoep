@@ -214,6 +214,43 @@ const Events = {
              * @property {string} peerId - The PeerJS ID of the disconnected client.
              */
             ClientDisconnected: 'multiplayer:host:clientDisconnected',
+            /**
+             * Fired by the HostLobby component just before initiating the game start process.
+             * Typically triggers the creation/start of the MultiplayerGame instance.
+             * @event Events.Multiplayer.Host.GameStarting
+             * @type {object}
+             * @property {object} settings - The final game settings selected by the host.
+             * @property {string} playerName - The host's player name.
+             */
+            GameStarting: 'mp:host:gameStarting',
+            /**
+             * Fired by MultiplayerGame (Host) when a valid answer is received from a specific client.
+             * This occurs *before* round results are processed.
+             * @event Events.Multiplayer.Host.PlayerAnswered
+             * @type {object}
+             * @property {string} peerId - The PeerJS ID of the client who answered.
+             * @property {object} answerData - The answer payload received from the client.
+             * @property {any} answerData.answer - The submitted answer.
+             * @property {number} answerData.questionIndex - The index of the question answered.
+             */
+            PlayerAnswered: 'mp:host:playerAnswered',
+             /**
+             * Fired by MultiplayerGame (Host) when all currently connected players
+             * have submitted an answer for the ongoing question round.
+             * @event Events.Multiplayer.Host.AllPlayersAnswered
+             * @type {object} - Payload is typically empty.
+             */
+            AllPlayersAnswered: 'mp:host:allPlayersAnswered',
+             /**
+             * Fired by MultiplayerGame (Host) when a host-specific error occurs during game setup or progression.
+             * Listened for by host UI components to display targeted error messages.
+             * @event Events.Multiplayer.Host.ErrorOccurred
+             * @type {object}
+             * @property {string} errorKey - The key corresponding to a text template for the error message (e.g., 'mpHostErrorNoQuestions').
+             * @property {string} [originalMessage] - The underlying error message, if applicable (e.g., from a catch block).
+             * @property {number} [index] - Relevant index if error relates to a specific question (e.g., 'mpHostErrorNextQPrefix').
+             */
+            ErrorOccurred: 'mp:host:errorOccurred',
         },
         /** @namespace Events.Multiplayer.Client */
         Client: {
@@ -240,6 +277,15 @@ const Events = {
              * @property {Map<string, object>} players - Map of currently connected players (peerId -> playerData: { name: string, score: number, isFinished: boolean }).
              */
             GameInfoReceived: 'multiplayer:client:gameInfoReceived',
+            /**
+             * Fired by the JoinLobby component when the client initiates the connection attempt to the host.
+             * Listened for primarily by WebRTCManager to start the PeerJS connection.
+             * @event Events.Multiplayer.Client.Connecting
+             * @type {object}
+             * @property {string} hostId - The host PeerJS ID the client is attempting to connect to.
+             * @property {string} playerName - The name the client is using.
+             */
+            Connecting: 'mp:client:connecting',
         },
         /** @namespace Events.Multiplayer.Common */
         Common: {

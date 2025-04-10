@@ -31,7 +31,7 @@ export default class AboutComponent extends BaseComponent {
      * @private
      */
     addEventListeners() {
-        this.backButton?.addEventListener('click', () => {
+        this.backButton.addEventListener('click', () => {
             console.log(`[${this.name}] Back button clicked.`);
             eventBus.emit(Events.UI.About.BackClicked);
             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });

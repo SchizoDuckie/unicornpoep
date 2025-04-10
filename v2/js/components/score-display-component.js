@@ -57,12 +57,12 @@ class ScoreDisplayComponent extends BaseComponent {
         // Removed the sheet title logic from here as it doesn't belong in this component.
         // The check `if (this.sheetTitleElement)` was failing because this element
         // is not managed by ScoreDisplayComponent.
-        console.log(`[${this.name}] Game Started (mode: ${payload?.settings?.gameMode}), score reset.`);
+        console.log(`[${this.name}] Game Started (mode: ${payload.settings.gameMode}), score reset.`);
 
         // Example of how the title *could* be set (needs a dedicated component):
         // if (this.sheetTitleElement) { // Check if the element exists first
         //      let titleSet = false;
-        //      if (payload?.settings?.sheetIds && questionsManager) { // Check QM exists
+        //      if (payload.settings.sheetIds && questionsManager) { // Check QM exists
         //          const sheetIds = payload.settings.sheetIds;
         //          if (sheetIds.length > 0) {
         //              try {
@@ -78,7 +78,7 @@ class ScoreDisplayComponent extends BaseComponent {
         //          } 
         //      } 
         //      if (!titleSet) {
-        //          this.sheetTitleElement.textContent = (payload?.settings?.gameMode === 'practice') ? 'Oefenronde' : 'Spel Gestart'; // Fallback
+        //          this.sheetTitleElement.textContent = (payload.settings.gameMode === 'practice') ? 'Oefenronde' : 'Spel Gestart'; // Fallback
         //      }
         // } else {
         //      console.error("sheetTitleElement not found for title update!");

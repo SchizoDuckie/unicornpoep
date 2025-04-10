@@ -35,7 +35,7 @@ class SinglePlayerEndDialog extends BaseDialog {
         const getMainMenu = () => this.dialogController.mainMenuController;
 
         // Save Button
-        this.saveButton?.addEventListener('click', async () => {
+        this.saveButton.addEventListener('click', async () => {
             const playerName = this.playerNameInput.value.trim() || 'Anoniem';
             const currentGame = this.dialogController.mainMenuController.currentGame;
 
@@ -72,7 +72,7 @@ class SinglePlayerEndDialog extends BaseDialog {
         });
 
         // Restart Button
-        this.restartButton?.addEventListener('click', () => {
+        this.restartButton.addEventListener('click', () => {
             this.hide();
             const currentGame = this.dialogController.mainMenuController.currentGame;
             if (currentGame && typeof currentGame.restartGame === 'function') {
@@ -84,7 +84,7 @@ class SinglePlayerEndDialog extends BaseDialog {
         });
 
         // Menu Button
-        this.menuButton?.addEventListener('click', () => {
+        this.menuButton.addEventListener('click', () => {
             this.dialogController.handleCloseAndCleanup();
         });
 

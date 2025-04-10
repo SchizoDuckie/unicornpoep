@@ -68,8 +68,8 @@ class AnswerListComponent extends BaseComponent {
     /** Removes DOM event listeners. */
     _removeEventListeners() {
         // Keep original removal logic
-        this.rootElement?.removeEventListener('click', this.handleAnswerClick);
-        this.rootElement?.removeEventListener('keydown', this.handleKeyDown);
+        this.rootElement.removeEventListener('click', this.handleAnswerClick);
+        this.rootElement.removeEventListener('keydown', this.handleKeyDown);
     }
 
     /**
@@ -98,13 +98,13 @@ class AnswerListComponent extends BaseComponent {
             case 'ArrowLeft':
                 event.preventDefault();
                 currentIndex = (currentIndex <= 0) ? items.length - 1 : currentIndex - 1;
-                items[currentIndex]?.focus();
+                items[currentIndex].focus();
                 break;
             case 'ArrowDown':
             case 'ArrowRight':
                 event.preventDefault();
                 currentIndex = (currentIndex === -1 || currentIndex >= items.length - 1) ? 0 : currentIndex + 1;
-                items[currentIndex]?.focus();
+                items[currentIndex].focus();
                 break;
             case 'Enter':
             case ' ': // Space bar
@@ -166,7 +166,7 @@ class AnswerListComponent extends BaseComponent {
         
         if (!this.rootElement) return; 
 
-        if (!questionData?.answers || !Array.isArray(questionData.answers)) {
+        if (!questionData.answers || !Array.isArray(questionData.answers)) {
              console.warn(`[${this.name}] Invalid or missing answers in QuestionNew payload.`);
              this.isAnswerable = false;
              return;

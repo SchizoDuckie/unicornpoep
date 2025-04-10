@@ -35,7 +35,11 @@ import PracticeEndDialog from '../dialogs/practice-end-dialog.js';
 import NamePromptDialog from '../dialogs/name-prompt-dialog.js';
 import DisconnectionDialog from '../dialogs/disconnection-dialog.js';
 import ErrorDialog from '../dialogs/error-dialog.js';
+import ConfirmationDialog from '../dialogs/confirmation-dialog.js'; // Import the new dialog
 import Views from '../core/view-constants.js'; // Ensure Views is imported
+
+// --- Import Services ---
+import highscoreManager from '../services/HighscoreManager.js'; // Import HighscoreManager
 
 /**
  * Manages the overall UI state, including:
@@ -100,6 +104,7 @@ class UIManager {
             this.registerComponent(new NamePromptDialog());
             this.registerComponent(new DisconnectionDialog());
             this.registerComponent(new ErrorDialog());
+            this.registerComponent(new ConfirmationDialog()); // Register the new dialog
             
             // Ensure all VIEW components are initially hidden (BaseComponent handles this partly)
             this.hideAllViews(true); // Pass flag to skip hiding Loading component initially
@@ -155,6 +160,43 @@ class UIManager {
             // Automatically show the GameArea view when any game starts
             this.handleShowView({ viewName: Views.GameArea });
         });
+
+        // --- Listen for Highscore Actions ---
+        // Listen for the request to view highscores (from Main Menu)
+        eventBus.on(Events.UI.MainMenu.HighscoresClicked, () => {
+            console.log("[UIManager] HighscoresClicked received. Loading scores and showing view.");
+            // Navigate to the view first (it will show a loading state or empty list initially)
+            this.handleShowView({ viewName: Views.Highscores });
+            // Tell the manager to load and emit the scores
+            highscoreManager.loadAndEmitAllScores();
+        });
+
+        // Listen for the request to save a highscore (from End Dialogs)
+        // Note: Assuming Events.UI.EndDialog.SaveScoreClicked exists and has the correct payload
+        eventBus.on(Events.UI.EndDialog.SaveScoreClicked, (payload) => {
+            console.log("[UIManager] SaveScoreClicked received with payload:", payload);
+            const { name, score, gameName, mode, difficulty } = payload;
+            // Validate payload before calling manager
+            if (name !== undefined && score !== undefined && gameName !== undefined && mode !== undefined && difficulty !== undefined) {
+                 // Call the highscore manager to add the score
+                 const saved = highscoreManager.addHighscore(name, score, gameName, mode, difficulty);
+                 // Optionally provide feedback based on whether it was saved
+                 if (saved) {
+                     eventBus.emit(Events.System.ShowFeedback, { message: 'Highscore saved!', level: 'success' });
+                 } else {
+                      // HighscoreManager logs reasons for not saving (practice, low score, error)
+                      // Maybe a generic feedback here, or rely on HighscoreManager's logs/feedback?
+                      // eventBus.emit(Events.System.ShowFeedback, { message: 'Score did not qualify for highscores.', level: 'info' });
+                 }
+                 // Usually, after saving, we navigate back to the main menu
+                 this.handleShowView({ viewName: Views.MainMenu });
+            } else {
+                 console.error("[UIManager] Invalid payload received for SaveScoreClicked:", payload);
+                 eventBus.emit(Events.System.ShowFeedback, { message: 'Error saving highscore: Invalid data.', level: 'error' });
+                 // Navigate back to main menu even on error to avoid getting stuck
+                 this.handleShowView({ viewName: Views.MainMenu });
+            }
+        });
     }
 
     /**
@@ -179,7 +221,7 @@ class UIManager {
 
         if (!targetComponent) {
              console.error(`[UIManager] Cannot show view: Component '${viewName}' not found or not registered.`);
-             eventBus.emit(Events.System.ShowFeedback, { message: `UI Error: View '${viewName}' not found.`, level: 'error' });
+             eventBus.emit(Events.System.ShowFeedback, { message: `UI Error: View '${viewName}' not found.`, level: 'error' }); 
              return;
         }
          // Ensure target is a BaseComponent (not a dialog at this point)

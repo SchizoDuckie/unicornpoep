@@ -134,6 +134,58 @@ v2
 *   Gap: Specific dialog components need implementation. Basic UI components (`AnswerList`, `ScoreDisplay`, `ProgressDisplay`, `QuestionDisplay`) need review/enhancement.
 *   Gap: Multiplayer host difficulty selection was missing. [RESOLVED]
 
+## Translation Refactoring Progress (Moving Strings to HTML)
+
+**(See `translation-plan.md` for details - Note: List below is updated based on verification)**
+
+*   **Status:** In Progress
+*   **Goal:** Move all user-facing strings from JS to `v2/index.html`, replace `alert/confirm`.
+*   **High Priority:** ~~Replace `confirm()` in `v2/js/services/QuestionsManager.js`~~ (**DONE**) and ~~`v2/js/components/custom-questions-component.js`~~ (**DONE - Replaced by Coordinator pattern**).
+*   **Files Requiring Refactoring:**
+    *   `v2/js/components/join-lobby-component.js`
+    *   `v2/js/components/loading-component.js`
+    *   `v2/js/components/main-menu-component.js`
+    *   `v2/js/components/multiplayer-choice-component.js`
+    *   `v2/js/components/player-list-component.js`
+    *   `v2/js/components/progress-display-component.js`
+    *   `v2/js/components/score-display-component.js`
+    *   `v2/js/components/sheet-selection-component.js`
+    *   `v2/js/dialogs/disconnection-dialog.js`
+    *   `v2/js/dialogs/error-dialog.js`
+    *   `v2/js/dialogs/multiplayer-end-dialog.js`
+    *   `v2/js/dialogs/single-player-end-dialog.js`
+    *   `v2/js/services/HighscoreManager.js`
+    *   `v2/js/services/MultiplayerClientManager.js`
+    *   `v2/js/services/QuizEngine.js`
+    *   `v2/js/services/WebRTCManager.js`
+    *   `v2/js/ui/UIManager.js`
+    *   `v2/js/utils/easter-egg-activator.js`
+    *   `v2/js/game/BaseGameMode.js`
+    *   `v2/js/game/MultiplayerGame.js`
+    *   `v2/js/UnicornPoep.js`
+*   **Files Confirmed OK:**
+    *   `v2/js/components/about-component.js`
+    *   `v2/js/components/answer-list-component.js`
+    *   `v2/js/components/base-component.js`
+    *   `v2/js/components/game-area-component.js`
+    *   `v2/js/components/game-feedback-component.js`
+    *   `v2/js/components/game-navigation-component.js`
+    *   `v2/js/components/question-display-component.js`
+    *   `v2/js/components/timer-display-component.js`
+    *   `v2/js/components/toast-component.js`
+    *   `v2/js/core/event-bus.js`
+    *   `v2/js/core/event-constants.js`
+    *   `v2/js/core/timer.js`
+    *   `v2/js/dialogs/base-dialog.js`
+    *   `v2/js/dialogs/name-prompt-dialog.js`
+    *   `v2/js/dialogs/practice-end-dialog.js`
+    *   `v2/js/game/PracticeGame.js`
+    *   `v2/js/game/SinglePlayerGame.js`
+    *   `v2/js/services/GameCoordinator.js` (Assumed OK - Needs final check if modified)
+    *   `v2/js/ui/AnswerListComponent.js`
+    *   `v2/js/utils/arrayUtils.js`
+    *   `v2/js/utils/miscUtils.js`
+
 ## Validation Findings & Resolutions
 
 *   **`

@@ -7,8 +7,6 @@
     <link href="css/fredoka.css" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css?v=1743986807">
 
-    <!-- PeerJS Library (Local) -->
-    <script src="js/lib/peerjs.min.js"></script>
 
     <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
     <link rel="apple-touch-icon" href="img/apple-touch-icon.png" />
@@ -38,6 +36,8 @@
             <div id="loading"> <!-- Starts visible -->
                 <img src="img/loading.gif" alt="Loading...">
                 <h1>Even wat laden, momentje!</h1>
+                <!-- Loading Template -->
+                <data data-translation-key="loadingDefault">Laden...</data>
             </div>
 
             <!-- Main Menu & Sheet Selection -->
@@ -75,6 +75,8 @@
                <div id="sheetNavigation" style="/* CSS controls positioning */">
                    <button id="startGame" disabled>Start!</button> <!-- No general button class needed if specific style used -->
                </div>
+               <data data-translation-key="sheetSelectNoneAvailable">Geen vragenlijsten gevonden.</data>
+               <data data-translation-key="sheetSelectLoadError">Fout bij laden vragenlijsten.</data>
             </div>
 
              <!-- Game Area -->
@@ -84,6 +86,8 @@
                     <div id="gameHeaderLeft">
                         <div id="scoreDisplay">Score: 0</div> 
                         <div id="timerDisplay">00:00</div>
+                        <!-- Timer Display Template -->
+                        <data data-translation-key="timerDefault">⏳</data> 
                         <!-- NEW: Placeholder for sheet title -->
                         <div id="sheetTitleDisplay">Laden...</div> 
                     </div>
@@ -92,6 +96,8 @@
                     <div id="progressIndicator" class=""> <!-- Removed hidden -->
                         <span id="progressText">Vraag 0 / 0</span>
                         <progress id="progressBar" value="0" max="100"></progress>
+                        <!-- Progress Display Templates (Already moved, example) -->
+                        <data data-translation-key="progressLabel">Vraag</data> 
                     </div>
                     
                     <div id="playerListContainer">
@@ -104,19 +110,29 @@
                             </div>
                         </template>
                         <!-- Player list items will be added here by JS -->
+                        <!-- Moved Player List Templates -->
+                        <data data-translation-key="playerListUnnamed">Naamloos</data>
+                        <data data-translation-key="playerListHostTag">(Host)</data>
+                        <data data-translation-key="playerListYouTag">(Jij)</data>
                     </div> 
                 </div>
+                <!-- Moved Countdown Template -->
+                <data data-translation-key="countdownGo">Go!</data>
                 <div id="question">Laden...</div>
                 <div id="answers"> 
                 </div>
                 <div id="gameFeedback"></div> <!-- For confetti, etc. -->
                 <div id="gameNavigation">
+                    <button id="nextButton" disabled>Volgende</button>
                     <button id="stopGame" class="button danger">Stop</button>
                 </div>
+                <!-- Moved QuizEngine Templates -->
+                <data data-translation-key="qeLoading">Vragen laden...</data>
+                <data data-translation-key="qeLoadError">Kon vragen niet laden.</data>
             </div>
 
             <!-- Multiplayer Choice Screen -->
-            <div id="multiplayerChoice" class="hidden" >
+            <div id="multiplayerChoice" class="unicorn-theme hidden" >
                 <button class="backToMain">Terug</button>
                 <h2>Samen spelen</h2>
                 <div class="name-input-container">
@@ -146,6 +162,9 @@
                     <button id="hostGame" class="button primary">Host Spel</button>
                     <button id="joinGame" class="button secondary">Join Spel</button>
                 </div>
+                <!-- Multiplayer Choice Templates -->
+                <data data-translation-key="mpChoiceErrorEmptyName">Vul alsjeblieft een naam in.</data>
+                <data data-translation-key="mpChoiceErrorNameTooLong">Naam mag maximaal 20 tekens lang zijn.</data>
             </div>
 
             <!-- Multiplayer Connection Status Dialog -->
@@ -158,7 +177,7 @@
                     <p class="help-text">Deel deze code met de andere speler:</p>
                     <!-- Restored Original Code Display Wrapper -->
                     <div class="host-code-wrapper">
-                        <span id="hostCodeDisplay" class="host-code-text"></span>
+                        <span id="hostCodeDisplay" class="host-code-text">Laden...</span> <!-- Added initial text -->
                         <!-- Restored Copy Code Button with SVG -->
                         <button id="copyCodeButton" class="copy-button" title="Kopieer code">
                             <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
@@ -172,7 +191,7 @@
                     <!-- Adapted Join Link Section with original styling approach -->
                     <p class="help-text" style="margin-top: 15px;">Of deel deze directe link:</p>
                     <div class="host-code-wrapper"> <!-- Reuse wrapper class -->
-                        <span id="hostJoinLinkDisplay" class="host-code-text join-link-text">Laden...</span> <!-- Reuse text class, add specific class -->
+                        <span id="hostJoinLinkDisplay" class="host-code-text join-link-text">Laden...</span> <!-- Reuse text class, add specific class, added initial text -->
                         <!-- New Copy Link Button using the same SVG -->
                         <button id="copyJoinLinkButton" class="copy-button" title="Kopieer link">
                              <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
@@ -180,51 +199,86 @@
                     </div>
                     <!-- End Adapted Join Link Section -->
 
-                    <p id="hostWaitingText" class="waitingText">Wachten op andere spelers...</p>
+                    <!-- Waiting text structure for translation -->
+                    <p id="hostWaitingText" class="waitingText">
+                         <data data-translation-key="host-status-initializing">Host initialiseren...</data>
+                         <span id="host-status-waiting" class="hidden">
+                             <data data-translation-key="host-wait-label" class="wait-label">Wachten op spelers...</data>
+                             (<span class="player-count">0</span>
+                             <data data-translation-key="host-player-label-singular" class="player-label-singular">speler</data>
+                             <data data-translation-key="host-player-label-plural" class="player-label-plural hidden">spelers</data>
+                             <data data-translation-key="host-connected-label" class="connected-label">verbonden</data>)
+                         </span>
+                    </p>
+                    <!-- Added Host Error Display Area -->
+                    <div id="hostErrorDisplay" class="error-message hidden" style="color: var(--color-warning); margin-top: 10px;">
+                         <!-- Errors will be populated here by JS using keys below -->
+                        <data data-translation-key="mpHostErrorNoQuestions" class="hidden">Geen vragen geladen voor de geselecteerde lijsten/moeilijkheid.</data>
+                        <data data-translation-key="mpHostErrorStartPrefix" class="hidden">Host fout bij starten spel: </data> <!-- Note: The JS will append the specific error -->
+                        <data data-translation-key="mpHostErrorNextQPrefix" class="hidden">Host fout: Kon vraagdata niet ophalen voor index </data> <!-- Note: The JS will append the index -->
+                    </div>
                     <button id="hostStartButton" class="menuButton yellow-button hidden">Start Spel!</button>
+                    <!-- Host Lobby Templates (General) -->
+                    <data data-translation-key="hostLoading">Laden...</data>
+                    <data data-translation-key="hostWhatsappShare">Doe mee met mijn Unicorn Poep spel! Klik hier:</data>
                 </div>
 
                 <!-- Client Join View -->
                 <div id="joinView" class="connectionBox hidden">
-                    <p id="joinWelcomeMessage" class="help-text" style="font-size: 1.2em; margin-bottom: 20px;">Hoi! Iemand heeft je uitgenodigd om Unicorn Poep te spelen! Voer hieronder de code in die je hebt gekregen.</p>
-                    <input type="number" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Voer 6-cijferige code in" id="connectionCodeInput">
-                    <button id="submitCode" class="menuButton yellow-button">Verbinden</button>
-                    <p class="help-text">Vraag de andere speler om de code</p>
+                    <p id="joinWelcomeMessage" class="help-text" style="font-size: 1.2em; margin-bottom: 20px;" data-welcome-text="Hoi! Iemand heeft je uitgenodigd om Unicorn Poep te spelen! Voer hieronder de code in die je hebt gekregen.">Hoi! Iemand heeft je uitgenodigd om Unicorn Poep te spelen! Voer hieronder de code in die je hebt gekregen.</p>
+                    <input type="number" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Voer 6-cijferige code in" id="connectionCodeInput" data-placeholder-text="Voer 6-cijferige code in">
+                    <button id="submitCode" class="menuButton yellow-button" data-button-text="Verbinden">Verbinden</button>
+                    <p class="help-text" data-help-text="Vraag de andere speler om de code">Vraag de andere speler om de code</p>
                     <p id="connectionErrorMessage" class="hidden"></p>
+                    <!-- Join Lobby Templates (Join View Specific & Errors) -->
+                     <data data-translation-key="joinWelcome">Hoi %NAME%! Voer de code in die je van de host hebt gekregen.</data>
+                     <data data-translation-key="joinErrorConnectPrefix">Kon niet verbinden: </data>
+                     <data data-translation-key="joinErrorInvalidCode">Voer een geldige 6-cijferige code in.</data>
+                     <data data-translation-key="joinErrorEmptyName">Vul alsjeblieft je naam in.</data>
+                     <data data-translation-key="joinErrorNameTooLong">Naam mag maximaal 20 tekens lang zijn.</data>
                 </div>
 
                 <!-- Client Fetching Info View -->
                 <div id="fetchingInfoView" class="connectionBox hidden">
-                    <p class="waitingText">Spel informatie ophalen...</p>
+                    <p class="waitingText" data-fetching-text="Spel informatie ophalen...">Spel informatie ophalen...</p>
                     <img src="img/loading.gif" alt="Loading..." class="waiting-kirby">
                 </div>
 
                 <!-- Client Join Confirmation View -->
                 <div id="joinConfirmView" class="connectionBox hidden">
-                    <h2>Meedoen met spel?</h2>
+                    <h2 data-confirm-title="Meedoen met spel?">Meedoen met spel?</h2>
                     <div id="joinGameInfo">
                         <!-- Game info populated by JS -->
                     </div>
                     <!-- Added Player Name Input -->
                     <div class="name-input-container">
-                        <label for="joinConfirmPlayerNameInput">Jouw Naam:</label>
-                        <input type="text" id="joinConfirmPlayerNameInput" class="name-input" placeholder="Naam" required>
+                        <label for="joinConfirmPlayerNameInput" data-name-label="Jouw Naam:">Jouw Naam:</label>
+                        <input type="text" id="joinConfirmPlayerNameInput" class="name-input" placeholder="Naam" data-name-placeholder="Naam" required>
                     </div>
                     <!-- End Added Player Name Input -->
                     <div class="button-group">
-                        <button id="confirmJoinButton" class="menuButton green-button">Ja, doe mee!</button>
-                        <button id="cancelJoinButton" class="menuButton red-button">Annuleren</button>
+                        <button id="confirmJoinButton" class="menuButton green-button" data-confirm-button="Ja, doe mee!">Ja, doe mee!</button>
+                        <button id="cancelJoinButton" class="menuButton red-button" data-cancel-button="Annuleren">Annuleren</button>
                     </div>
+                    <!-- Join Lobby Templates (Confirm View Specific & Fallbacks) -->
+                    <data data-translation-key="joinDefaultPlayerName">Player</data>
+                    <data data-translation-key="joinInfoUnknown">Unknown</data>
+                    <data data-translation-key="joinInfoDefaultHost">Host</data>
+                    <data data-translation-key="joinInfoDefaultSheets">Default</data>
+                    <data data-translation-key="joinInfoDefaultDifficulty">Medium</data>
                 </div>
 
                 <!-- Client Waiting For Start View -->
                 <div id="waitingForStartView" class="connectionBox hidden">
-                     <p class="waitingText">Verbonden! Wachten tot host het spel start...</p>
+                     <p class="waitingText" data-waiting-text="Verbonden! Wachten tot host het spel start...">Verbonden! Wachten tot host het spel start...</p>
                      <img src="img/loading.gif" alt="Waiting..." class="waiting-kirby">
                  </div>
 
                  <!-- Error Message Display Area -->
                  <p id="connectionErrorMessage" class="hidden"></p>
+                 <!-- Multiplayer Client Manager Fallback Templates (Attach to dialog level) -->
+                 <data data-translation-key="mcDisconnect">Disconnected from host.</data>
+                 <data data-translation-key="mcDefaultPlayerName">Unknown</data>
 
             </dialog> <!-- End #connectionStatus Dialog -->
 
@@ -238,7 +292,7 @@
                         <th>Level</th>
                         <th>Naam</th>
                         <th>Score</th>
-                        <th>Datum</th>
+                        <th>Datum</th>          
                     </tr></thead>
                     <tbody id="scoreList"></tbody>
                 </table>
@@ -255,6 +309,12 @@
                 <div>
                     <button class="backToMain">Terug</button>
                 </div>
+                <!-- Highscores Templates -->
+                <data data-translation-key="hsLoadErrorDefault">Kon scores niet laden.</data>
+                <data data-translation-key="hsRenderErrorPrefix">Fout: </data>
+                <data data-translation-key="hsListEmpty">De Highscores lijst is nog leeg... Jouw naam kan hier staan!</data>
+                <data data-translation-key="hsLoadError">Could not load high scores.</data>
+                <data data-translation-key="hsDefaultPlayerName">Player</data>
             </div>
 
             <!-- Custom Questions Screen -->
@@ -294,6 +354,17 @@
                          </div>
                     </div>
                 </div>
+                <!-- Custom Questions Manager Templates -->
+                <data data-translation-key="customQWarnName">Geef je vragenlijst een naam!</data>
+                <data data-translation-key="customQWarnQuestion">Voer minstens één vraag in!</data>
+                <data data-translation-key="customQLoadError">Kon eigen vragenlijsten niet laden.</data>
+                <data data-translation-key="customQListEmpty">Nog geen eigen vragenlijsten opgeslagen.</data>
+                <data data-translation-key="customQListError">Fout bij laden van eigen vragenlijsten.</data>
+                <data data-translation-key="customQDeleteFallbackName">deze lijst</data>
+                <data data-translation-key="qmDefaultCustomName">Naamloos</data>
+                <data data-translation-key="qmSaveError">Kon eigen vragenlijsten niet opslaan.</data>
+                <data data-translation-key="qmParseErrorLine">Ongeldig formaat op regel %LINE%: '%CONTENT%'. Verwacht 'vraag => antwoord'.</data>
+                 <!-- Moved Sheet Selection errors here as they relate to custom sheets mostly -->
             </div>
 
             <!-- About Screen -->
@@ -350,6 +421,8 @@
                 <!-- NOTE: Leaving menuButton class here as it's an action within the dialog, not strictly a 'back' navigation -->
                 <button id="spEndMenuButton" class="backToMain menuButton">Hoofdmenu</button>
             </div>
+            <!-- Moved Single Player End Templates -->
+            <data data-translation-key="spEndErrorSaveName">Vul een naam in!</data>
          </dialog>
 
          <dialog id="disconnectionDialog" class="unicorn-theme hidden">
@@ -358,6 +431,8 @@
              <div id="endGameButtons">
                  <button id="backToMainMenu">Terug naar hoofdmenu</button>
              </div>
+             <!-- Moved Disconnect Template -->
+             <data data-translation-key="disconnectDefault">De andere speler heeft de verbinding verbroken.</data>
          </dialog>
 
          <!-- Corrected Name Prompt Dialog (Matching Multiplayer Input Pattern) -->
@@ -379,32 +454,36 @@
          </dialog>
 
          <!-- New Multiplayer End Results Dialog -->
-         <dialog id="multiplayerEndDialog" class="dialog unicorn-theme hidden"> <!-- Added theme -->
-           <h2 id="multiplayerEndTitle">Spel Voorbij!</h2>
-           <div id="multiplayerEndResults">
-             <!-- Added list container and template -->
-             <table id="mpResultsTable">
-                 <thead>
+         <dialog id="multiplayerEndDialog" class="dialog unicorn-theme hidden">
+             <h2 id="multiplayerEndTitle">Spel Voorbij!</h2>
+             <div id="multiplayerEndResults">
+                 <!-- Added list container and template -->
+                 <table id="mpResultsTable">
+                     <thead>
+                         <tr>
+                             <th>Plek</th>
+                             <th>Naam</th>
+                             <th>Score</th>
+                         </tr>
+                     </thead>
+                     <tbody id="mpResultsList">
+                         <!-- Results populated by JS -->
+                     </tbody>
+                 </table>
+                 <template id="mp-results-row-template">
                      <tr>
-                         <th>Plek</th>
-                         <th>Naam</th>
-                         <th>Score</th>
+                         <td class="rank"></td>
+                         <td class="name"></td>
+                         <td class="score"></td>
                      </tr>
-                 </thead>
-                 <tbody id="mpResultsList">
-                     <!-- Results populated by JS -->
-                 </tbody>
-             </table>
-             <template id="mp-results-row-template">
-                 <tr>
-                     <td class="rank"></td>
-                     <td class="name"></td>
-                     <td class="score"></td>
-                 </tr>
-             </template>
-             <!-- End added elements -->
-           </div>
-           <button id="mpReturnToMenuButton" class="menuButton yellow-button">Sluiten</button> <!-- Renamed button ID -->
+                 </template>
+                 <!-- End added elements -->
+             </div>
+             <button id="mpReturnToMenuButton" class="menuButton yellow-button">Sluiten</button> <!-- Renamed button ID -->
+             <!-- Moved Multiplayer End Templates -->
+             <data data-translation-key="mpEndDefaultPlayerName">Unknown</data>
+             <data data-translation-key="mpEndLoadError">Kon resultaten niet laden.</data>
+             <data data-translation-key="mpEndNoData">Geen spelers gevonden.</data>
          </dialog>
 
          <!-- New Practice End Dialog HTML -->
@@ -421,42 +500,72 @@
             </div>
          </dialog>
 
+         <!-- New Confirmation Dialog -->
+         <dialog id="confirmationDialog" class="unicorn-theme">
+             <h2 id="confirmationTitle">Bevestiging</h2>
+             <p id="confirmationMessage">Weet je het zeker?</p>
+             <div class="dialog-buttons buttons">
+                 <button id="confirmOkButton" class="button button-primary">Ok</button>
+                 <button id="confirmCancelButton" class="button button-secondary" autofocus>Annuleren</button> 
+             </div>
+             <!-- Moved Confirmation Dialog Templates -->
+             <data data-translation-key="confirmDefaultTitle">Bevestiging</data>
+             <data data-translation-key="confirmDefaultOk">Ok</data>
+             <data data-translation-key="confirmDefaultCancel">Annuleren</data>
+             <data data-translation-key="deleteSheetTitle">Lijst Verwijderen?</data>
+             <data data-translation-key="deleteSheetMessage">Weet je zeker dat je de lijst '%NAME%' wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</data>
+             <data data-translation-key="deleteSheetOk">Verwijder</data>
+             <data data-translation-key="deleteSheetCancel">Annuleren</data>
+         </dialog>
+
          <!-- Toast Notification Area -->
          <div id="toastNotification" class="hidden">
              <span id="toastMessage"></span>
+             <!-- Moved Toast/Feedback Templates -->
+             <data data-translation-key="hostCopyCodeSuccess">Code gekopieerd!</data>
+             <data data-translation-key="hostCopyCodeError">Kopiëren mislukt</data>
+             <data data-translation-key="hostCopyLinkSuccess">Link gekopieerd!</data>
+             <data data-translation-key="hostCopyLinkError">Kopiëren mislukt</data>
+             <data data-translation-key="easterEggActivated">🦄💩 Easter Egg Activated! 🥳 Click around!</data>
+             <data data-translation-key="coordSaveSuccess">Vragenlijst '%NAME%' opgeslagen.</data>
+             <data data-translation-key="coordSaveErrorDefault">Onbekende fout bij opslaan vragenlijst.</data>
+             <data data-translation-key="coordSaveErrorFeedback">Fout bij opslaan '%NAME%'.</data>
+             <data data-translation-key="coordDeleteSuccess">Vragenlijst verwijderd.</data>
+             <data data-translation-key="coordDeleteErrorDefault">Onbekende fout bij verwijderen vragenlijst.</data>
+             <data data-translation-key="coordDeleteErrorFeedback">Fout bij verwijderen vragenlijst.</data>
+             <data data-translation-key="coordEditLoadErrorFeedback">Fout bij laden van vragenlijst voor bewerken.</data>
+             <data data-translation-key="mpHostPlayerLeft">%PLAYER_NAME% heeft het spel verlaten.</data>
+             <data data-translation-key="hsLoadErrorFeedback">Error loading high scores.</data>
+             <data data-translation-key="hsSaveError">Could not save high score.</data>
          </div>
+
+        <!-- Moved Global/RTC Templates (Place near top of #app or body) -->
+        <data data-translation-key="rtcErrorPeerJSLoad">PeerJS library niet geladen. Multiplayer is niet beschikbaar.</data>
 
     </div> <!-- End #app -->
 
-    <!-- External Libs (Moved After Local PeerJS) -->
+    <script src="js/lib/peerjs.min.js"></script>
+    
     <script src="js/lib/confetti.js"></script>
 
     <!-- V2 Application Entry Point (Module) -->
     <script type="module" src="js/UnicornPoep.js"></script>
 
-    <!-- Old V1 Scripts (to be removed/commented out) -->
-    <!--
-    <script src="js/utils.js"></script>
-    <script src="js/base-dialog.js"></script>
-    <script src="js/timer.js"></script>
-    <script src="js/questions.js"></script>
-    <script src="js/webrtc-manager.js"></script>
-    <script src="js/game.js"></script>
-    <script src="js/multiplayer-game.js"></script>
-    <script src="js/single-player-game.js"></script>
-    <script src="js/dialog-controller.js"></script>
-    <script src="js/gamearea-controller.js"></script>
-    <script src="js/sheet-selection-controller.js"></script>
-    <script src="js/highscore-controller.js"></script>
-    <script src="js/multiplayer-controller.js"></script>
-    <script src="js/mainmenu-controller.js"></script>
-    <script src="js/custom-questions-controller.js"></script>
-    <script src="js/about-controller.js"></script>
-    <script src="js/app.js"></script>
-    -->
-
     <!-- Analytics -->
     <script data-goatcounter="https://unicornpoep.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+
+    <div id="text-templates" style="display: none;">
+        <!-- ... existing templates ... -->
+
+        <!-- ADD THESE -->
+        <data id="genericInternalError" value="Er is een onverwachte fout opgetreden. Probeer het opnieuw."></data>
+        <data id="gameWarnAlreadyActive" value="Je bent al in een spel!"></data>
+        <data id="gameErrorStartWhileActive" value="Kan geen nieuw spel starten, er is al een spel bezig."></data>
+        <data id="defaultPlayerName" value="Speler"></data>
+        <data id="gameErrorHostWhileActive" value="Kan geen host starten, er is al een spel bezig."></data>
+
+        <!-- ... other existing templates ... -->
+    </div>
 
 </body>
 </html>

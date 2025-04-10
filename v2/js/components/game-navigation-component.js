@@ -43,7 +43,7 @@ export default class GameNavigationComponent extends BaseComponent {
 
     /** Binds DOM event listeners. @private */
     _bindEvents() {
-        this.nextButton?.addEventListener('click', () => {
+        this.nextButton.addEventListener('click', () => {
             if (!this.nextButton.disabled) {
                 console.log(`[${this.name}] Next button clicked.`);
                 eventBus.emit(Events.UI.GameArea.NextQuestionClicked);
@@ -52,7 +52,7 @@ export default class GameNavigationComponent extends BaseComponent {
         });
 
         // Add listener to the globally found stop button
-        this.stopButton?.addEventListener('click', () => {
+        this.stopButton.addEventListener('click', () => {
             console.log(`[${this.name}] Stop button clicked.`);
             // Removed confirm() wrapper - Directly emit the event.
             // If confirmation is needed, GameCoordinator should handle showing a custom dialog.
@@ -62,7 +62,7 @@ export default class GameNavigationComponent extends BaseComponent {
 
     /** Removes DOM event listeners. @private */
     _unbindEvents() {
-        this.nextButton?.removeEventListener('click', () => {
+        this.nextButton.removeEventListener('click', () => {
             if (!this.nextButton.disabled) {
                 console.log(`[${this.name}] Next button clicked.`);
                 eventBus.emit(Events.UI.GameArea.NextQuestionClicked);
@@ -70,7 +70,7 @@ export default class GameNavigationComponent extends BaseComponent {
             }
         });
 
-        this.stopButton?.removeEventListener('click', () => {
+        this.stopButton.removeEventListener('click', () => {
             console.log(`[${this.name}] Stop button clicked.`);
             // Removed confirm() wrapper - Corresponding removal in unbind
             eventBus.emit(Events.UI.GameArea.LeaveGameClicked);

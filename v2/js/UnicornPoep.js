@@ -2,6 +2,7 @@
 import eventBus from './core/event-bus.js';
 import Events from './core/event-constants.js';
 import Views from './core/view-constants.js';
+import { getTextTemplate } from './utils/miscUtils.js';
 
 // Service Imports (Singleton instances)
 import uiManager from './ui/UIManager.js';
@@ -102,43 +103,30 @@ class UnicornPoepApp {
                 if (success) {
                     console.log(`[Coordinator] Custom sheet saved successfully via QuestionsManager: ${name} (${idToSave})`);
                     eventBus.emit(Events.Menu.CustomQuestions.SaveSuccess, { sheetId: idToSave, name: name });
-                    eventBus.emit(Events.System.ShowFeedback, { message: `Vragenlijst '${name}' opgeslagen.`, level: 'success' });
+                    eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('coordSaveSuccess', { '%NAME%': name }), level: 'success' });
                 } else {
                     throw new Error("QuestionsManager reported failure to save (parsing or other issue).");
                 }
             } catch (error) {
                 console.error(`[Coordinator] Failed to handle save request for custom sheet '${name}':`, error);
+                const defaultErrorMessage = getTextTemplate('coordSaveErrorDefault');
                 eventBus.emit(Events.Menu.CustomQuestions.SaveFailed, {
                     sheetId: idToSave,
                     name: name,
-                    message: error.message || "Onbekende fout bij opslaan vragenlijst."
+                    message: error.message || defaultErrorMessage
                 });
-                eventBus.emit(Events.System.ShowFeedback, { message: `Fout bij opslaan '${name}'.`, level: 'error' });
+                eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('coordSaveErrorFeedback', { '%NAME%': name }), level: 'error' });
             }
         });
 
-        // --- Highscore Management Coordination ---
-        eventBus.on(Events.Menu.Highscores.ShowRequested, async () => {
-             console.log("[Coordinator] Handling Menu Highscores ShowRequested");
-            // HighscoreManager already listens for this internally in the original plan?
-            // Let's assume HighscoreManager handles loading on its own for now
-            // or adjust if HighscoreManager needs explicit triggering here.
-            // If HighscoreManager needs triggering:
-            // try {
-            //     await highscoreManager.loadScores(); // Assuming loadScores is async and emits Loaded/LoadFailed
-            // } catch (error) {
-            //     console.error("[Coordinator] Error triggering highscore load:", error);
-            //     // Emit a generic failure? HighscoreManager should emit its own LoadFailed.
-            // }
-             console.warn("[Coordinator] Assuming HighscoreManager handles loading internally based on ShowRequested event.");
-        });
+     
 
         // Add other coordination listeners here (e.g., deleting custom sheets)
         eventBus.on(Events.UI.CustomQuestions.DeleteClicked, async ({ sheetId }) => {
             console.log(`[Coordinator] Handling UI DeleteClicked for sheet ID: ${sheetId}`);
             if (!sheetId) {
                 console.error("[Coordinator] DeleteClicked event missing sheetId.");
-                eventBus.emit(Events.System.ShowFeedback, { message: "Kon ID niet vinden om te verwijderen.", level: "error" });
+                eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('coordDeleteErrorNoId'), level: "error" });
                 return;
             }
 
@@ -149,18 +137,19 @@ class UnicornPoepApp {
                 if (success) {
                     console.log(`[Coordinator] Custom sheet deleted successfully via QuestionsManager: ${sheetId}`);
                     eventBus.emit(Events.Menu.CustomQuestions.DeleteSuccess, { sheetId: sheetId });
-                    eventBus.emit(Events.System.ShowFeedback, { message: `Vragenlijst verwijderd.`, level: "success" });
+                    eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('coordDeleteSuccess'), level: "success" });
                 } else {
                     // deleteCustomSheet should log specific reason in QuestionsManager
                     throw new Error("QuestionsManager reported failure to delete (sheet not found?).");
                 }
             } catch (error) {
                 console.error(`[Coordinator] Failed to handle delete request for custom sheet '${sheetId}':`, error);
+                const defaultDeleteErrorMessage = getTextTemplate('coordDeleteErrorDefault');
                 eventBus.emit(Events.Menu.CustomQuestions.DeleteFailed, {
                     sheetId: sheetId,
-                    message: error.message || "Onbekende fout bij verwijderen vragenlijst."
+                    message: error.message || defaultDeleteErrorMessage
                 });
-                eventBus.emit(Events.System.ShowFeedback, { message: `Fout bij verwijderen vragenlijst.`, level: 'error' });
+                eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('coordDeleteErrorFeedback'), level: 'error' });
             }
         });
 
@@ -169,7 +158,7 @@ class UnicornPoepApp {
             console.log(`[Coordinator] Handling UI EditClicked for sheet ID: ${sheetId}`);
             if (!sheetId) {
                 console.error("[Coordinator] EditClicked event missing sheetId.");
-                eventBus.emit(Events.System.ShowFeedback, { message: "Kon ID niet vinden om te bewerken.", level: "error" });
+                eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('coordEditErrorNoId'), level: "error" });
                 return;
             }
 
@@ -192,7 +181,7 @@ class UnicornPoepApp {
                 console.error(`[Coordinator] Failed to handle edit request for custom sheet '${sheetId}':`, error);
                 // Emit specific failure event?
                 // eventBus.emit(Events.Menu.CustomQuestions.LoadForEditFailed, { sheetId: sheetId, message: error.message });
-                eventBus.emit(Events.System.ShowFeedback, { message: `Fout bij laden van vragenlijst voor bewerken.`, level: 'error' });
+                eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('coordEditLoadErrorFeedback'), level: 'error' });
             }
         });
 
@@ -236,8 +225,8 @@ class UnicornPoepApp {
             const body = document.body;
             if (body) {
                 body.innerHTML = '<div style="padding: 20px; text-align: center; font-family: sans-serif; color: red;">' +
-                                 '<h1>Application Initialization Failed</h1>' +
-                                 '<p>A critical error occurred while loading essential services. Please check the console for details.</p>' +
+                                 `<h1>Application Initialization Failed</h1>` +
+                                 `<p>A critical error occurred while loading essential services. Please check the console for details.</p>` +
                                  '</div>';
             }
         });

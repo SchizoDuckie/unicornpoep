@@ -3,6 +3,7 @@ import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js'; // Import Views constants
 import questionsManager from '../services/QuestionsManager.js'; // Assuming we might fetch sheet list
+import { getTextTemplate } from '../utils/miscUtils.js'; // Import the utility
 
 /**
  * @class SheetSelectionComponent
@@ -88,7 +89,7 @@ class SheetSelectionComponent extends BaseComponent {
     handleShowView({ viewName, data }) {
         if (viewName === this.name) { // Use component name as view identifier
             console.log(`[${this.name}] Showing view. Data:`, data);
-            this.gameMode = data?.mode || 'single'; // Default to single player if mode not specified
+            this.gameMode = data.mode || 'single'; // Default to single player if mode not specified
             this.updateDifficultyVisibility();
             this._populateSheetList(); // This also calls _updateStartButtonState
             // Ensure navigation state matches initial sheet state after populating
@@ -115,7 +116,8 @@ class SheetSelectionComponent extends BaseComponent {
             console.log(`[${this.name}] Populating with sheets:`, allSheets);
 
             if (!Array.isArray(allSheets) || allSheets.length === 0) {
-                this.sheetsContainer.innerHTML = '<p><i>Geen vragenlijsten beschikbaar.</i></p>';
+                // Use template for empty list message
+                this.sheetsContainer.innerHTML = `<p><i>${getTextTemplate('sheetSelectNoneAvailable')}</i></p>`;
                 this._updateStartButtonState(); // Ensure button is disabled
                 return;
             }
@@ -142,7 +144,8 @@ class SheetSelectionComponent extends BaseComponent {
             this.sheetsContainer.appendChild(fragment);
         } catch (error) {
             console.error(`[${this.name}] Error populating sheet list:`, error);
-            this.sheetsContainer.innerHTML = '<p><i>Fout bij laden vragenlijsten.</i></p>';
+            // Use template for error message
+            this.sheetsContainer.innerHTML = `<p><i>${getTextTemplate('sheetSelectLoadError')}</i></p>`;
         }
         this._updateStartButtonState(); // Update button state after populating
     }
@@ -150,9 +153,9 @@ class SheetSelectionComponent extends BaseComponent {
     /** Updates visibility of the difficulty selection based on game mode. @private */
     updateDifficultyVisibility() {
         if (this.gameMode === 'practice') {
-            this.difficultyContainer?.classList.add('hidden');
+            this.difficultyContainer.classList.add('hidden');
         } else {
-            this.difficultyContainer?.classList.remove('hidden');
+            this.difficultyContainer.classList.remove('hidden');
         }
     }
 
@@ -216,8 +219,18 @@ class SheetSelectionComponent extends BaseComponent {
             return;
         }
 
+        // --- FIX: Clean sheet IDs before emitting --- 
+        const cleanedSheetIds = [...this.selectedSheets].map(id => {
+            const parts = id.split('_');
+            // If there's a part after the first underscore, use it. Otherwise, use the original ID.
+            // This handles cases like "tafels_Tafel van 1" -> "Tafel van 1"
+            // and also potential future IDs without prefixes.
+            return parts.length > 1 ? parts.slice(1).join('_') : id;
+        });
+        // --- End Fix ---
+
         const settings = {
-            sheetIds: [...this.selectedSheets],
+            sheetIds: cleanedSheetIds, 
             difficulty: this.gameMode === 'practice' ? null : this.selectedDifficulty,
             // Add other relevant settings if needed
         };

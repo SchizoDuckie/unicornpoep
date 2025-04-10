@@ -1,5 +1,7 @@
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
+import uiManager from '../ui/UIManager.js'; // Import UIManager to access dialogs
+import { getTextTemplate } from '../utils/miscUtils.js'; // Import the new utility
 
 // Configuration and constants
 const CONFIG_PATH = './config.json'; // Path to the config file relative to index.html
@@ -160,7 +162,7 @@ class QuestionsManager {
         this.customSheets.forEach((sheetData, sheetId) => {
             this.selectableItems.push({
                 id: sheetId, // Use the custom sheet's unique ID
-                name: sheetData.name || 'Naamloos', // Use stored name
+                name: sheetData.name || getTextTemplate('qmDefaultCustomName'),
                 isCustom: true
             });
         });
@@ -201,7 +203,7 @@ class QuestionsManager {
             console.debug("[QuestionsManager] Custom sheets saved to localStorage.");
         } catch (error) {
             console.error("[QuestionsManager] Error saving custom sheets to localStorage:", error);
-            eventBus.emit(Events.System.ErrorOccurred, { message: 'Kon eigen vragenlijsten niet opslaan.', error });
+            eventBus.emit(Events.System.ErrorOccurred, { message: getTextTemplate('qmSaveError'), error });
         }
     }
 
@@ -247,32 +249,32 @@ class QuestionsManager {
                 const trimmedLine = line.trim();
                 if (!trimmedLine || trimmedLine.startsWith('//')) return; // Skip empty lines or comments
 
-                const parts = trimmedLine.split('=>');
-                if (parts.length === 2) {
-                    const question = parts[0].trim();
-                    const answer = parts[1].trim();
-                    if (question && answer) {
-                        questionsData[title].push({ question, answer });
-                    } else {
-                        // Calculate approximate original line number
-                        let cumulativeLine = 1; // Start with title line
-                        for(let i = 0; i < catIndex; i++) {
-                           cumulativeLine += categories[i].split('\n').length + 1; // lines + newline separator
-                        }
-                        cumulativeLine += lineIndex + 1; // 0-based line index within category + title line offset
+                const separatorIndex = trimmedLine.indexOf('=>');
+                if (separatorIndex === -1 || separatorIndex === 0 || separatorIndex === trimmedLine.length - 2) {
+                    // Capture error details
+                    firstErrorLine = lineIndex + 1; // User-facing line number
+                    // Use template for parse error, substitute line and content
+                    firstErrorMessage = getTextTemplate('qmParseErrorLine', {
+                        '%LINE%': firstErrorLine,
+                        '%CONTENT%': trimmedLine.substring(0, 50) // Limit content length
+                    });
+                    return; // Stop processing lines in this category
+                }
 
-                        firstErrorLine = cumulativeLine
-                        firstErrorMessage = `Ongeldig formaat op regel ~${firstErrorLine} in sheet '${sheetIdForLogging}' (Categorie: '${title}'): Lege vraag of antwoord.`;
-                    }
+                const question = trimmedLine.substring(0, separatorIndex).trim();
+                const answer = trimmedLine.substring(separatorIndex + 2).trim();
+                if (question && answer) {
+                    questionsData[title].push({ question, answer });
                 } else {
-                     let cumulativeLine = 1;
-                     for(let i = 0; i < catIndex; i++) {
-                        cumulativeLine += categories[i].split('\n').length + 1;
-                     }
-                     cumulativeLine += lineIndex + 1;
+                    // Calculate approximate original line number
+                    let cumulativeLine = 1; // Start with title line
+                    for(let i = 0; i < catIndex; i++) {
+                       cumulativeLine += categories[i].split('\n').length + 1; // lines + newline separator
+                    }
+                    cumulativeLine += lineIndex + 1; // 0-based line index within category + title line offset
 
-                    firstErrorLine = cumulativeLine;
-                    firstErrorMessage = `Ongeldig formaat op regel ~${firstErrorLine} in sheet '${sheetIdForLogging}' (Categorie: '${title}'): Gebruik "Vraag => Antwoord".`;
+                    firstErrorLine = cumulativeLine
+                    firstErrorMessage = `Ongeldig formaat op regel ~${firstErrorLine} in sheet '${sheetIdForLogging}' (Categorie: '${title}'): Lege vraag of antwoord.`;
                 }
             });
              // Remove category if it ended up empty (e.g., only contained comments)
@@ -296,98 +298,85 @@ class QuestionsManager {
     // --- Custom Sheet Management ---
 
     /**
-     * Parses raw text (expected format: Question => Answer per line)
-     * and saves it as a custom question sheet (flat array).
-     * NOTE: This uses a different parsing than default sheets.
-     * @param {string} sheetId - A unique ID for the sheet.
-     * @param {string} name - The user-defined name for the sheet.
-     * @param {string} questionsText - The raw text input (Vraag => Antwoord format).
-     * @returns {Promise<boolean>} True if successful, false otherwise.
-     * @throws {Error} If parsing fails.
+     * Saves a custom question sheet, either creating a new one or updating existing.
+     * Parses raw text input.
+     * @param {string} sheetId - The unique ID for the sheet.
+     * @param {string} name - The name of the sheet.
+     * @param {string} questionsText - The raw text containing questions and answers.
+     * @returns {Promise<boolean>} True if save was successful, false otherwise.
      */
     async saveCustomSheetFromText(sheetId, name, questionsText) {
         await this._ensureInitialized();
+        console.log(`[QuestionsManager] Attempting to save custom sheet: ${name} (${sheetId})`);
+
         if (!sheetId || !name || typeof questionsText !== 'string') {
-            console.error("[QuestionsManager] Invalid data provided for saveCustomSheetFromText.");
+            console.error("[QuestionsManager] Invalid arguments for saveCustomSheetFromText.");
             return false;
         }
-        console.log(`[QuestionsManager] Parsing and saving custom sheet: ${name} (${sheetId})`);
+
         try {
-            // --- Parse flat list specifically for custom input ---
-            const lines = questionsText.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0 && !line.startsWith('//'));
-            const questions = [];
-            let firstErrorLine = -1;
-            let firstErrorMessage = null;
-            lines.forEach((line, index) => {
-                 if (firstErrorMessage) return;
-                 const parts = line.split('=>');
-                 if (parts.length === 2) {
-                     const question = parts[0].trim();
-                     const answer = parts[1].trim();
-                     if (question && answer) {
-                         questions.push({ question, answer });
-                     } else {
-                         firstErrorLine = index + 1;
-                         firstErrorMessage = `Ongeldig formaat op regel ${firstErrorLine}: Lege vraag of antwoord.`;
-                     }
-                 } else {
-                     firstErrorLine = index + 1;
-                     firstErrorMessage = `Ongeldig formaat op regel ${firstErrorLine}: Gebruik "Vraag => Antwoord".`;
-                 }
-            });
-             if (firstErrorMessage) throw new Error(firstErrorMessage);
-            // --- End flat list parsing ---
-
+            const questions = this._parseCustomQuestionsText(questionsText);
             if (questions.length === 0) {
-                console.warn(`[QuestionsManager] No valid questions found in text for custom sheet ${name}, not saving.`);
-                throw new Error("Geen geldige vragen gevonden in de invoer.");
+                throw new Error("Geen geldige vragen gevonden om op te slaan.");
             }
-            // Save the parsed data (as flat array for custom sheets)
-            this.customSheets.set(sheetId, { name, questions });
-            this._saveCustomSheets();
+
+            const newSheetData = {
+                name: name,
+                questions: questions,
+                isCustom: true // Mark explicitly
+            };
+
+            this.customSheets.set(sheetId, newSheetData);
+            this._saveCustomSheets(); // Persist to localStorage
+            this._updateSelectableItems(); // Update the internal list for getAvailableSheets
+
+            console.log(`[QuestionsManager] Custom sheet '${name}' saved successfully.`);
             return true;
+
         } catch (error) {
-            console.error(`[QuestionsManager] Error parsing or saving custom sheet ${name}:`, error);
-            throw error; // Re-throw the parsing error
-        }
-    }
-
-    /**
-     * Adds or updates a custom question sheet (using pre-parsed questions).
-     * Kept for potential internal use or if coordinator parses first.
-     * @param {string} sheetId - A unique ID for the sheet (e.g., custom_timestamp).
-     * @param {string} name - The user-defined name for the sheet.
-     * @param {Array<object>} questions - The array of question objects.
-     * @returns {Promise<boolean>} True if successful, false otherwise.
-     */
-    async saveCustomSheet(sheetId, name, questions) {
-        await this._ensureInitialized();
-
-        if (!sheetId || !name || !Array.isArray(questions)) {
-            console.error("[QuestionsManager] Invalid data provided for saveCustomSheet.");
+            console.error(`[QuestionsManager] Error saving custom sheet '${name}':`, error);
+            // Let the coordinator handle emitting feedback/error events based on return value
+            // eventBus.emit(Events.System.ErrorOccurred, { message: `Kon lijst '${name}' niet opslaan: ${error.message}`, error });
             return false;
         }
-        console.log(`[QuestionsManager] Saving custom sheet: ${name} (${sheetId}) with ${questions.length} questions.`);
-        this.customSheets.set(sheetId, { name, questions });
-        this._saveCustomSheets();
-        return true;
     }
 
     /**
-     * Deletes a custom sheet by its ID.
-     * @param {string} sheetId
-     * @returns {Promise<boolean>} True if deleted, false if not found.
+     * Parses the raw text from the custom questions textarea.
+     * Each line should be "Question => Answer".
+     * @param {string} text - The raw text from the textarea.
+     * @returns {Array<{question: string, answer: string}>} Parsed question objects.
+     * @throws {Error} If any line has an invalid format.
+     * @private
      */
-    async deleteCustomSheet(sheetId) {
-        await this._ensureInitialized();
-        if (this.customSheets.has(sheetId)) {
-            this.customSheets.delete(sheetId);
-            this._saveCustomSheets();
-            console.log(`[QuestionsManager] Deleted custom sheet: ${sheetId}`);
-            return true;
+    _parseCustomQuestionsText(text) {
+        const lines = text.replace(/\r/g, '').split('\n');
+        const questions = [];
+        const errors = [];
+
+        lines.forEach((line, index) => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine || trimmedLine.startsWith('//')) return; // Skip empty/comment lines
+
+            const parts = trimmedLine.split('=>');
+            if (parts.length === 2) {
+                const question = parts[0].trim();
+                const answer = parts[1].trim();
+                if (question && answer) {
+                    questions.push({ question, answer });
+                } else {
+                    errors.push(`Regel ${index + 1}: Vraag of antwoord is leeg.`);
+                }
+            } else {
+                errors.push(`Regel ${index + 1}: Ongeldig formaat (gebruik "Vraag => Antwoord").`);
+            }
+        });
+
+        if (errors.length > 0) {
+            throw new Error(`Fouten in vragenlijst:\n${errors.join('\n')}`);
         }
-        console.warn(`[QuestionsManager] Attempted to delete non-existent custom sheet: ${sheetId}`);
-        return false;
+
+        return questions;
     }
 
     /**
@@ -398,6 +387,59 @@ class QuestionsManager {
     formatQuestionsForTextarea(questions) {
         if (!Array.isArray(questions)) return '';
         return questions.map(q => `${q.question} => ${q.answer}`).join('\n');
+    }
+
+    /**
+     * Deletes a custom question sheet.
+     * Needs confirmation before deleting.
+     * @param {string} sheetId - The ID of the sheet to delete.
+     * @returns {boolean} True if deletion was successful (after confirmation), false otherwise.
+     */
+    deleteCustomSheet(sheetId) {
+        const sheetToDelete = this.customSheets.get(sheetId);
+        if (!sheetToDelete) {
+            console.warn(`[QuestionsManager] Cannot delete sheet ${sheetId}: Not found.`);
+            return false;
+        }
+
+        // *** Replace confirm() with ConfirmationDialog ***
+        const confirmationDialog = uiManager.components.get('ConfirmationDialog');
+        if (!confirmationDialog) {
+             console.error("[QuestionsManager] ConfirmationDialog component not found in UIManager!");
+             // Use the template for the error message
+             eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('deleteSheetError'), level: "error" });
+             return false;
+        }
+
+        const sheetName = sheetToDelete.name || sheetId; // Get the name for the message
+
+        confirmationDialog.show({
+            title: getTextTemplate('deleteSheetTitle'), // Get text from template
+            message: getTextTemplate('deleteSheetMessage', { '%NAME%': sheetName }), // Get text and substitute %NAME%
+            okText: getTextTemplate('deleteSheetOk'), // Get text from template
+            cancelText: getTextTemplate('deleteSheetCancel'), // Get text from template
+            context: sheetId, // Pass sheetId as context
+            onConfirm: (contextSheetId) => {
+                console.log(`[QuestionsManager] Confirmed deletion for: ${contextSheetId}`);
+                if (this.customSheets.delete(contextSheetId)) {
+                    this._saveCustomSheets();
+                    this._updateSelectableItems();
+                    console.log(`[QuestionsManager] Custom sheet ${contextSheetId} deleted.`);
+                    // Let the coordinator emit success events
+                } else {
+                     console.error(`[QuestionsManager] Failed to delete sheet ${contextSheetId} from map after confirmation.`);
+                     // Let the coordinator emit failure events
+                }
+            },
+            onCancel: (contextSheetId) => {
+                console.log(`[QuestionsManager] Cancelled deletion for: ${contextSheetId}`);
+                 // Let the coordinator know deletion was cancelled if needed
+            }
+        });
+
+        // Return false immediately because the actual deletion happens asynchronously after confirmation
+        // The coordinator should handle success/failure based on events from the dialog/callback
+        return false; 
     }
 
     // --- Getting Sheets ---
@@ -448,17 +490,20 @@ class QuestionsManager {
                     return categoryObject[categoryTitle] || []; // Return the array for that category
                 } else {
                     console.error(`[QuestionsManager] Category '${categoryTitle}' not found within cached data for file '${fileId}'.`);
-                    throw new Error(`Categorie '${categoryTitle}' niet gevonden in bestand '${fileId}'.`);
+                    throw new Error(getTextTemplate('qmGetErrorCategoryNotFound', {
+                        '%CATEGORY%': categoryTitle,
+                        '%FILE%': fileId
+                    }));
                 }
             } else {
                 // This means the file wasn't loaded/cached during init, which is an error
                 console.error(`[QuestionsManager] File data for '${fileId}' not found in cache for selectable ID: ${selectableId}. Initialization incomplete?`);
-                throw new Error(`Basisdata voor '${fileId}' kon niet worden geladen.`);
+                throw new Error(getTextTemplate('qmGetErrorBaseData', { '%FILE%': fileId }));
             }
         } else {
              // 3. ID is not custom and not a valid composite ID format
              console.error(`[QuestionsManager] Invalid selectable ID format or sheet not found: ${selectableId}`);
-             throw new Error(`Selectie '${selectableId}' is ongeldig of niet gevonden.`);
+             throw new Error(getTextTemplate('qmGetErrorInvalidId', { '%ID%': selectableId }));
         }
     }
 

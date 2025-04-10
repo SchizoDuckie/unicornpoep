@@ -2,6 +2,7 @@ import BaseComponent from './base-component.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
+import { getTextTemplate } from '../utils/miscUtils.js';
 
 /**
  * Component managing the global loading indicator (#loading).
@@ -33,7 +34,7 @@ export default class LoadingComponent extends BaseComponent {
     /** Handles the LoadingStart event. @private */
     handleLoadingStart = (payload = {}) => {
         // Optionally display a message if provided in payload
-        const message = payload.message || 'Laden...'; // Default message
+        const message = payload.message || getTextTemplate('loadingDefault');
         if (this.rootElement) {
             // Example: Update a text element within the loading indicator if it exists
             const textElement = this.rootElement.querySelector('h1'); // Assuming an h1 for text

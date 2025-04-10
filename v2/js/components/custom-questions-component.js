@@ -3,6 +3,8 @@ import eventBus from "../core/event-bus.js";
 import Events from "../core/event-constants.js";
 import questionsManager from "../services/QuestionsManager.js"; // Import the service
 import Views from "../core/view-constants.js";
+import uiManager from '../ui/UIManager.js'; // Import UIManager for dialog access
+import { getTextTemplate } from "../utils/miscUtils.js"; // Import the utility
 /**
  * Component managing the Custom Questions view (#customQuestionsManager).
  * Handles input for creating/editing question lists and displays existing ones.
@@ -14,12 +16,12 @@ export default class CustomQuestionsComponent extends BaseComponent {
     constructor() {
         super("#customQuestionsManager", Views.CustomQuestions);
 
-        this.sheetNameInput = this.rootElement?.querySelector("#customSheetName");
-        this.questionsTextarea = this.rootElement?.querySelector("#customQuestionsTextarea");
-        this.saveButton = this.rootElement?.querySelector("#saveCustomQuestionsButton");
-        this.backButton = this.rootElement?.querySelector(".backToMain");
-        this.customSheetListContainer = this.rootElement?.querySelector("#customSheetList");
-        this.sheetItemTemplate = this.rootElement?.querySelector("#custom-sheet-item-template");
+        this.sheetNameInput = this.rootElement.querySelector("#customSheetName");
+        this.questionsTextarea = this.rootElement.querySelector("#customQuestionsTextarea");
+        this.saveButton = this.rootElement.querySelector("#saveCustomQuestionsButton");
+        this.backButton = this.rootElement.querySelector(".backToMain");
+        this.customSheetListContainer = this.rootElement.querySelector("#customSheetList");
+        this.sheetItemTemplate = this.rootElement.querySelector("#custom-sheet-item-template");
 
         // Store the ID of the sheet being edited
         this.editingSheetId = null;
@@ -39,24 +41,27 @@ export default class CustomQuestionsComponent extends BaseComponent {
      * @private
      */
     addEventListeners() {
-        this.saveButton?.addEventListener("click", this.handleSaveClick.bind(this));
+        this.saveButton.addEventListener("click", this.handleSaveClick.bind(this));
 
-        this.backButton?.addEventListener("click", () => {
+        this.backButton.addEventListener("click", () => {
             console.log("[CustomQuestionsComponent] Back button clicked.");
             eventBus.emit(Events.UI.CustomQuestions.BackClicked);
             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
         });
 
         // Use event delegation for list item actions
-        this.customSheetListContainer?.addEventListener("click", (event) => {
+        this.customSheetListContainer.addEventListener("click", (event) => {
             const targetButton = event.target.closest("button");
             if (!targetButton) return; // Click wasn't on a button or its descendant
 
             const sheetId = targetButton.dataset.sheetId;
+            const listItem = targetButton.closest('.custom-sheet-item');
+            // Use template for fallback name
+            const sheetName = listItem.querySelector('.sheet-name').textContent || sheetId || getTextTemplate('customQDeleteFallbackName'); 
             if (!sheetId) return; // Button doesn't have a sheet ID
 
             if (targetButton.classList.contains("delete-button")) {
-                this.handleDeleteClick(sheetId);
+                this.handleDeleteClick(sheetId, sheetName);
             } else if (targetButton.classList.contains("edit-button")) {
                 this.handleEditClick(sheetId);
             }
@@ -81,7 +86,7 @@ export default class CustomQuestionsComponent extends BaseComponent {
         // Clear display if navigating away
         this.listen(Events.Navigation.ShowView, ({ viewName }) => {
             // Use the registered name from the constant map if available, else use component's this.name
-            const registeredName = Object.entries(Views).find(([, val]) => val === this.name)?.[0] ?? this.name;
+            const registeredName = Object.entries(Views).find(([, val]) => val === this.name)[0] ?? this.name;
             if (viewName !== registeredName) {
                 this.clearInputs();
                 this.clearSheetList();
@@ -96,18 +101,20 @@ export default class CustomQuestionsComponent extends BaseComponent {
      * @private
      */
     handleSaveClick() {
-        const sheetName = this.sheetNameInput?.value.trim();
-        const questionsText = this.questionsTextarea?.value.trim(); // Get raw text
+        const sheetName = this.sheetNameInput.value.trim();
+        const questionsText = this.questionsTextarea.value.trim(); // Get raw text
 
         // Basic validation
         if (!sheetName) {
-            eventBus.emit(Events.System.ShowFeedback, { message: "Geef je vragenlijst een naam!", level: "warn" });
-            this.sheetNameInput?.focus();
+            // Use template for warning
+            eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('customQWarnName'), level: "warn" }); 
+            this.sheetNameInput.focus();
             return;
         }
         if (!questionsText) {
-            eventBus.emit(Events.System.ShowFeedback, { message: "Voer minstens één vraag in!", level: "warn" });
-            this.questionsTextarea?.focus();
+            // Use template for warning
+            eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('customQWarnQuestion'), level: "warn" }); 
+            this.questionsTextarea.focus();
             return;
         }
 
@@ -193,7 +200,8 @@ export default class CustomQuestionsComponent extends BaseComponent {
             const customSheets = allSheets.filter(sheet => sheet.isCustom);
 
             if (customSheets.length === 0) {
-                this.customSheetListContainer.innerHTML = "<p><i>Nog geen eigen vragenlijsten opgeslagen.</i></p>";
+                 // Use template for empty list message
+                this.customSheetListContainer.innerHTML = `<p><i>${getTextTemplate('customQListEmpty')}</i></p>`; 
                 return;
             }
 
@@ -238,8 +246,10 @@ export default class CustomQuestionsComponent extends BaseComponent {
 
         } catch (error) {
             console.error("[CustomQuestionsComponent] Error loading or displaying custom sheets:", error);
-            this.customSheetListContainer.innerHTML = "<p><i>Fout bij laden van eigen vragenlijsten.</i></p>";
-            eventBus.emit(Events.System.ShowFeedback, { message: "Kon eigen vragenlijsten niet laden.", level: "error" });
+            // Use template for list error message
+            this.customSheetListContainer.innerHTML = `<p><i>${getTextTemplate('customQListError')}</i></p>`; 
+            // Use template for feedback error message
+            eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('customQLoadError'), level: "error" }); 
         }
     }
 
@@ -258,18 +268,38 @@ export default class CustomQuestionsComponent extends BaseComponent {
     }
 
     /**
-     * Handles the click on a delete button for a custom sheet.
+     * Handles the click on a delete button for a specific sheet.
+     * Shows a confirmation dialog before emitting the delete event.
      * @param {string} sheetId - The ID of the sheet to delete.
+     * @param {string} sheetName - The name of the sheet for the confirmation message.
      * @private
      */
-    handleDeleteClick(sheetId) {
-        console.log(`[CustomQuestionsComponent] Delete button clicked for sheet ID: ${sheetId}`);
-        // Simple confirmation before deleting
-        if (confirm(`Weet je zeker dat je de vragenlijst met ID '${sheetId}' wilt verwijderen?`)) {
-            eventBus.emit(Events.UI.CustomQuestions.DeleteClicked, { sheetId });
-        } else {
-            console.log("[CustomQuestionsComponent] Delete cancelled by user.");
+    handleDeleteClick(sheetId, sheetName) {
+        console.log(`[CustomQuestionsComponent] Delete button clicked for: ${sheetName} (${sheetId})`);
+
+        const confirmationDialog = uiManager.components.get('ConfirmationDialog');
+        if (!confirmationDialog) {
+            console.error("[CustomQuestionsComponent] ConfirmationDialog not found!");
+            // Fallback or show error
+            eventBus.emit(Events.System.ShowFeedback, { message: "Kon verwijdering niet starten.", level: "error" });
+            return;
         }
+
+        confirmationDialog.show({
+            // Read text from HTML later
+            title: "Lijst Verwijderen?",
+            message: `Weet je zeker dat je de lijst '${sheetName}' wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`,
+            okText: "Verwijder",
+            cancelText: "Annuleren",
+            context: { sheetId: sheetId, sheetName: sheetName }, // Pass context
+            onConfirm: (context) => {
+                console.log(`[CustomQuestionsComponent] Delete confirmed for ${context.sheetName}, emitting UI event.`);
+                eventBus.emit(Events.UI.CustomQuestions.DeleteClicked, { sheetId: context.sheetId });
+            },
+            onCancel: (context) => {
+                 console.log(`[CustomQuestionsComponent] Delete cancelled for ${context.sheetName}.`);
+            }
+        });
     }
 
     /**
@@ -309,7 +339,7 @@ export default class CustomQuestionsComponent extends BaseComponent {
         // Emit an event for the coordinator to fetch the sheet data
         eventBus.emit(Events.UI.CustomQuestions.EditClicked, { sheetId });
         // Optionally, scroll to the top or focus the name input
-        this.sheetNameInput?.focus();
+        this.sheetNameInput.focus();
     }
 
     /**

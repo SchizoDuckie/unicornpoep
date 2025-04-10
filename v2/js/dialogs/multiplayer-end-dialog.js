@@ -1,6 +1,7 @@
 import BaseDialog from './base-dialog.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
+import { getTextTemplate } from '../utils/miscUtils.js';
 
 
 /**
@@ -66,20 +67,20 @@ class MultiplayerEndDialog extends BaseDialog {
             
             // Determine player results - use rankings if provided, otherwise calculate from scores
             let rankedPlayers = [];
-            if (Array.isArray(results?.rankings)) {
+            if (Array.isArray(results.rankings)) {
                 rankedPlayers = results.rankings;
-            } else if (results?.playerScores instanceof Map) {
+            } else if (results.playerScores instanceof Map) {
                  // Convert Map to array and sort by score descending
                  rankedPlayers = Array.from(results.playerScores.values())
                     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
                     .map((player, index) => ({ 
                         rank: index + 1, 
-                        name: player.name || 'Unknown', 
+                        name: player.name || getTextTemplate('mpEndDefaultPlayerName'), 
                         score: player.score ?? 0 
                     }));
             } else {
                  console.error(`[${this.name}] Invalid or missing player results data. Cannot display.`);
-                 this.resultsListBody.innerHTML = '<tr><td colspan="3">Kon resultaten niet laden.</td></tr>';
+                 this.resultsListBody.innerHTML = `<tr><td colspan="3">${getTextTemplate('mpEndLoadError')}</td></tr>`;
                  this.show();
                  return;
             }
@@ -88,7 +89,7 @@ class MultiplayerEndDialog extends BaseDialog {
             this.resultsListBody.innerHTML = ''; // Clear previous entries
 
             if (rankedPlayers.length === 0) {
-                 this.resultsListBody.innerHTML = '<tr><td colspan="3">Geen spelers data gevonden.</td></tr>';
+                 this.resultsListBody.innerHTML = `<tr><td colspan="3">${getTextTemplate('mpEndNoData')}</td></tr>`;
             } else {
                 rankedPlayers.forEach(player => {
                     const templateClone = this.rowTemplate.content.cloneNode(true);

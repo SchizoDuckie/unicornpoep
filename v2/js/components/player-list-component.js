@@ -2,6 +2,7 @@ import BaseComponent from './base-component.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
+import { getTextTemplate } from '../utils/miscUtils.js'; // Import the utility
 
 import webRTCManager from '../services/WebRTCManager.js'; // Ensure correct path and casing
 
@@ -77,7 +78,8 @@ class PlayerListComponent extends BaseComponent {
      */
     _addPlayerToList(peerId, playerInfo, myPeerId) {
         const score = playerInfo.score !== undefined ? playerInfo.score : 0;
-        const name = playerInfo.name || 'Unnamed Player'; // Default name
+        // Use template for default name
+        const name = playerInfo.name || getTextTemplate('playerListUnnamed'); 
 
         // Clone the template
         const listItem = this.template.content.cloneNode(true).querySelector('.player-item');
@@ -102,13 +104,15 @@ class PlayerListComponent extends BaseComponent {
         if (playerInfo.isHost) {
             const hostTag = document.createElement('span');
             hostTag.classList.add('player-tag', 'host-tag');
-            hostTag.textContent = '(Host)';
+            // Use template for tag text
+            hostTag.textContent = getTextTemplate('playerListHostTag'); 
             (tagsContainer || listItem).appendChild(hostTag); // Append to tags container or item
         }
         if (peerId === myPeerId) {
             const youTag = document.createElement('span');
             youTag.classList.add('player-tag', 'you-tag');
-            youTag.textContent = '(You)';
+            // Use template for tag text
+            youTag.textContent = getTextTemplate('playerListYouTag'); 
             (tagsContainer || listItem).appendChild(youTag);
             listItem.classList.add('local-player');
         }
@@ -148,7 +152,7 @@ class PlayerListComponent extends BaseComponent {
                 scoreElement.textContent = String(newScore);
                 // Optional: Add animation/highlight on update
                 playerData.element.classList.add('score-updated');
-                setTimeout(() => playerData.element?.classList.remove('score-updated'), 300);
+                setTimeout(() => playerData.element.classList.remove('score-updated'), 300);
             }
         }
 

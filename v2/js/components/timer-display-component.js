@@ -2,6 +2,7 @@ import BaseComponent from './base-component.js';
 import Events from '../core/event-constants.js';
 import eventBus from '../core/event-bus.js';
 import Timer from '../core/timer.js';
+import { getTextTemplate } from '../utils/miscUtils.js';
 
 /**
  * @class TimerDisplayComponent
@@ -31,7 +32,8 @@ class TimerDisplayComponent extends BaseComponent {
         this.lowTimeClass = 'time-low';
         this.criticalTimeClass = 'time-critical';
         this.timeUpClass = 'time-up';
-        this.defaultDisplay = '⏳'; // Use existing placeholder
+        // Use template for default display
+        this.defaultDisplay = getTextTemplate('timerDefault');
 
         this._bindMethods(); // Keep existing binding pattern
 
@@ -64,7 +66,7 @@ class TimerDisplayComponent extends BaseComponent {
     updateDisplay({ remainingTimeMs }) {
         if (this.rootElement && typeof remainingTimeMs === 'number') {
             const formattedTime = Timer.formatTime(remainingTimeMs);
-            console.log(`[${this.name}] Tick received. Updating display to: ${formattedTime} (Raw ms: ${remainingTimeMs})`);
+
             this.show(); // Ensure visible
             this.rootElement.textContent = formattedTime; 
             // Check if element is actually visible after update

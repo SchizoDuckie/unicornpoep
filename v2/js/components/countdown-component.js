@@ -2,6 +2,7 @@ import BaseComponent from './base-component.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
+import { getTextTemplate } from '../utils/miscUtils.js';
 
 /**
  * @class CountdownComponent
@@ -37,7 +38,7 @@ class CountdownComponent extends BaseComponent {
     handleCountdownStart(payload = {}) {
         const duration = payload.duration && typeof payload.duration === 'number' ? payload.duration : 3;
         // Define end message and completion event if needed, or pass from payload
-        const endMessage = payload.endMessage || 'Go!';
+        const endMessage = payload.endMessage || getTextTemplate('countdownGo');
         const completionEvent = payload.completionEvent || null;
         this.startCountdown(duration, endMessage, completionEvent);
     }
@@ -45,10 +46,13 @@ class CountdownComponent extends BaseComponent {
     /**
      * Starts the countdown sequence.
      * @param {number} [duration=3] - Countdown duration in seconds.
-     * @param {string} [endMessage='Go!'] - Message to display after countdown.
+     * @param {string} [endMessage] - Message to display after countdown (defaults to template value).
      * @param {string} [completionEvent] - Optional event to emit when countdown finishes.
      */
-    startCountdown(duration = 3, endMessage = 'Go!', completionEvent = null) {
+    startCountdown(duration = 3, endMessage, completionEvent = null) {
+        // Fetch default end message from template if not provided
+        const finalEndMessage = endMessage !== undefined ? endMessage : getTextTemplate('countdownGo');
+
         if (this.intervalId) clearInterval(this.intervalId); // Clear existing interval
 
         console.log(`[${this.name}] Starting countdown from ${duration}...`);
@@ -64,7 +68,7 @@ class CountdownComponent extends BaseComponent {
             } else {
                 clearInterval(this.intervalId);
                 this.intervalId = null;
-                this.rootElement.textContent = endMessage;
+                this.rootElement.textContent = finalEndMessage; // Use the fetched/provided message
                 console.log(`[${this.name}] Countdown finished.`);
 
                 // Hide after a brief moment

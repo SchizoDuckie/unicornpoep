@@ -696,7 +696,7 @@ class GameAreaController {
             // Pass the original event, which might contain the specific target clicked if needed by the game logic
             currentGame.handleAnswerSelection(selectedAnswer, event);
         } else {
-            console.error(`GAC (Answer): FAILED - Method 'handleAnswerSelection' not found or not a function on currentGame! (Type: ${currentGame?.constructor?.name})`);
+            console.error(`GAC (Answer): FAILED - Method 'handleAnswerSelection' not found or not a function on currentGame! (Type: ${currentGame.constructor.name})`);
         }
     }
 

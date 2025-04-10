@@ -1,5 +1,6 @@
 import Events from '../core/event-constants.js';
 import eventBus from '../core/event-bus.js';
+import { getTextTemplate } from '../utils/miscUtils.js'; // Import the utility
 // Assuming PeerJS is loaded globally or correctly imported as 'Peer'
 // import Peer from '../lib/peerjs.min.js'; // Keep if using module
 
@@ -56,7 +57,8 @@ class WebRTCManager {
         /** @type {Map<string, { name?: string, isHost: boolean }>} Minimal player info needed by WebRTCManager (name from metadata) */
         this.players = new Map();
         /** @type {string} The local player's name. */
-        this.localPlayerName = 'Anon';
+        // Use template for default anonymous name
+        this.localPlayerName = getTextTemplate('rtcDefaultAnon');
         /** @type {boolean} Whether this instance is acting as the host. */
         this.isHost = false;
         /** @type {object | null} Temporary storage for host game settings (use with caution). */
@@ -104,7 +106,8 @@ class WebRTCManager {
         try {
             // Ensure Peer is available (global or imported)
             if (typeof Peer === 'undefined') {
-                throw new Error('PeerJS library not loaded.');
+                // Use template for this user-facing error
+                throw new Error(getTextTemplate('rtcErrorPeerJSLoad'));
             }
 
             this.peer = new Peer({ debug: 2 }); // Adjust debug level as needed (0-3)
@@ -156,7 +159,7 @@ class WebRTCManager {
      */
     _handleClientConnection(connection) {
         const peerId = connection.peer;
-        const clientName = connection.metadata?.name || `Client_${peerId.slice(-4)}`; // Use metadata or generate temp name
+        const clientName = connection.metadata.name || `Client_${peerId.slice(-4)}`; // Use metadata or generate temp name
         console.log(`[WebRTCManager] Incoming connection request from: ${peerId} (${clientName})`);
 
         // Prevent duplicate connections from same peer ID if one is already open/pending
@@ -459,7 +462,7 @@ class WebRTCManager {
                 conn.off('close', connListeners.close);
                 conn.off('error', connListeners.error);
             }
-            if (conn?.open) { // Check if connection exists and is open
+            if (conn.open) { // Check if connection exists and is open
                 conn.close();
             }
         });
@@ -498,7 +501,7 @@ class WebRTCManager {
         this.myPeerId = null;
         this.connections.clear();
         this.players.clear();
-        this.localPlayerName = 'Anon';
+        this.localPlayerName = getTextTemplate('rtcDefaultAnon');
         this.isHost = false;
         this.pendingHostSettings = null;
         this.status = ConnectionStatus.DISCONNECTED;
@@ -563,8 +566,8 @@ class WebRTCManager {
         if (!peerId) return;
         // Ensure basic structure
         const dataToSet = {
-            name: playerData?.name || this.players.get(peerId)?.name || 'Unknown', // Preserve name if not provided
-            isHost: typeof playerData?.isHost === 'boolean' ? playerData.isHost : (this.players.get(peerId)?.isHost ?? false) // Preserve isHost
+            name: playerData.name || this.players.get(peerId).name || 'Unknown', // Preserve name if not provided
+            isHost: typeof playerData.isHost === 'boolean' ? playerData.isHost : (this.players.get(peerId).isHost ?? false) // Preserve isHost
         };
         this.players.set(peerId, dataToSet);
          console.debug(`[WebRTCManager] Player updated: ${peerId}`, this.players.get(peerId));
