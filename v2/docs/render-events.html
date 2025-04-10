@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V2 Event Flow Diagrams</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/viz.js@2.1.2/viz.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/viz.js@2.1.2/full.render.min.js"></script>
+    <style>
+        body {
+            line-height: 1.6;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        .diagram-container {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 1px solid var(--bs-border-color);
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .diagram-area {
+             overflow-x: auto;
+             margin-top: 15px;
+        }
+        h1, h2 {
+            border-bottom: 1px solid var(--bs-border-color);
+            padding-bottom: 5px;
+            margin-top: 0;
+            margin-bottom: 1rem;
+        }
+        pre {
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            border: 1px solid var(--bs-border-color);
+        }
+        .graphviz-rendered svg {
+            max-width: none;
+            width: auto;
+            height: auto;
+            display: block;
+        }
+        .error {
+            color: var(--bs-danger);
+            font-weight: bold;
+        }
+        .loading {
+            font-style: italic;
+            color: var(--bs-secondary-color);
+        }
+        .toggle-controls button {
+            padding: 5px 10px;
+            margin-right: 10px;
+            cursor: pointer;
+            border: 1px solid var(--bs-border-color);
+            background-color: var(--bs-tertiary-bg);
+            color: var(--bs-body-color);
+            border-radius: 3px;
+        }
+        .toggle-controls button.active {
+            background-color: var(--bs-secondary-bg);
+            font-weight: bold;
+            border-color: var(--bs-secondary-border-subtle);
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid"> 
+
+        <h1>V2 Application Event Flow Diagrams</h1>
+
+        <p>This page renders the Graphviz DOT diagrams defined in <code>events-flow.md</code>.</p>
+        <p>Toggle between views showing the EventBus explicitly or showing direct component interactions.</p>
+        <p>Node border colors indicate the component category:
+            <ul>
+                <li><span style="border: 2px solid #e6e0f8; padding: 0 5px;">Coordinators / Managers</span></li>
+                <li><span style="border: 2px solid #aaaaaa; padding: 0 5px;">Core / Base / EventBus</span></li>
+                <li><span style="border: 2px solid #ffc107; padding: 0 5px;">Services / Engines</span></li>
+                <li><span style="border: 2px solid #20c997; padding: 0 5px;">Game Modes</span></li>
+                <li><span style="border: 2px solid #0dcaf0; padding: 0 5px;">UI Components</span></li>
+            </ul>
+        </p>
+
+        <div id="diagrams">Loading diagrams...</div>
+
+    </div>
+
+    <script>
+        function toggleView(index, versionToShow) {
+            const withBusDiv = document.getElementById(`graph${index}_withBus`);
+            const withoutBusDiv = document.getElementById(`graph${index}_withoutBus`);
+            const withBusBtn = document.getElementById(`btn${index}_withBus`);
+            const withoutBusBtn = document.getElementById(`btn${index}_withoutBus`);
+
+            if (!withBusDiv || !withoutBusDiv || !withBusBtn || !withoutBusBtn) return;
+
+            if (versionToShow === 'withBus') {
+                withBusDiv.classList.remove('hidden');
+                withoutBusDiv.classList.add('hidden');
+                withBusBtn.classList.add('active');
+                withoutBusBtn.classList.remove('active');
+            } else { // 'withoutBus'
+                withBusDiv.classList.add('hidden');
+                withoutBusDiv.classList.remove('hidden');
+                withBusBtn.classList.remove('active');
+                withoutBusBtn.classList.add('active');
+            }
+        }
+
+        async function renderDiagrams() {
+            const diagramsDiv = document.getElementById('diagrams');
+            diagramsDiv.innerHTML = ''; // Clear loading message
+
+            // Configuration for the diagrams to be loaded
+            const diagramsConfig = [
+                {
+                    "index": 1,
+                    "title": "1. Scenario: Application Startup",
+                    "baseFilename": "1-scenario-application-startup"
+                },
+                {
+                    "index": 2,
+                    "title": "2. Scenario: Starting a Single Player Game",
+                    "baseFilename": "2-scenario-starting-a-single-player-game"
+                },
+                {
+                    "index": 3,
+                    "title": "3. Scenario: Game Startup Flow (Menus & Coordination)",
+                    "baseFilename": "3-scenario-game-startup-flow-menus-coordination"
+                },
+                {
+                    "index": 4,
+                    "title": "4. Scenario: Core Gameplay Loop (Single Player / Practice / Base)",
+                    "baseFilename": "4-scenario-core-gameplay-loop-single-player-practice-base"
+                },
+                {
+                    "index": 5,
+                    "title": "5. Scenario: Multiplayer Lobby & Connection",
+                    "baseFilename": "5-scenario-multiplayer-lobby-connection"
+                },
+                {
+                    "index": 6,
+                    "title": "6. Scenario: Multiplayer In-Game Communication",
+                    "baseFilename": "6-scenario-multiplayer-in-game-communication"
+                },
+                {
+                    "index": 7,
+                    "title": "7. Scenario: Game End & Highscores",
+                    "baseFilename": "7-scenario-game-end-highscores"
+                },
+                {
+                    "index": 8,
+                    "title": "8. Scenario: Custom Questions Management (CRUD)",
+                    "baseFilename": "8-scenario-custom-questions-management-crud"
+                }
+            ];
+
+            // Base path for the DOT files
+            const basePath = ''; // Updated path since HTML is now in the same folder as DOT files
+
+            // Instantiate Viz.js renderer
+            const viz = new Viz();
+
+            for (const config of diagramsConfig) {
+                const { index: diagramIndex, title, baseFilename } = config;
+
+                const container = document.createElement('div');
+                container.className = 'diagram-container';
+                diagramsDiv.appendChild(container);
+
+                const heading = document.createElement('h2');
+                heading.textContent = title;
+                container.appendChild(heading);
+
+                const controlsDiv = document.createElement('div');
+                controlsDiv.className = 'toggle-controls';
+                // Default to showing 'Direct View' (Without EventBus), now positioned first
+                controlsDiv.innerHTML = `
+                    <button id="btn${diagramIndex}_withoutBus" onclick="toggleView(${diagramIndex}, 'withoutBus')" class="active">Abstracted Direct Flow</button>
+                    <button id="btn${diagramIndex}_withBus" onclick="toggleView(${diagramIndex}, 'withBus')">Flow via EventBus</button>
+                `;
+                container.appendChild(controlsDiv);
+
+                const diagramArea = document.createElement('div');
+                diagramArea.className = 'diagram-area';
+                container.appendChild(diagramArea);
+
+                // Create placeholders for both versions
+                const targetWithBusId = `graph${diagramIndex}_withBus`;
+                const renderTargetWithBus = document.createElement('div');
+                renderTargetWithBus.id = targetWithBusId;
+                renderTargetWithBus.className = `graphviz-rendered loading hidden`; // Initially hidden
+                renderTargetWithBus.textContent = 'Loading With EventBus view...';
+                diagramArea.appendChild(renderTargetWithBus);
+
+                const targetWithoutBusId = `graph${diagramIndex}_withoutBus`;
+                const renderTargetWithoutBus = document.createElement('div');
+                renderTargetWithoutBus.id = targetWithoutBusId;
+                renderTargetWithoutBus.className = `graphviz-rendered loading`; // Initially visible
+                renderTargetWithoutBus.textContent = 'Loading Direct view...';
+                diagramArea.appendChild(renderTargetWithoutBus);
+
+                // --- Fetch and Render Logic ---
+                const dotUrlWithBus = `${basePath}${baseFilename}-with-bus.dot`;
+                const dotUrlWithoutBus = `${basePath}${baseFilename}-without-bus.dot`;
+
+                const fetchPromises = [
+                    fetch(dotUrlWithBus).then(res => {
+                        if (!res.ok) throw new Error(`HTTP error! status: ${res.status} for ${dotUrlWithBus}`);
+                        return res.text();
+                    }),
+                    fetch(dotUrlWithoutBus).then(res => {
+                        if (!res.ok) throw new Error(`HTTP error! status: ${res.status} for ${dotUrlWithoutBus}`);
+                        return res.text();
+                    })
+                ];
+
+                Promise.all(fetchPromises)
+                    .then(([dotSourceWithBus, dotSourceWithoutBus]) => {
+                        // Render "With EventBus"
+                        viz.renderSVGElement(dotSourceWithBus)
+                            .then(element => {
+                                renderTargetWithBus.innerHTML = '';
+                                renderTargetWithBus.appendChild(element);
+                                renderTargetWithBus.classList.remove('loading');
+                            })
+                            .catch(error => {
+                                console.error(`Viz.js Error in ${title} (With EventBus):`, error);
+                                renderTargetWithBus.innerHTML = `<p class="error">Error rendering With EventBus view:</p><pre>${error}</pre>`;
+                                renderTargetWithBus.classList.remove('loading');
+                            });
+
+                        // Render "Without EventBus" (Direct)
+                        viz.renderSVGElement(dotSourceWithoutBus)
+                            .then(element => {
+                                renderTargetWithoutBus.innerHTML = '';
+                                renderTargetWithoutBus.appendChild(element);
+                                renderTargetWithoutBus.classList.remove('loading');
+                            })
+                            .catch(error => {
+                                console.error(`Viz.js Error in ${title} (Without EventBus):`, error);
+                                renderTargetWithoutBus.innerHTML = `<p class="error">Error rendering Direct view:</p><pre>${error}</pre>`;
+                                renderTargetWithoutBus.classList.remove('loading');
+                            });
+                    })
+                    .catch(fetchError => {
+                        console.error(`Error fetching DOT files for ${title}:`, fetchError);
+                        // Show error in both placeholders if fetching failed
+                        const errorHtml = `<p class="error">Error fetching diagram data: ${fetchError.message}</p>`;
+                        renderTargetWithBus.innerHTML = errorHtml;
+                        renderTargetWithoutBus.innerHTML = errorHtml;
+                        renderTargetWithBus.classList.remove('loading');
+                        renderTargetWithoutBus.classList.remove('loading');
+                        controlsDiv.classList.add('hidden'); // Hide controls if data is missing
+                    });
+                 // --- End Fetch and Render ---
+            }
+        }
+
+        renderDiagrams();
+    </script>
+
+</body>
+</html> 

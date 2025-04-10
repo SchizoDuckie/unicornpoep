@@ -1,0 +1,74 @@
+digraph MPLobby_WithBus {
+    rankdir=TD;
+    sep="0.6";
+    overlap=false;
+    bgcolor="transparent";
+    fontname="Arial";
+    node [shape=box, style="rounded,filled", fontcolor="#eeeeee", color="#eeeeee", fontname="Arial"];
+    edge [fontcolor="#eeeeee", color="#eeeeee", fontname="Arial"];
+    graph [label="Multiplayer Lobby & Connection Flow (Showing EventBus)", labelloc=t, fontsize=16, fontcolor="#eeeeee"];
+
+    // Node Styles (Dark fill, specific border remains)
+    MultiplayerChoiceComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                                label="{ MP Choice UI | {<emits_host> Emits: UI.HostGameRequest} | {<emits_join> Emits: UI.JoinGameRequest} }"]; // Specific emits
+    HostLobbyComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                        label="{ Host Lobby UI | {<handles_rtc> Handles: WebRTC Status/Msg} | {<handles_state> Handles: MP.PlayerListUpdated} | {<emits_start> Emits: UI.StartHostedGame} }"]; // Specific emits/handles
+    JoinLobbyComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                        label="{ Join Lobby UI | {<handles_rtc> Handles: WebRTC Status/Msg} | {<handles_state> Handles: MP.PlayerListUpdated} }"]; // Specific handles
+    PlayerListComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                         label="{ Player List UI | {<handles_state> Handles: MP.PlayerListUpdated} }"]; // Specific handles
+    GameCoordinator [shape="record", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
+                     label="{ GameCoordinator | {<handles_choice> Handles: UI.HostGameRequest/JoinGameRequest} | {<handles_lobby> Handles: UI.StartHostedGame} | {<emits_nav> Emits: System.Navigate} }"]; // Specific handles/emits
+    UIManager [shape="record", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
+               label="{ UIManager | {<handles_nav> Handles: System.Navigate} }"];
+    WebRTCManager [shape="record", fillcolor="#343a40", color="#ffc107", penwidth=2,
+                   label="{ WebRTCManager | {<emits_init> Emits: WebRTC.HostInitialized} | {<emits_conn> Emits: WebRTC.ConnectedToHost} | {<emits_fail> Emits: WebRTC.ConnectionFailed} | {<emits_cli_conn> Emits: WebRTC.ClientConnected} | {<emits_cli_dis> Emits: WebRTC.ClientDisconnected} }"]; // Specific emits
+    MultiplayerGame [shape="record", fillcolor="#343a40", color="#20c997", penwidth=2,
+                     label="{ MP Game (Host Logic) | {<emits_q> Emits: MP.Question} | {<emits_score> Emits: MP.ScoreUpdate} | {<emits_result> Emits: MP.AnswerResult} | {<handles_answer> Handles: WebRTC.MessageReceived (Answer)} }"]; // Specific emits/handles
+    MultiplayerClientManager [shape="record", style="rounded,filled", fillcolor="#343a40", color="#ffc107", penwidth=2,
+                              label="{ MP Client Mgr | {<handles_sync> Handles: MP.Question / ScoreUpdate / AnswerResult} | {<handles_ui_in> Handles: UI.AnswerSubmitted} | {<emits_ui_out> Emits: System.UpdateGameUI} }"];
+    QuizEngine [label="QuizEngine", style="rounded,filled", fillcolor="#343a40", color="#ffc107", penwidth=2];
+
+    // EventBus: Specific events or useful groups for lobby flow
+    EventBus [shape="record", fillcolor="#343a40", color="#aaaaaa", penwidth=2,
+              label="{ EventBus | {<evUIHost> UI.HostGameRequest} | {<evUIJoin> UI.JoinGameRequest} | {<evUIStart> UI.StartHostedGame} | {<evWebRTC> WebRTC Status/Msg} | {<evMPState> MP.PlayerListUpdated} | {<evNav> System.Navigate} }"]; // More specific UI ports
+
+    // 1. User Chooses Host/Join (Specific Events)
+    MultiplayerChoiceComponent:emits_host -> EventBus:evUIHost; MultiplayerChoiceComponent:emits_join -> EventBus:evUIJoin;
+    EventBus:evUIHost -> GameCoordinator:handles_choice; EventBus:evUIJoin -> GameCoordinator:handles_choice;
+
+    // 2. Coordinator Initiates Connection (Direct Call + Event)
+    GameCoordinator -> WebRTCManager [label=" Calls initHost / connectToHost", style=dashed];
+    GameCoordinator:emits_nav -> EventBus:evNav [label=""];
+    EventBus:evNav -> UIManager:handles_nav;
+    UIManager -> HostLobbyComponent [label=" Calls show()", style=dashed]; UIManager -> JoinLobbyComponent [label=" Calls show()", style=dashed];
+
+    // 3. WebRTC Reports Status (Specific Events -> Grouped Port)
+    WebRTCManager:emits_init -> EventBus:evWebRTC [label=""];
+    WebRTCManager:emits_conn -> EventBus:evWebRTC [label=""];
+    WebRTCManager:emits_fail -> EventBus:evWebRTC [label=""];
+    EventBus:evWebRTC -> HostLobbyComponent:handles_rtc [label=""];
+    EventBus:evWebRTC -> JoinLobbyComponent:handles_rtc [label=""];
+    EventBus:evWebRTC -> MultiplayerClientManager:handles_rtc [label=""]; // Client manager needs connected/failed status
+
+    // 4. Client Connects / Disconnects (Specific Events -> Grouped Port)
+    WebRTCManager:emits_cli_conn -> EventBus:evWebRTC [label=""];
+    WebRTCManager:emits_cli_dis -> EventBus:evWebRTC [label=""];
+
+    // 5. Host/Client Manager Notified (Handles Grouped Event)
+    EventBus:evWebRTC -> MultiplayerGame:handles_rtc [label=""]; // Host needs connect/disconnect
+    // Client manager already handled its connect/fail status in step 3
+
+    // 6. Host/Client Managers Update Player State (Specific Event)
+    MultiplayerGame:emits_state -> EventBus:evMPState [label=""];
+    MultiplayerClientManager:emits_state -> EventBus:evMPState [label=""]; // Client relays state from host
+
+    // 7. UI Updates Player List (Handles Specific Event)
+    EventBus:evMPState -> HostLobbyComponent:handles_state [label=""];
+    EventBus:evMPState -> JoinLobbyComponent:handles_state [label=""];
+    EventBus:evMPState -> PlayerListComponent:handles_state [label=""];
+
+    // 8. Host Starts Game (Specific Event)
+    HostLobbyComponent:emits_start -> EventBus:evUIStart [label=""];
+    EventBus:evUIStart -> GameCoordinator:handles_lobby [label=""];
+} 

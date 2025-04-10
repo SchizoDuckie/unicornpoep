@@ -1,0 +1,70 @@
+digraph GameEndFlow_WithBus {
+    rankdir=TD;
+    sep="0.6";
+    overlap=false;
+    bgcolor="transparent";
+    fontname="Arial";
+    node [shape=box, style="rounded,filled", fontcolor="#eeeeee", color="#eeeeee", fontname="Arial"];
+    edge [fontcolor="#eeeeee", color="#eeeeee", fontname="Arial"];
+    graph [label="Game End & Highscore Flow (Showing EventBus)", labelloc=t, fontsize=16, fontcolor="#eeeeee"];
+
+    // Node Styles (Record for specific event interactions)
+    BaseGameMode [shape="record", style="rounded,filled", fillcolor="#343a40", color="#20c997", penwidth=2,
+                  label="{ Game Mode (Any) | {<emits_fin> Emits: Game.Finished} }"];
+    GameEndDialog [shape="record", style="rounded,filled", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                   label="{ Game End Dialog UI | {<handles_fin> Handles: Game.Finished} | {<emits_menu> Emits: UI.ReturnToMenu} | {<emits_play> Emits: UI.PlayAgain} }"];
+    HighscoresComponent [shape="record", style="rounded,filled", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                         label="{ Highscores UI | {<handles_loaded> Handles: Highscores.Loaded} | {<handles_failed> Handles: Highscores.Failed} }"];
+    MainMenuComponent [shape="record", style="rounded,filled", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                       label="{ MainMenu UI | {<emits_hs> Emits: UI.ShowHighscores} }"];
+    GameCoordinator [shape="record", style="rounded,filled", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
+                     label="{ GameCoordinator | {<handles_fin> Handles: Game.Finished} | {<handles_play> Handles: UI.PlayAgain} }"];
+    UnicornPoep [shape="record", style="rounded,filled", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
+                 label="{ App Entry Point | {<handles_menu> Handles: UI.ReturnToMenu} | {<handles_hs> Handles: UI.ShowHighscores} | {<emits_nav> Emits: System.Navigate} }"];
+    HighscoreManager [shape="record", style="rounded,filled", fillcolor="#343a40", color="#ffc107", penwidth=2,
+                      label="{ HighscoreManager | {<emits_feedback> Emits: System.ShowFeedback} | {<emits_loaded> Emits: Highscores.Loaded} | {<emits_failed> Emits: Highscores.Failed} }"];
+    UIManager [shape="record", style="rounded,filled", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
+               label="{ UIManager | {<handles_nav> Handles: System.Navigate} }"];
+    ToastComponent [shape="record", style="rounded,filled", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                    label="{ Toast UI | {<handles_feedback> Handles: System.ShowFeedback} }"];
+
+    // EventBus: Shows specific events for Game End / Highscore flow
+    EventBus [shape="record", style="rounded,filled", fillcolor="#343a40", color="#aaaaaa", penwidth=2,
+              label="{ EventBus | {<evGameFin> Game.Finished} | {<evReturnMenu> UI.ReturnToMenu} | {<evPlayAgain> UI.PlayAgain} | {<evShowHS> UI.ShowHighscores} | {<evHSLoaded> Highscores.Loaded} | {<evHSFailed> Highscores.Failed} | {<evFeedback> System.ShowFeedback} | {<evNav> System.Navigate} }"];
+
+    // 1. Game Mode finishes (Event)
+    BaseGameMode:emits_fin -> EventBus:evGameFin [label=""];
+
+    // 2. Coordinator and UI react (Events)
+    EventBus:evGameFin -> GameCoordinator:handles_fin [label=" (Trigger Save)"];
+    EventBus:evGameFin -> GameEndDialog:handles_fin [label=" (Show Dialog)"];
+
+    // 3. Coordinator saves score (if applicable) (Direct Call + Event)
+    GameCoordinator -> HighscoreManager [label=" Calls addHighscore()", style=dashed, arrowhead=open];
+    HighscoreManager:emits_feedback -> EventBus:evFeedback [label=" (Save Success/Fail)"];
+    EventBus:evFeedback -> ToastComponent:handles_feedback [label=""];
+
+    // 4. User action from End Dialog (Specific Events)
+    GameEndDialog:emits_menu -> EventBus:evReturnMenu [label=""];
+    GameEndDialog:emits_play -> EventBus:evPlayAgain [label=""];
+
+    // 5. App/Coordinator handles dialog action (Specific Events)
+    EventBus:evReturnMenu -> UnicornPoep:handles_menu [label=""];
+    EventBus:evPlayAgain -> GameCoordinator:handles_play [label=" (Restarts Game Flow)"];
+
+    // 6. User requests highscores from Main Menu (Event + Direct Call + Event)
+    MainMenuComponent:emits_hs -> EventBus:evShowHS [label=""];
+    EventBus:evShowHS -> UnicornPoep:handles_hs [label=" (Trigger Load)"];
+    UnicornPoep -> HighscoreManager [label=" Calls loadScores()", style=dashed, arrowhead=open];
+    UnicornPoep:emits_nav -> EventBus:evNav [label=" (to Highscores)"];
+
+    // 7. Highscore Manager loads data (Specific Events)
+    HighscoreManager:emits_loaded -> EventBus:evHSLoaded [label=""];
+    HighscoreManager:emits_failed -> EventBus:evHSFailed [label=""];
+
+    // 8. Highscore UI displays data / UIManager navigates (Specific Events + Direct Call)
+    EventBus:evHSLoaded -> HighscoresComponent:handles_loaded [label=""];
+    EventBus:evHSFailed -> HighscoresComponent:handles_failed [label=""];
+    EventBus:evNav -> UIManager:handles_nav [label=""];
+    UIManager -> HighscoresComponent [label=" Calls show()", style=dashed, arrowhead=open];
+} 

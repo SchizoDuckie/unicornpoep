@@ -1,0 +1,34 @@
+digraph AppStartup_WithBus {
+    rankdir=TD;
+    sep="0.4";
+    overlap=false;
+    bgcolor="transparent";
+    fontname="Arial";
+    node [shape=box, style="rounded,filled", fontcolor="#eeeeee", color="#eeeeee", fontname="Arial", fontsize=12];
+    edge [fontcolor="#eeeeee", color="#eeeeee", fontname="Arial", fontsize=12];
+
+    // Node Styles (Dark fill, specific border remains)
+    UnicornPoep [shape="record", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
+                 label="{ App Entry Point (UnicornPoep) | {<emits_nav> Emits: System.Navigate} }"];
+    UIManager [shape="record", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
+               label="{ UIManager | {<handles_nav> Handles: System.Navigate} }"];
+    GameCoordinator [fillcolor="#343a40", color="#e6e0f8", penwidth=2]; // Passive in this scenario
+    MainMenuComponent [fillcolor="#343a40", color="#0dcaf0", penwidth=2]; // Passive in this scenario
+
+    // EventBus: Shows specific startup event
+    EventBus [shape="record", fillcolor="#343a40", color="#aaaaaa", penwidth=2,
+              label="{ EventBus | {<evNav> System.Navigate} }"];
+
+    // 1. App Starts & Instantiates Managers (Direct Calls)
+    UnicornPoep -> UIManager [label=" Instantiates"];
+    UnicornPoep -> GameCoordinator [label=" Instantiates"];
+
+    // 2. Initial Navigation Triggered (Event)
+    UnicornPoep:emits_nav -> EventBus:evNav [label=""];
+
+    // 3. UIManager Handles Navigation (Event)
+    EventBus:evNav -> UIManager:handles_nav [label=""];
+
+    // 4. UIManager Shows Initial UI Component (Direct Call)
+    UIManager -> MainMenuComponent [label=" Calls show()", style=dashed, arrowhead=open];
+}

@@ -1,0 +1,60 @@
+digraph GameplayLoop_WithBus {
+    rankdir=TD;
+    sep="0.6";
+    overlap=false;
+    bgcolor="transparent";
+    fontname="Arial";
+    node [shape=box, style="rounded,filled", fontcolor="#eeeeee", color="#eeeeee", fontname="Arial"];
+    edge [fontcolor="#eeeeee", color="#eeeeee", fontname="Arial"];
+    graph [label="Core Gameplay Loop (SP/Practice) (Showing EventBus)", labelloc=t, fontsize=16, fontcolor="#eeeeee"];
+
+    // Node Styles (Dark fill, specific border remains)
+    BaseGameMode [shape="record", fillcolor="#343a40", color="#20c997", penwidth=2,
+                  label="{ BaseGameMode | {<emits_qready> Emits: Game.QuestionReady} | {<emits_score> Emits: Game.ScoreUpdated} | {<emits_finish> Emits: Game.Finished} | {<handles_ui> Handles: UI.AnswerSubmitted} | {<handles_timer> Handles: Game.TimeUp} }"]; // Specific emits
+    QuizEngine [shape="record", fillcolor="#343a40", color="#ffc107", penwidth=2,
+                label="{ QuizEngine | {<emits_logic> Emits: Game.AnswerChecked} }"]; // Specific emit
+    Timer [shape="record", fillcolor="#343a40", color="#ffc107", penwidth=2,
+           label="{ Timer | {<emits_tick> Emits: Game.TimerTick} | {<emits_timeup> Emits: Game.TimeUp} }"]; // Specific emits
+    QuestionDisplayComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                              label="{ QuestionDisplay | {<handles_state> Handles: Game State Events} }"]; // Handles grouped event
+    AnswerListComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                         label="{ AnswerList | {<handles_state> Handles: Game State Events} | {<emits_ui> Emits: UI.AnswerSubmitted} | {<handles_logic> Handles: Game.AnswerChecked} }"]; // Handles grouped state
+    ProgressDisplayComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                              label="{ ProgressDisplay | {<handles_state> Handles: Game State Events} }"]; // Handles grouped event
+    ScoreDisplayComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                         label="{ ScoreDisplay | {<handles_state> Handles: Game State Events} | {<handles_score> Handles: Game.ScoreUpdated} }"]; // Handles grouped state, maybe specific score?
+    TimerDisplayComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                           label="{ TimerDisplay | {<handles_state> Handles: Game State Events} | {<handles_timer> Handles: Game.TimerTick} }"]; // Handles grouped state, specific tick
+    GameFeedbackComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                           label="{ GameFeedback | {<handles_logic> Handles: Game.AnswerChecked} }"];
+
+    // EventBus: Grouped events for gameplay
+    EventBus [shape="record", fillcolor="#343a40", color="#aaaaaa", penwidth=2,
+              label="{ EventBus | {<evState> Game State Events} | {<evUI> UI.AnswerSubmitted} | {<evLogic> Game.AnswerChecked} | {<evTimer> Timer Events} }"]; // Uses specific event names in ports
+
+    // 1. Game Flow Events -> Port evState (Specific Events feeding Grouped Port)
+    BaseGameMode:emits_qready -> EventBus:evState; BaseGameMode:emits_score -> EventBus:evState; BaseGameMode:emits_finish -> EventBus:evState;
+    // Port evState -> Listeners (Handles Grouped Event)
+    EventBus:evState -> QuestionDisplayComponent:handles_state; EventBus:evState -> AnswerListComponent:handles_state; EventBus:evState -> ProgressDisplayComponent:handles_state; EventBus:evState -> ScoreDisplayComponent:handles_state; EventBus:evState -> TimerDisplayComponent:handles_state;
+    // Specific Score Update Handling (Alternative/Addition)
+    // BaseGameMode:emits_score -> EventBus:evScore; EventBus:evScore -> ScoreDisplayComponent:handles_score;
+
+    // 2. User Interaction -> Port evUI (Specific Event)
+    AnswerListComponent:emits_ui -> EventBus:evUI;
+    // Port evUI -> Listener (Handles Specific Event)
+    EventBus:evUI -> BaseGameMode:handles_ui;
+
+    // 3. Answer Processing -> Port evLogic (Direct Call + Specific Event)
+    BaseGameMode -> QuizEngine [label=" Calls checkAnswer", style=dashed];
+    QuizEngine:emits_logic -> EventBus:evLogic;
+    // Port evLogic -> Listeners (Handles Specific Event)
+    EventBus:evLogic -> GameFeedbackComponent:handles_logic [label=" (Shows Feedback)"];
+    EventBus:evLogic -> AnswerListComponent:handles_logic [label=" (Highlights Answer)"];
+
+    // 4. Timer -> Port evTimer (Direct Call + Specific Events feeding Grouped Port)
+    BaseGameMode -> Timer [label=" Calls start/stop", style=dashed];
+    Timer:emits_tick -> EventBus:evTimer; Timer:emits_timeup -> EventBus:evTimer;
+    // Port evTimer -> Listeners (Handles Grouped/Specific Events)
+    EventBus:evTimer -> TimerDisplayComponent:handles_timer [label=" (Tick)"];
+    EventBus:evTimer -> BaseGameMode:handles_timer [label=" (TimeUp)"];
+} 

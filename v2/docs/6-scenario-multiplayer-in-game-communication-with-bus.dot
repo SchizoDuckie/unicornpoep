@@ -1,0 +1,58 @@
+digraph MPGameSync_WithBus {
+    rankdir=TD;
+    sep="0.6";
+    overlap=false;
+    bgcolor="transparent";
+    fontname="Arial";
+    node [shape=box, style="rounded,filled", fontcolor="#eeeeee", color="#eeeeee", fontname="Arial"];
+    edge [fontcolor="#eeeeee", color="#eeeeee", fontname="Arial"];
+    graph [label="Multiplayer In-Game Sync Flow (Showing EventBus)", labelloc=t, fontsize=16, fontcolor="#eeeeee"];
+
+    // Node Styles (Dark fill, specific border remains)
+    MultiplayerGame [shape="record", fillcolor="#343a40", color="#20c997", penwidth=2,
+                     label="{ MP Game (Host Logic) | {<emits_q> Emits: MP.Question} | {<emits_score> Emits: MP.ScoreUpdate} | {<emits_result> Emits: MP.AnswerResult} | {<handles_answer> Handles: WebRTC.MessageReceived (Answer)} }"]; // Specific emits/handles
+    MultiplayerClientManager [shape="record", style="rounded,filled", fillcolor="#343a40", color="#ffc107", penwidth=2,
+                              label="{ MP Client Mgr | {<handles_sync> Handles: MP.Question / ScoreUpdate / AnswerResult} | {<handles_ui_in> Handles: UI.AnswerSubmitted} | {<emits_ui_out> Emits: System.UpdateGameUI} }"]; // Removed fillcolor=white
+    QuizEngine [label="QuizEngine", style="rounded,filled", fillcolor="#343a40", color="#ffc107", penwidth=2]; // Removed fillcolor=white
+    WebRTCManager [shape="record", fillcolor="#343a40", color="#ffc107", penwidth=2,
+                   label="{ WebRTCManager | {<emits_rtc> Emits: WebRTC.MessageReceived (Answer)} }"]; // Specific emit
+    AnswerListComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                         label="{ AnswerList (Client UI) | {<emits_ui> Emits: UI.AnswerSubmitted} }"]; // Specific emit
+    GameUI [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+            label="{ Game UI Components | {<handles_update> Handles: System.UpdateGameUI} }"]; // Specific handles
+
+    // EventBus: Specific events for in-game flow
+    EventBus [shape="record", fillcolor="#343a40", color="#aaaaaa", penwidth=2,
+              label="{ EventBus | {<evMPSync> MP Sync (Question/Score/Result)} | {<evClientAnswer> UI.AnswerSubmitted} | {<evRTCAnswer> WebRTC.MessageReceived (Answer)} | {<evUpdateUI> System.UpdateGameUI} }"]; // Grouped MP Sync Out, specific others
+
+    // 1. Host Sends Question / State Sync (Specific Events -> Grouped Port)
+    MultiplayerGame:emits_q -> EventBus:evMPSync [label=""];
+    MultiplayerGame:emits_score -> EventBus:evMPSync [label=""];
+    MultiplayerGame:emits_result -> EventBus:evMPSync [label=""];
+    // Host Sync implicitly goes via WebRTC to clients
+
+    // 2. Client Receives Sync & Updates UI (Handles Grouped Sync, Emits Specific Update)
+    EventBus:evMPSync -> MultiplayerClientManager:handles_sync [label=""];
+    MultiplayerClientManager:emits_ui_out -> EventBus:evUpdateUI [label=""];
+    EventBus:evUpdateUI -> GameUI:handles_update [label=" (Display Question/State/Result)"];
+
+    // 3. Client Submits Answer (Specific Event)
+    AnswerListComponent:emits_ui -> EventBus:evClientAnswer [label=""];
+    // Port evUI -> Listener (Handles Specific Event)
+    EventBus:evClientAnswer -> MultiplayerClientManager:handles_ui_in [label=""];
+
+    // 4. Client Manager Sends Answer to Host (Direct Call)
+    MultiplayerClientManager -> WebRTCManager [label=" Calls WebRTC (Send Answer)", style=dashed, arrowhead=open];
+    // WebRTC sends to Host
+
+    // 5. Host Receives Answer via WebRTC (Specific Event)
+    WebRTCManager:emits_rtc -> EventBus:evRTCAnswer [label=""];
+    EventBus:evRTCAnswer -> MultiplayerGame:handles_answer [label=""];
+
+    // 6. Host Checks Answer & Broadcasts Result/Score (Direct Call + Events -> Step 1)
+    MultiplayerGame -> QuizEngine [label=" Calls checkAnswer", style=dashed, arrowhead=open];
+    // Emits MP.ScoreUpdate / MP.AnswerResult via :emits_score/:emits_result -> EventBus:evMPSync (see step 1)
+
+    // 7. Client Receives Result/Score & Updates UI (repeats step 2 flow)
+
+} 

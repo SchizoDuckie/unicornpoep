@@ -1,0 +1,34 @@
+digraph StartSPGame_Direct {
+    rankdir=TD;
+    sep="0.6";
+    overlap=false;
+    bgcolor="transparent";
+    fontname="Arial";
+    node [shape=box, style="rounded,filled", fontcolor="#eeeeee", color="#eeeeee", fontname="Arial"];
+    edge [fontcolor="#eeeeee", color="#eeeeee", fontname="Arial"];
+    graph [label="Start Single Player Game Flow (Direct Event View)", labelloc=t, fontsize=16, fontcolor="#eeeeee"];
+
+    // Node Styles (Dark fill, specific border remains)
+    MainMenuComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                       label="{ MainMenu UI | {<emits_ui> Emits: UI.StartSPGame} }"];
+    GameCoordinator [shape="record", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
+                     label="{ GameCoordinator | {<handles_ui> Handles: UI.StartSPGame} | {<emits_nav> Emits: System.Navigate} }"];
+    UIManager [shape="record", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
+               label="{ UIManager | {<handles_nav> Handles: System.Navigate} }"];
+    QuestionsManager [label="QuestionsManager", fillcolor="#343a40", color="#ffc107", penwidth=2]; // Passive target
+    SinglePlayerGame [label="SinglePlayerGame Mode", fillcolor="#343a40", color="#20c997", penwidth=2, shape=ellipse]; // Passive target
+    GameUI [label="Game UI Components", fillcolor="#343a40", color="#0dcaf0", penwidth=2]; // Passive target
+
+    // 1. User clicks 'Single Player' -> Handled by Coordinator (Direct Event Flow)
+    MainMenuComponent:emits_ui -> GameCoordinator:handles_ui [label=" UI.StartSPGame"];
+
+    // 2. Coordinator prepares game (Direct Calls)
+    GameCoordinator -> QuestionsManager [label=" Calls loadSheets()", style=dashed];
+    GameCoordinator -> SinglePlayerGame [label=" Instantiates", style=dashed];
+
+    // 3. Coordinator triggers navigation -> Handled by UIManager (Direct Event Flow)
+    GameCoordinator:emits_nav -> UIManager:handles_nav [label=" System.Navigate (to Game)"];
+
+    // 4. UIManager shows Game UI (Direct Call)
+    UIManager -> GameUI [label=" Calls show()", style=dashed, arrowhead=open];
+} 

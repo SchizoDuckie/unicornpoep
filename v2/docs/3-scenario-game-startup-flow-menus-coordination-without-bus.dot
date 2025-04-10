@@ -1,0 +1,53 @@
+digraph GameStartup_Direct {
+    rankdir=TD;
+    sep="0.6";
+    overlap=false;
+    concentrate=true;
+    bgcolor="transparent";
+    fontname="Arial";
+    node [shape=box, style="rounded,filled", fontcolor="#eeeeee", color="#eeeeee", fontname="Arial"];
+    edge [fontcolor="#eeeeee", color="#eeeeee", fontname="Arial"];
+    graph [label="Game Startup (Menu Choices) Flow (Direct Event View)", labelloc=t, fontsize=16, fontcolor="#eeeeee"];
+
+    // Node Styles (Dark fill, specific border remains)
+    MainMenuComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                       label="{ MainMenu UI | {<emits_sp> Emits: UI.StartSPGame} | {<emits_pr> Emits: UI.StartPractice} | {<emits_mp> Emits: UI.ShowMPChoice} | {<emits_hs> Emits: UI.ShowHighscores} | {<emits_cq> Emits: UI.ShowCustomQ} }"];
+    MultiplayerChoiceComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                                label="{ MP Choice UI | {<emits_host> Emits: UI.HostGameRequest} | {<emits_join> Emits: UI.JoinGameRequest} }"];
+    HostLobbyComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                        label="{ Host Lobby UI | {<emits_start> Emits: UI.StartHostedGame} }"]; // Example
+    JoinLobbyComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                        label="{ Join Lobby UI | {<emits_ready> Emits: UI.PlayerReadyToggle} }"]; // Example
+    NamePromptDialog [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
+                      label="{ Name Prompt Dialog | {<emits_name> Emits: UI.NameSubmitted} }"];
+    GameCoordinator [shape="record", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
+                     label="{ GameCoordinator | {<handles_ui> Handles: UI Events} | {<emits_nav> Emits: Navigation Events} }"]; // Handles the grouped UI Event
+    UIManager [shape="record", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
+               label="{ UIManager | {<handles_nav> Handles: Navigation Events} }"];
+    WebRTCManager [label="WebRTCManager", fillcolor="#343a40", color="#ffc107", penwidth=2];
+    QuestionsManager [label="QuestionsManager", fillcolor="#343a40", color="#ffc107", penwidth=2];
+    GameModes [label="Game Modes", fillcolor="#343a40", color="#20c997", penwidth=2, shape=ellipse];
+
+    // 1. User Actions -> Game Coordinator (Direct Event Flows)
+    MainMenuComponent:emits_sp -> GameCoordinator:handles_ui [label=" UI.StartSPGame"];
+    MainMenuComponent:emits_pr -> GameCoordinator:handles_ui [label=" UI.StartPractice"];
+    MainMenuComponent:emits_mp -> GameCoordinator:handles_ui [label=" UI.ShowMPChoice"];
+    MainMenuComponent:emits_hs -> GameCoordinator:handles_ui [label=" UI.ShowHighscores"];
+    MainMenuComponent:emits_cq -> GameCoordinator:handles_ui [label=" UI.ShowCustomQ"];
+    MultiplayerChoiceComponent:emits_host -> GameCoordinator:handles_ui [label=" UI.HostGameRequest"];
+    MultiplayerChoiceComponent:emits_join -> GameCoordinator:handles_ui [label=" UI.JoinGameRequest"];
+    NamePromptDialog:emits_name -> GameCoordinator:handles_ui [label=" UI.NameSubmitted"];
+    HostLobbyComponent:emits_start -> GameCoordinator:handles_ui [label=" UI.StartHostedGame"];
+    JoinLobbyComponent:emits_ready -> GameCoordinator:handles_ui [label=" UI.PlayerReadyToggle"];
+
+    // 2. Game Coordinator Actions (Direct Calls)
+    GameCoordinator -> WebRTCManager [label=" Calls init/connect", style=dashed];
+    GameCoordinator -> QuestionsManager [label=" Calls loadSheets", style=dashed];
+    GameCoordinator -> GameModes [label=" Instantiates", style=dashed];
+
+    // 3. Game Coordinator triggers navigation -> UIManager (Direct Event Flow)
+    GameCoordinator:emits_nav -> UIManager:handles_nav [label=" Navigation Event"];
+
+    // 4. UIManager would then call show() on relevant components (Not explicitly shown for brevity, but implied)
+    // Example: UIManager -> HostLobbyComponent [label=" Calls show()", style=dashed]; // Depending on the specific Navigation Event
+} 
