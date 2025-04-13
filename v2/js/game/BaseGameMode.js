@@ -319,6 +319,7 @@ class BaseGameMode {
             console.log(`[BaseGameMode:${this.mode}] Score updated. New score: ${this.score} (Delta: ${scoreDelta})`);
             // Emit event for UI update
             eventBus.emit(Events.Game.ScoreUpdated, { 
+                playerName: this.playerName,
                 newScore: this.score, 
                 delta: scoreDelta 
             });

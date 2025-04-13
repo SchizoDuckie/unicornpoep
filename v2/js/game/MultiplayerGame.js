@@ -54,7 +54,7 @@ class MultiplayerGame extends BaseGameMode {
 
             // +++ Initialize Timer for Host (needed for scoring _calculateScore) +++
             const hostDurationMs = DIFFICULTY_DURATIONS_MS[this.difficulty] || DIFFICULTY_DURATIONS_MS.medium;
-            this.timer = new Timer(hostDurationMs);
+            this.timer = new Timer(hostDurationMs / 1000);
             // Host doesn't need gameplay timer listeners, only the object for score calc.
             // --- End Host Timer Init ---
         
@@ -91,7 +91,7 @@ class MultiplayerGame extends BaseGameMode {
             
             // Client needs a timer for gameplay flow
             const clientDurationMs = DIFFICULTY_DURATIONS_MS[this.difficulty] || DIFFICULTY_DURATIONS_MS.medium;
-            this.timer = new Timer(clientDurationMs);
+            this.timer = new Timer(clientDurationMs / 1000);
             this._registerTimerListeners(); // Client registers listeners
         }
     }

@@ -36,9 +36,8 @@ class SinglePlayerGame extends BaseGameMode {
         this.difficulty = settings.difficulty || 'medium';
         const durationMs = DIFFICULTY_DURATIONS_MS[this.difficulty] || DIFFICULTY_DURATIONS_MS.medium;
         
-        // Pass duration in MS to the Timer constructor (assuming Timer handles ms)
-        // If Timer expects seconds, keep durationMs / 1000
-        this.timer = new Timer(durationMs); 
+        
+        this.timer = new Timer(durationMs / 1000); 
         this.score = 0; // Score managed by BaseGameMode now via _afterAnswerChecked hook
 
         // Register timer-specific listeners IN ADDITION to base listeners
@@ -112,17 +111,6 @@ class SinglePlayerGame extends BaseGameMode {
         this.timer.stop();
     }
 
-    /**
-     * Update total score and emit ScoreUpdated event after answer check.
-     * @override
-     * @param {boolean} isCorrect - Whether the answer was correct.
-     * @param {number} scoreDelta - The score change.
-     * @protected
-     */
-    _afterAnswerChecked(isCorrect, scoreDelta) {
-        this.score += scoreDelta;
-        eventBus.emit(Events.Game.ScoreUpdated, { totalScore: this.score });
-    }
 
     /** Stop timer before finishing the game. @override @protected */
     _beforeFinish() {

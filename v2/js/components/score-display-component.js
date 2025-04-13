@@ -48,16 +48,12 @@ class ScoreDisplayComponent extends BaseComponent {
     }
 
     /** Handles the ScoreUpdated event */
-    _handleScoreUpdate({ newScore, playerId }) {
+    _handleScoreUpdate(event) {
+
         if (!this.scoreElement) return;
-        // Ignore score updates intended for specific players in multiplayer (if playerId exists)
-        // Or, if you want THIS component to show a specific player's score, adapt logic here.
-        if (playerId) { 
-            // console.debug(`[${this.name}] Ignoring MP score update for ${playerId}.`);
-            return;
-        }
-        console.debug(`[${this.name}] Updating score display to: ${newScore}`);
-        this.scoreElement.textContent = `${this.baseScoreText}${newScore}`;
+        
+        console.debug(`[${this.name}] Updating score display to: ${event.newScore}`);
+        this.scoreElement.textContent = `${this.baseScoreText}${event.newScore}`;
         this.show(); 
     }
 
