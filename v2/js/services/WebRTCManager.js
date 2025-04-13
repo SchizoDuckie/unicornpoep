@@ -381,15 +381,24 @@ class WebRTCManager {
      * @private
      */
     _safelyCloseDataConnection(peerId, reason) {
+        // +++ ADDED CHECK: Ensure peerId is valid and connection exists +++
+        if (!peerId) {
+            console.warn(`[WebRTCManager] _safelyCloseDataConnection: Invalid peerId provided. Reason: ${reason}`);
+            return; 
+        }
         const connection = this.connections.get(peerId);
+        // +++ END ADDED CHECK +++
+
         if (connection) {
             // Check if connection is already closing or closed
-            if (this.connectionStates.get(peerId) === DataConnectionState.CLOSED || 
-                this.connectionStates.get(peerId) === DataConnectionState.CLOSING) {
-                console.debug(`[WebRTCManager] _safelyCloseDataConnection: Connection ${peerId} already closed or closing.`);
+            const currentState = this.connectionStates.get(peerId);
+            if (currentState === DataConnectionState.CLOSED || currentState === DataConnectionState.CLOSING) {
+                console.debug(`[WebRTCManager] _safelyCloseDataConnection: Connection ${peerId} already closed or closing (State: ${currentState}).`);
+                // Ensure cleanup still happens if needed
                 this._handleClientDisconnection(peerId, reason + DisconnectionReason.ALREADY_CLOSED_SUFFIX);
             return;
         }
+
             console.log(`[WebRTCManager] _safelyCloseDataConnection: Closing connection with ${peerId}. Reason: ${reason}`);
             this.connectionStates.set(peerId, DataConnectionState.CLOSING);
             try {
@@ -402,7 +411,8 @@ class WebRTCManager {
                 this._handleClientDisconnection(peerId, `${reason}_close_error`);
             }
         } else {
-             console.warn(`[WebRTCManager] _safelyCloseDataConnection: Attempted to close non-existent connection: ${peerId}`);
+             console.warn(`[WebRTCManager] _safelyCloseDataConnection: Attempted to close non-existent connection for peerId: ${peerId}. Reason: ${reason}. (May be expected if already cleaned up)`);
+             // Do not trigger cleanup here if connection doesn't exist, it was likely handled already.
         }
     }
 
@@ -860,7 +870,7 @@ class WebRTCManager {
             // console.log(`[WebRTCManager] Sending to Host (${this.hostId}): Type=${type}`, payload);
             try {
                  // Call the internal sendMessage method for consistency and error handling
-                 this.sendMessage(hostConnection, type, payload);
+            this.sendMessage(hostConnection, type, payload);
             } catch (error) {
                  // sendMessage has its own catch block, but add one here just in case sendMessage itself throws
                  console.error(`[WebRTCManager] Unexpected error calling sendMessage within sendToHost for host ${this.hostId}:`, error);

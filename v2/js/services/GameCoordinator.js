@@ -683,7 +683,7 @@ class GameCoordinator {
 
              // Pass difficulty to constructor for both host and client
              // Pass the correctly structured constructorGameData
-             this.activeGame = new MultiplayerGame(isHost, playerName, constructorGameData, difficulty, peerId, this.questionsManager, webRTCManager);
+             this.activeGame = new MultiplayerGame(isHost, playerName, constructorGameData, difficulty, peerId, webRTCManager);
              
              this.currentGameMode = isHost ? 'multiplayer-host' : 'multiplayer-client'; // Set mode tracking
              
@@ -726,6 +726,10 @@ class GameCoordinator {
             // If it's NOT the client finishing its local loop, clean up now.
             if (!wasMultiplayerClient) {
                  console.log(`[GameCoordinator ASYNC] Cleaning up active ${mode} game.`);
+                 
+                 // Store results before potentially destroying the game object that holds them
+                 const finalResults = results || this.activeGame?.getFinalResults?.(); 
+
                  if (typeof this.activeGame.destroy === 'function') {
                      this.activeGame.destroy();
                  }
@@ -733,25 +737,52 @@ class GameCoordinator {
                  this.currentGameMode = null;
                  
                  // Close connection if it was a host ending
-                 if (mode === 'multiplayer-host') {
-                     console.log("[GameCoordinator ASYNC] Closing WebRTC connection after Host game finished.");
-                     webRTCManager.closeConnection();
-                 }
+                 // Do this AFTER potentially showing the dialog
+                 // if (mode === 'multiplayer-host') {
+                 //     console.log("[GameCoordinator ASYNC] Closing WebRTC connection after Host game finished.");
+                 //     webRTCManager.closeConnection(); // MOVED DOWN
+                 // }
 
-                 // +++ ADDED: Show Single Player End Dialog +++
+                 // +++ ADDED: Show appropriate End Dialog +++
                  if (mode === 'single') {
                      console.log("[GameCoordinator ASYNC] Showing Single Player End Dialog.");
                      /** @type {SinglePlayerEndDialog} */
                      const endDialog = uiManager.getComponent('SinglePlayerEndDialog');
                      if (endDialog) {
-                         endDialog.show(results);
-                     } else {
-                         console.error("[GameCoordinator ASYNC] SinglePlayerEndDialog component not found!");
-                         // Fallback: Navigate to main menu if dialog fails
-                         eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
-                     }
+                         // Pass the stored results
+                         endDialog.show(finalResults); 
+                     } else { /* ... error handling ... */ }
+                 } else if (mode === 'multiplayer-host') { // ++ ADDED THIS BLOCK ++
+                      console.log("[GameCoordinator ASYNC] Showing Multiplayer End Dialog for Host.");
+                      /** @type {MultiplayerEndDialog | undefined} */
+                      const mpEndDialog = uiManager.getComponent('MultiplayerEndDialog');
+                      if (mpEndDialog) {
+                           // Pass the stored results payload (should contain winner, players array etc.)
+                           mpEndDialog.show(finalResults || {}); 
+                      } else { 
+                          console.error("[GameCoordinator ASYNC] MultiplayerEndDialog component not found!"); 
+                          // Fallback? Navigate to main menu if dialog fails?
+                          eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+                      }
+                 } else if (mode === 'practice') {
+                     // TODO: Show PracticeEndDialog if it exists and needs specific logic
+                     console.log("[GameCoordinator ASYNC] Practice mode finished. Showing PracticeEndDialog.");
+                      /** @type {PracticeEndDialog} */
+                      const practiceDialog = uiManager.getComponent('PracticeEndDialog');
+                      if (practiceDialog) {
+                           practiceDialog.show(finalResults);
+                      } else {
+                          console.error("[GameCoordinator ASYNC] PracticeEndDialog component not found!");
+                          eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+                      }
                  }
                  // +++ END ADDED +++
+                
+                 // Now close connection if host finished
+                 if (mode === 'multiplayer-host') {
+                     console.log("[GameCoordinator ASYNC] Closing WebRTC connection after Host game finished.");
+                     webRTCManager.closeConnection(); 
+                 }
 
             } else {
                  // If it IS the client finishing locally, just log. Don't cleanup yet.
@@ -1089,12 +1120,33 @@ class GameCoordinator {
     handleSaveHighscore({ name, score, gameName, mode, difficulty }) {
         console.log(`[GameCoordinator] Received request to save highscore:`, { name, score, gameName, mode, difficulty });
         
-        // TODO: Verify HighscoreManager interface and parameters
+        // Basic validation
+        if (!name || typeof score !== 'number' || score < 0 || !gameName || !mode || !difficulty) {
+            console.error("[GameCoordinator] Invalid data provided for saving highscore.", { name, score, gameName, mode, difficulty });
+            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveErrorInvalidData'), level: 'error' });
+            return;
+        }
+
         try {
-            // ... existing code ...
+            // Use the HighscoreManager singleton
+            const hsManager = HighscoreManager.getInstance(); // Get the singleton
+            // Prepare the score object matching manager's expected format
+            const scoreData = {
+                player: name,
+                score: score,
+                gameName: gameName, // Use the provided gameName (likely sheet IDs)
+                mode: mode, 
+                difficulty: difficulty,
+                date: new Date().toISOString() // Add current date/time
+            };
+            
+            hsManager.saveScore(scoreData);
+            
+            console.log("[GameCoordinator] Highscore save request sent to HighscoreManager.");
+            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveSuccess'), level: 'success' });
         } catch (error) {
-            console.error("[GameCoordinator] Error saving highscore:", error);
-            eventBus.emit(Events.System.ShowFeedback, { message: 'Error saving highscore.', level: 'error' });
+            console.error("[GameCoordinator] Error calling HighscoreManager.saveScore:", error);
+             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveErrorGeneric'), level: 'error' });
         }
     }
 

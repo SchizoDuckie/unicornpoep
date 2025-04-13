@@ -322,8 +322,30 @@ class MultiplayerGame extends BaseGameMode {
     }
     // --- End Host Specific Methods ---
 
-    // --- REMOVED Overrides for nextQuestion, _handleAnswerSubmitted ---
-    // BaseGameMode methods will now work correctly using the injected this.quizEngine
+    /**
+     * Override nextQuestion for Client behavior.
+     * Prevents the client from calling finishGame locally when questions run out.
+     * The client's game end is dictated solely by the host sending GAME_OVER.
+     * @override BaseGameMode.nextQuestion 
+     */
+    nextQuestion() {
+        if (this.isFinished) return;
+        
+        const nextIndex = this.currentQuestionIndex + 1;
+
+        // --- Client Specific Check --- 
+        if (!this.isHost && this.quizEngine.isQuizComplete(nextIndex)) {
+            console.log(`[MultiplayerGame Client] Reached end of local questions (Index: ${nextIndex}). Waiting for host GAME_OVER.`);
+            // DO NOT call finishGame(). The LocalPlayerFinished event was already emitted
+            // after the last answer was processed in _handleAnswerSubmitted.
+            // The game remains active, waiting for the host.
+            return; // Stop further processing for the client here.
+        }
+        // --- End Client Specific Check ---
+
+        // If it's the host OR (it's the client AND quiz is NOT complete), proceed with BaseGameMode logic.
+        super.nextQuestion(); 
+    }
 
     /** Starts the multiplayer game. */
     async start() {
@@ -407,97 +429,141 @@ class MultiplayerGame extends BaseGameMode {
     }
 
     /**
-     * Finishes the game. 
-     * HOST: Marks itself finished and checks if all clients are done.
-     * CLIENT: Emits LocalPlayerFinished.
-     * @param {boolean} isFinalDestroy - Internal flag, true if called from destroy().
+     * Hook called after an answer has been checked.
+     * If this is the client and the last question was just answered,
+     * send the CLIENT_FINISHED message to the host.
+     * @param {boolean} isCorrect - Whether the answer was correct.
+     * @param {number} scoreDelta - The score change calculated by _calculateScore.
+     * @override BaseGameMode._afterAnswerChecked
+     * @protected
      */
-    finishGame(isFinalDestroy = false) {
-        if (this.isFinished) return;
-        console.log(`[MultiplayerGame ${this.isHost ? 'Host' : 'Client'}] Finishing game...`);
-        this.isFinished = true;
-        this._beforeFinish(); // Hook (e.g., stop client timer)
+    _afterAnswerChecked(isCorrect, scoreDelta) {
+        // Call parent method first to update score etc.
+        super._afterAnswerChecked(isCorrect, scoreDelta);
 
-        if (this.isHost) {
-            // Host marks ITSELF as finished and checks if all clients are also done.
-            // The actual end game logic (results calc, broadcast) happens in _hostCheckCompletion
-            console.log("[MultiplayerGame Host] Host finished local questions. Checking completion status...");
-            this._hostCheckCompletion(); 
-        } else {
-            // Client finishes its local quiz and notifies the coordinator
-            console.log("[MultiplayerGame Client] Local quiz finished.");
-            eventBus.emit(Events.Game.LocalPlayerFinished, { score: this.score });
-            return; // <<< PREVENT BaseGameMode from emitting Game.Finished for client
+        // --- Client Specific Logic ---
+        if (!this.isHost) {
+            // Check if the quiz is now complete (currentQuestionIndex is the one just answered)
+            const nextIndex = this.currentQuestionIndex + 1; 
+            if (this.quizEngine.isQuizComplete(nextIndex)) {
+                console.log(`[MultiplayerGame Client] Finished last question (${nextIndex}). Sending CLIENT_FINISHED to host with score: ${this.score}`);
+                try {
+                     this.webRTCManager.sendToHost(MSG_TYPE.CLIENT_FINISHED, { score: this.score });
+                } catch (error) {
+                    console.error("[MultiplayerGame Client] Error sending CLIENT_FINISHED message:", error);
+                    // Optionally emit a local error event or show feedback
+                    eventBus.emit(Events.System.ShowFeedback, { message: 'Error notifying host of completion.', level: 'warning' });
+                }
+                // Note: nextQuestion() will still be called, but will immediately return due to the check there.
+            }
         }
-
-        // Host logic continues in _hostCheckCompletion...
     }
 
-     /**
-     * Hook called before finishing the game. Stops timer for client.
-     * @protected
-     * @override BaseGameMode._beforeFinish
-     */
-     _beforeFinish() {
-         if (!this.isHost && this.timer) {
-             this.timer.stop();
-             console.log("[MultiplayerGame Client] Stopped timer before finish.");
-         }
-     }
-
     /**
-     * Hook to assemble final results. Uses the correct quizEngine instance.
-     * @returns {object} Final results structure.
-     * @protected
-     * @override BaseGameMode._getFinalResults
+     * Finishes the game, calculates final results, and emits Game.Finished.
+     * @param {boolean} [isFinalDestroy=false] - Internal flag to prevent recursion during destroy.
+     * @override BaseGameMode.finishGame
      */
-    _getFinalResults() {
-        const results = {
-            winner: null,
-            players: [],
-            mode: 'multiplayer-host',
-            difficulty: this.difficulty,
-            gameName: this.settings?.sheetIds?.join(', ') || 'Multiplayer Game'
-        };
-        let highScore = -1;
-        let winnerId = null;
-
-        // Include host score - Use this.score from BaseGameMode
-        results.players.push({
-            id: this.hostPeerId,
-            name: this.localPlayerName, 
-            score: this.score,
-            isHost: true 
-        });
-        if (this.score > highScore) {
-            highScore = this.score;
-            results.winner = this.localPlayerName;
-            winnerId = this.hostPeerId;
+    finishGame(isFinalDestroy = false) {
+        console.log(`[MultiplayerGame ${this.isHost ? 'Host' : 'Client'}] Finishing game...`);
+        if (this.isFinished && !isFinalDestroy) {
+            console.warn(`[MultiplayerGame ${this.isHost ? 'Host' : 'Client'}] finishGame called, but already finished.`);
+            return;
         }
+        this.isFinished = true;
 
-        // Include client scores
-        this.clientScores.forEach((score, peerId) => {
-            const clientResult = {
-                id: peerId,
-                name: this.webRTCManager.players.get(peerId)?.name || `Player_${peerId.slice(-4)}`,
-                score: score,
-                isHost: false
-            };
-            results.players.push(clientResult);
+        if (this.isHost) {
+            // --- HOST FINISH --- 
+            console.log("[MultiplayerGame Host] Host finished local questions. Checking completion status...");
+            // Stop timer immediately for host
+            this._beforeFinish(); // Includes stopping timer
+            // Mark host as done and check if game should end
+            // This will handle broadcasting GAME_OVER and emitting Game.Finished *only* when everyone is done.
+            this._hostCheckCompletion(); 
+            // DO NOT emit Game.Finished here. _hostCheckCompletion will do it when appropriate.
+            
+        } else {
+            // --- CLIENT FINISH --- 
+            console.log("[MultiplayerGame Client] Local quiz finished.");
+            // Stop timer for client
+            this._beforeFinish(); // Includes stopping timer
+            
+            // Client emits LOCAL finish event. Coordinator handles this.
+            eventBus.emit(Events.Game.LocalPlayerFinished, { score: this.score });
+            
+            // DO NOT emit Game.Finished here. Client waits for GAME_OVER message.
+            // The client's activeGame instance remains until GAME_OVER triggers Coordinator cleanup.
+        }
+    }
 
-            if (score > highScore) {
-                highScore = score;
-                results.winner = clientResult.name;
-                winnerId = peerId;
+    /** Actions performed just before finishing (e.g., stop timers). @override */
+    _beforeFinish() {
+        if (this.timer) {
+            console.log(`[MultiplayerGame ${this.isHost ? 'Host' : 'Client'}] Stopped timer before finish.`);
+            this.timer.stop();
+        }
+        // Add any other pre-finish cleanup common to both roles
+    }
+
+    /** Calculates final results based on role. @override */
+    _getFinalResults() {
+        if (this.isHost) {
+            // Host aggregates scores
+            const finalScores = new Map();
+            // +++ Get the authoritative player list from WebRTCManager +++
+            const playersMap = this.webRTCManager.getPlayerList(); 
+            
+            // Add host score
+            finalScores.set(this.hostPeerId, { name: this.localPlayerName, score: this.score });
+            
+            // Add client scores (use names from WebRTCManager's player list)
+            this.clientScores.forEach((clientScore, peerId) => {
+                 // +++ Use the fetched playersMap +++
+                 const playerData = playersMap.get(peerId); 
+                 const name = playerData ? playerData.name : 'Unknown'; // Use name from the map
+                 finalScores.set(peerId, { name: name, score: clientScore ?? 0 });
+            });
+
+            // Basic ranking (sort by score descending)
+            const rankedPlayers = Array.from(finalScores.entries())
+                .sort(([, a], [, b]) => b.score - a.score)
+                .map(([peerId, data], index) => ({ 
+                    rank: index + 1, 
+                    peerId: peerId, 
+                    name: data.name, 
+                    score: data.score 
+                }));
+            
+            // Determine winner (handle ties - winner is null if highest scores are equal)
+            let winner = null;
+            if (rankedPlayers.length > 0) {
+                const topScore = rankedPlayers[0].score;
+                const winners = rankedPlayers.filter(p => p.score === topScore);
+                if (winners.length === 1) {
+                    winner = winners[0]; // Assign if single winner
+                }
             }
-        });
+            
+            // Get game name from settings (likely sheet IDs)
+            const gameName = Array.isArray(this.settings?.sheetIds) 
+                               ? this.settings.sheetIds.join(', ') 
+                               : 'Unknown Game';
 
-        // Sort players descending by score
-        results.players.sort((a, b) => b.score - a.score);
-        results.winnerId = winnerId;
-
-        console.log("[MultiplayerGame Host] Calculated final results:", results);
-        return results;
+            return {
+                winner: winner, // Can be null for ties
+                players: rankedPlayers, // Array of { rank, peerId, name, score }
+                mode: 'multiplayer-host',
+                difficulty: this.settings?.difficulty || 'unknown',
+                gameName: gameName,
+                timestamp: Date.now()
+            };
+        } else {
+            // Client doesn't calculate, receives results from host
+            return { 
+                score: this.score, // Client only knows its own final score
+                mode: 'multiplayer-client'
+            };
+        }
     }
 
     /** Cleans up listeners based on role. @override BaseGameMode._cleanupListeners */
@@ -522,13 +588,14 @@ class MultiplayerGame extends BaseGameMode {
         console.log(`[MultiplayerGame ${this.isHost ? 'Host' : 'Client'}] Destroying instance.`);
         if (this.timer) this.timer.stop(); // Stop timer if exists
 
-        // --- Client: Notify host before disconnecting ---
-        if (!this.isHost && this.webRTCManager) { // Null check
+        // --- Client: Notify host if leaving (but don't close connection here) ---
+        if (!this.isHost && this.webRTCManager) { 
             try {
                 console.log("[MultiplayerGame Client] Sending CLIENT_LEFT message to host before destroying.");
                 this.webRTCManager.sendToHost(MSG_TYPE.CLIENT_LEFT, {});
             } catch (error) {
-                console.warn("[MultiplayerGame Client] Error sending CLIENT_LEFT message:", error);
+                // Log warning, but don't prevent destruction
+                console.warn("[MultiplayerGame Client] Error sending CLIENT_LEFT message during destroy:", error);
             }
         }
         // --- End Client Notification ---
@@ -536,17 +603,17 @@ class MultiplayerGame extends BaseGameMode {
         // Host-specific cleanup (like removing listeners, handled in _cleanupListeners)
         // if (this.isHost) { ... }
 
-        // Close WebRTC connection
-        if (this.webRTCManager) { // Null check
-            this.webRTCManager.closeConnection();
-        }
+        // Close WebRTC connection // REMOVED - Connection should persist, managed elsewhere
+        // if (this.webRTCManager) { 
+        //     this.webRTCManager.closeConnection();
+        // }
 
-        // Nullify references
+        // Nullify references for this instance
         this.quizEngine = null;
-        this.webRTCManager = null;
+        this.webRTCManager = null; // Nullify the reference within this instance
         this.settings = null;
         this.clientScores = null;
-        this.clientsFinished = null; // Corrected name from clientFinalScores
+        this.clientsFinished = null; 
 
         console.log("[MultiplayerGame] Instance destroyed.");
 

@@ -39,6 +39,7 @@ class MultiplayerHostManager {
         this._boundHandleClientConnected = this.handleClientConnected.bind(this);
         this._boundHandleClientDisconnected = this.handleClientDisconnected.bind(this);
         this._boundHandleDataReceived = this.handleDataReceived.bind(this);
+        this._boundHandlePlayerListUpdate = this._handlePlayerListUpdate.bind(this);
     }
 
     /**
@@ -80,6 +81,8 @@ class MultiplayerHostManager {
         eventBus.on(Events.Multiplayer.Host.ClientDisconnected, this._boundHandleClientDisconnected);
         // Listen for messages (join requests, ready signals)
         eventBus.on(Events.WebRTC.MessageReceived, this._boundHandleDataReceived); 
+        // Listen for player list updates from WebRTCManager (handles name changes etc.)
+        eventBus.on(Events.Multiplayer.Common.PlayerListUpdated, this._boundHandlePlayerListUpdate);
     }
 
     /**
@@ -96,6 +99,7 @@ class MultiplayerHostManager {
         eventBus.off(Events.Multiplayer.Host.ClientConnected, this._boundHandleClientConnected);
         eventBus.off(Events.Multiplayer.Host.ClientDisconnected, this._boundHandleClientDisconnected);
         eventBus.off(Events.WebRTC.MessageReceived, this._boundHandleDataReceived);
+        eventBus.off(Events.Multiplayer.Common.PlayerListUpdated, this._boundHandlePlayerListUpdate);
         // Optionally, clear player list or keep it? Let's clear for a clean stop.
         // this.players.clear(); 
     }
@@ -324,6 +328,52 @@ class MultiplayerHostManager {
         this.quizEngine = null; // Release reference
         this.isHosting = false;
         console.log(`[${this.constructor.name}] Destroyed.`);
+    }
+
+    /**
+     * [ADDED] Handles the PlayerListUpdated event from WebRTCManager.
+     * Synchronizes the internal player list (names, etc.) with the authoritative list.
+     * @param {object} payload
+     * @param {Map<string, { name: string, isHost: boolean }>} payload.players The authoritative player list from WebRTCManager.
+     * @private
+     */
+    _handlePlayerListUpdate({ players }) {
+        if (!this.isHosting) return; // Only process if lobby is active
+
+        console.log(`[${this.constructor.name} Lobby] Received PlayerListUpdated event from WebRTCManager. Synchronizing...`);
+        
+        // Iterate through the authoritative list from WebRTCManager
+        players.forEach((playerData, peerId) => {
+            if (peerId === this.hostId) return; // Ignore the host entry (managed separately)
+
+            const existingPlayer = this.players.get(peerId);
+            const webRTCName = playerData.name || getTextTemplate('mcDefaultPlayerName'); // Ensure a name exists
+            
+            if (!existingPlayer) {
+                // Player is in WebRTC list but not ours? Add them (should be rare if ClientConnected worked)
+                console.warn(`[${this.constructor.name} Lobby Sync] Adding missing player ${webRTCName} (${peerId})`);
+                this.addPlayer(peerId, webRTCName, false); // Add as not ready initially
+            } else if (existingPlayer.name !== webRTCName) {
+                // Name mismatch? Update our record using addPlayer logic
+                 console.log(`[${this.constructor.name} Lobby Sync] Updating name for ${peerId} from '${existingPlayer.name}' to '${webRTCName}'`);
+                // Use addPlayer to ensure consistency and trigger broadcasts if needed
+                // Keep existing ready status
+                this.addPlayer(peerId, webRTCName, existingPlayer.isReady); 
+            }
+            // Note: We don't sync 'isReady' from this event, as that's managed by explicit 'client_ready' messages.
+        });
+
+        // Optional: Check for players in our list that are NO LONGER in the WebRTC list?
+        // This shouldn't happen if disconnect events are working correctly.
+        // const localPeerIds = new Set(this.players.keys());
+        // localPeerIds.delete(this.hostId); // Don't check host
+        // const webRTCPeerIds = new Set(players.keys());
+        // localPeerIds.forEach(localPeerId => {
+        //     if (!webRTCPeerIds.has(localPeerId)) {
+        //         console.warn(`[${this.constructor.name} Lobby Sync] Player ${localPeerId} exists locally but not in WebRTC update. Removing.`);
+        //         this.removePlayer(localPeerId);
+        //     }
+        // });
     }
 }
 

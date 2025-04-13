@@ -323,8 +323,9 @@ class MultiplayerClientManager {
             case 'game_over':
                 // Payload example: { results: { rankings: [...], scores: {...} } }
                 this.isGameActive = false;
-                eventBus.emit(Events.Game.Finished, { mode: 'multiplayer', results: payload.results });
-                this.resetState();
+                // Remove redundant Game.Finished emission. Coordinator handles GAME_OVER.
+                // eventBus.emit(Events.Game.Finished, { mode: 'multiplayer', results: payload }); 
+                this.resetState(); // Reset host ID etc.
                 break;
 
             case 'timer_tick':
@@ -362,8 +363,38 @@ class MultiplayerClientManager {
                   eventBus.emit(Events.Multiplayer.Common.PlayerLeft, payload);
                   break;
 
+            // Host broadcasts this when a new player joins *during the lobby phase*
+            case MSG_TYPE.PLAYER_LIST_UPDATE:
+                console.log("[MultiplayerClientManager] Received PLAYER_LIST_UPDATE from host.", payload);
+                if (payload && payload.players) {
+                    try {
+                        // Reconstruct Map from plain object
+                        const playersMap = new Map(Object.entries(payload.players)); 
+                        eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: playersMap });
+                    } catch (mapError) {
+                        console.error("[MultiplayerClientManager] Error processing PLAYER_LIST_UPDATE:", mapError, payload);
+                    }
+                } else {
+                     console.warn("[MultiplayerClientManager] Invalid PLAYER_LIST_UPDATE payload.", payload);
+                }
+                break;
+            
+            // Host sends this when it cancels the lobby before starting
+            case MSG_TYPE.FEEDBACK:
+                // Forward feedback events (like lobby cancellation) to the UI
+                if (payload && payload.message && payload.level) {
+                    eventBus.emit(Events.System.ShowFeedback, { message: payload.message, level: payload.level });
+                    // If the feedback indicates lobby closure, trigger disconnect handling
+                    if (payload.message === getTextTemplate('mpHostLobbyCancelled')) {
+                        this.handleDisconnectedFromHost({ reason: 'lobby_cancelled_by_host' });
+                    }
+                } else {
+                     console.warn("[MultiplayerClientManager] Received malformed FEEDBACK message.", payload);
+                }
+                break;
+
             default:
-                console.warn(`[MultiplayerClientManager] Unhandled data type from host: ${type}`);
+                console.warn(`[MultiplayerClientManager] Received unhandled message type from host: ${type}`);
         }
     }
 
