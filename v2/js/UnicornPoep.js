@@ -66,7 +66,7 @@ class UnicornPoepApp {
             webRTCManager.closeConnection();
 
             // Setup coordinators/listeners for UI actions (Uncomment if needed)
-            // this.setupCoordinators(); 
+            this.setupCoordinators();
 
             // Check if UIManager handled initial navigation
             const initialNavigationHandled = uiManager.checkInitialHash(); 

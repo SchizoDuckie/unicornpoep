@@ -824,6 +824,12 @@ class GameCoordinator {
                          viewName: Views.SinglePlayerEndDialog,
                          data: dialogData // Use the constructed data object
                      });
+                 } else if (mode === 'practice') {
+                     console.log("[GameCoordinator ASYNC] Requesting UIManager show Practice End Dialog.");
+                     eventBus.emit(Events.Navigation.ShowView, {
+                         viewName: Views.PracticeEndDialog,
+                         data: finalResults || {} // Pass results in case they're needed
+                     });
                  } else if (mode === 'multiplayer-host') {
                       console.log("[GameCoordinator ASYNC] Processing Multiplayer Host finish.");
 
@@ -858,12 +864,6 @@ class GameCoordinator {
                       });
                       // --- END Show Multiplayer End Dialog ---
 
-                 } else if (mode === 'practice') {
-                     console.log("[GameCoordinator ASYNC] Requesting UIManager show PracticeEndDialog.");
-                     eventBus.emit(Events.Navigation.ShowView, {
-                         viewName: Views.PracticeEndDialog,
-                         data: finalResults || {}
-                     });
                  }
                  // --- End Show Appropriate End Dialog ---
 

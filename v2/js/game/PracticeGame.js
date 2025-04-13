@@ -14,11 +14,12 @@ class PracticeGame extends BaseGameMode {
     /**
      * Creates a practice game instance.
      * @param {object} settings - Game settings.
-     * @param {string[]} settings.sheetIds - Array of sheet IDs to use.
-     * @param {string} settings.difficulty - Difficulty level ('easy', 'medium', 'hard').
+     * @param {QuizEngine} quizEngineInstance - The QuizEngine instance to use.
+     * @param {string} playerName - The name of the player
      */
-    constructor(settings) {
-        super('practice', settings);
+     constructor(settings, quizEngineInstance, playerName) {
+        // Pass the QuizEngine instance to BaseGameMode constructor
+        super('single', settings, quizEngineInstance, playerName);
         console.log(`[PracticeGame] Initialized.`);
     }
 

@@ -177,6 +177,12 @@ class UIManager {
             // Tell the manager to load and emit the scores
             highscoreManager.loadAndEmitAllScores();
         });
+
+        // --- ADDED: Listen for About Actions ---
+        eventBus.on(Events.UI.MainMenu.AboutClicked, () => {
+            console.log("[UIManager] AboutClicked received, showing AboutComponent.");
+            this.handleShowView({ viewName: Views.About }); // Use the view constant
+        });
     }
 
     /**
