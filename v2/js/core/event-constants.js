@@ -192,6 +192,21 @@ const Events = {
          * @property {number} finalScore - The final score achieved in the quiz round.
          */
         AllQuestionsAnswered: 'game:allQuestionsAnswered',
+        /**
+         * Fired to initiate the pre-game countdown display.
+         * @event Events.Game.CountdownStart
+         * @type {object}
+         * @property {number} [duration=3] - Duration of the countdown in seconds.
+         */
+        CountdownStart: 'game:countdownStart',
+        /**
+         * Fired by a multiplayer client game instance when it has finished its quiz.
+         * Listened for by GameCoordinator.
+         * @event Events.Game.LocalPlayerFinished
+         * @type {object}
+         * @property {number} score - The final score achieved by the local client.
+         */
+        LocalPlayerFinished: 'game:localPlayerFinished',
     },
     /**
      * Events specific to multiplayer mode.
@@ -511,6 +526,15 @@ const Events = {
               * @property {'single' | 'practice'} mode - The mode of the game to restart.
               */
              PlayAgainClicked: 'ui:endDialog:playAgainClicked',
+             /**
+             * Fired by SinglePlayerEndDialog when the save button is clicked.
+             * Listened for by GameCoordinator (to trigger HighscoreManager).
+             * @event Events.UI.EndDialog.SaveScoreClicked
+             * @type {object}
+             * @property {string} name - The player name entered.
+             * @property {number} score - The score achieved.
+             */
+            SaveScoreClicked: 'ui:endDialog:saveScoreClicked',
         },
         /** @namespace Events.UI.CustomQuestions */
         CustomQuestions: {
@@ -552,6 +576,13 @@ const Events = {
         },
         MultiplayerEndDialog: {
             Closed: 'ui:multiplayerEndDialog:closed',
+            /**
+             * Fired when user clicks Play Again in the MULTIPLAYER end dialog.
+             * Listened for by GameCoordinator.
+             * @event Events.UI.MultiplayerEndDialog.PlayAgainClicked
+             * @type {object} - Payload might be empty or indicate context.
+             */
+            PlayAgainClicked: 'ui:multiplayerEndDialog:playAgainClicked',
         },
         // ... other UI interaction events could go here, organized by component
     },

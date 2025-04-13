@@ -1,11 +1,10 @@
 import BaseDialog from './base-dialog.js';
-import miscUtils from '../utils/miscUtils.js'; // Use default import
-
+import miscUtils from '../utils/miscUtils.js';
 
 /**
  * @class WaitingDialog
  * @extends BaseDialog
- * Simple dialog to display a waiting message (e.g., "Waiting for host...").
+ * Simple dialog to display a waiting message
  */
 class WaitingDialog extends BaseDialog {
     static SELECTOR = '#waitingDialog';
@@ -13,17 +12,15 @@ class WaitingDialog extends BaseDialog {
 
     /** Initializes component elements. */
     initialize() {
-        this.messageElement = this.rootElement.querySelector('.dialog-message'); // Generic message class
-        // No buttons or listeners specific to this dialog usually
+        this.messageElement = this.rootElement.querySelector('.dialog-message');
         if (!this.messageElement) console.error(`[${this.name}] Missing required child element .dialog-message.`);
         console.log(`[${this.name}] Initialized.`);
     }
 
-    /** Registers DOM listeners (none needed). */
     registerListeners() {
         console.log(`[${this.name}] Registering DOM listeners (none).`);
     }
-    /** Unregisters DOM listeners (none needed). */
+    
     unregisterListeners() {
         console.log(`[${this.name}] Unregistering DOM listeners (none).`);
     }
@@ -36,9 +33,6 @@ class WaitingDialog extends BaseDialog {
         if (this.messageElement) {
             this.messageElement.textContent = message || miscUtils.getTextTemplate('waitingDialogDefaultMsg');
         }
-        if (this.spinnerElement) {
-            this.spinnerElement.classList.remove('hidden'); // Ensure spinner is visible
-        }
         super.show(); // Call BaseDialog's show
     }
 
@@ -47,11 +41,15 @@ class WaitingDialog extends BaseDialog {
      */
     hide() {
         super.hide(); // Call BaseDialog's hide
-        if (this.spinnerElement) {
-            this.spinnerElement.classList.add('hidden'); // Hide spinner when dialog closes
-        }
     }
 
+    /**
+     * Checks if the dialog is currently open.
+     * @returns {boolean} True if the dialog is open
+     */
+    get isOpen() {
+        return this.rootElement instanceof HTMLDialogElement && this.rootElement.open;
+    }
 }
 
 export default WaitingDialog;

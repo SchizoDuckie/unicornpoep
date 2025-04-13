@@ -14,6 +14,7 @@ import CustomQuestionsComponent from '../components/custom-questions-component.j
 import AboutComponent from '../components/about-component.js';
 import LoadingComponent from '../components/loading-component.js';
 import ToastComponent from '../components/toast-component.js';
+import CountdownComponent from '../components/countdown-component.js';
 // Potentially SheetSelectionComponent if used
 import SheetSelectionComponent from '../components/sheet-selection-component.js'; 
 
@@ -87,6 +88,7 @@ class UIManager {
             // --- Instantiate Utility/Overlay Components (extend BaseComponent) ---
             this.registerComponent(new LoadingComponent());
             this.registerComponent(new ToastComponent());
+            this.registerComponent(new CountdownComponent());
             
             // --- Instantiate Game Area Components ---
             // Note: These are part of the 'GameArea' view but are registered
@@ -229,7 +231,7 @@ class UIManager {
                 waitingDialog.hide();
             }
         }
-        // <<< END ADD >>>
+    
 
         // --- DEBUGGING --- 
         // Check if we are trying to navigate back to MainMenu unexpectedly

@@ -7,6 +7,9 @@ import { getTextTemplate } from '../utils/miscUtils.js';
 // Import MSG_TYPE constants
 import { MSG_TYPE } from '../core/message-types.js'; 
 
+// Define a fallback constant for client_ready in case the import fails
+const CLIENT_READY = 'client_ready';
+
 /**
  * Manages the host-side logic for the **lobby phase** of a multiplayer game session.
  * - Initializes hosting via WebRTCManager.
@@ -221,7 +224,7 @@ class MultiplayerHostManager {
     handleDataReceived({ msg, sender }) {
         // Ignore if lobby isn't active or sender is host/unknown
         if (!this.isHosting || !this.players.has(sender) || sender === this.hostId) {
-            // console.warn(`[${this.constructor.name}] Ignoring message (hosting: ${this.isHosting}, sender known: ${this.players.has(sender)}, is host: ${sender === this.hostId})`, msg);
+            console.warn(`[${this.constructor.name}] Ignoring message (hosting: ${this.isHosting}, sender known: ${this.players.has(sender)}, is host: ${sender === this.hostId})`, msg);
             return; 
         }
 
@@ -230,7 +233,9 @@ class MultiplayerHostManager {
         const playerName = this.players.get(sender)?.name || sender;
 
         // Only process lobby-relevant messages
-        const acceptedTypes = [MSG_TYPE.C_REQUEST_JOIN, MSG_TYPE.CLIENT_READY, MSG_TYPE.C_REQUEST_REMATCH];
+        // Create a combined list of accepted types, accounting for potential undefined values
+        const clientReadyType = MSG_TYPE.CLIENT_READY || CLIENT_READY;
+        const acceptedTypes = [MSG_TYPE.C_REQUEST_JOIN, clientReadyType, MSG_TYPE.C_REQUEST_REMATCH];
         if (!acceptedTypes.includes(type)) {
              console.log(`[${this.constructor.name} Lobby] Ignoring non-lobby message type '${type}' from ${playerName} (${sender})`);
              return;
@@ -249,13 +254,31 @@ class MultiplayerHostManager {
                       console.warn(`[${this.constructor.name} Lobby] Received c_requestJoin from ${sender} without a name.`);
                  }
                  break;
-            case MSG_TYPE.CLIENT_READY:
+            // Use both possible type values for CLIENT_READY
+            case clientReadyType:
+            case CLIENT_READY: // Explicit fallback
+                 console.log(`[${this.constructor.name} Lobby] Processing CLIENT_READY message from ${playerName} (${sender})`, payload);
                  const player = this.players.get(sender);
                  if (player) {
+                     console.log(`[${this.constructor.name} Lobby] Current player data:`, player);
                      if (!player.isReady) {
-                         console.log(`[${this.constructor.name} Lobby] Player ${playerName} (${sender}) marked as ready.`);
-                         // Update ready status via addPlayer, which handles broadcast
-                         this.addPlayer(sender, player.name, true); 
+                         console.log(`[${this.constructor.name} Lobby] Marking player ${playerName} (${sender}) as ready.`);
+                         
+                         // Extract isReady from payload if available, otherwise default to true
+                         const isReady = payload && typeof payload.isReady === 'boolean' ? payload.isReady : true;
+                         console.log(`[${this.constructor.name} Lobby] isReady value from payload: ${isReady}`);
+                         
+                         // Force isReady to true regardless of message payload structure
+                         this.addPlayer(sender, player.name, isReady);
+                         
+                         // Force broadcast the player list update to ensure all clients receive it
+                         this._broadcastPlayerListUpdate();
+                         
+                         // Also force emit locally for host UI to ensure it updates
+                         eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: this.players });
+                         
+                         // Manually log the player list after update to verify
+                         console.log(`[${this.constructor.name} Lobby] Player list after update:`, Object.fromEntries(this.players));
                      } else {
                           console.log(`[${this.constructor.name} Lobby] Player ${playerName} (${sender}) already marked as ready.`);
                      }

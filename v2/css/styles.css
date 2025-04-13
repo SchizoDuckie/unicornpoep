@@ -531,13 +531,9 @@ label:hover {
     z-index: auto;
     line-height: 1;
     white-space: nowrap;
+    display: none;
 }
 
-#sheetTitleDisplay {
-    font-size: 1.4rem;
-    font-weight: normal;
-    color: #4a3aab;
-}
 
 /* --- Game Elements: Progress Indicator (Shared between Single/Multiplayer) --- */
 #progressIndicator {
@@ -1671,7 +1667,7 @@ html.transitioning-backward::view-transition-new(difficulty-column) {
 
 
 /* --- Countdown Display --- */
-#countdownDisplay {
+#countdown {
     position: fixed; 
     top: 0;
     left: 0;
@@ -1690,7 +1686,7 @@ html.transitioning-backward::view-transition-new(difficulty-column) {
     pointer-events: none; 
     transition: opacity 0.5s ease-out;
 }
-#countdownDisplay.hidden {
+#countdown.hidden {
     opacity: 0;
     pointer-events: none;
     display: grid !important; /* Override .hidden display:none if using fade */
@@ -1699,7 +1695,7 @@ html.transitioning-backward::view-transition-new(difficulty-column) {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.2); }
 }
-#countdownDisplay.active { 
+#countdown.active {
     animation: countdownPulse 0.8s ease-in-out;
 }
 
@@ -1794,7 +1790,6 @@ data[data-translation-key] {
     label { font-size: 1.2rem; }
 
     #scoreDisplay, #timerDisplay { font-size: 1.5rem; } /* Adjusted from #timer, #score */
-    #sheetTitleDisplay { font-size: 1.1rem; }
     #gameHeader { padding: 8px 10px 8px 80px; gap: 5px;} /* Adjust header padding */
     #gameHeaderLeft { gap: 10px; }
 
@@ -2057,7 +2052,13 @@ data[data-translation-key] {
     color: #614ae2;
 }
 
-
-
+/* Disabled button styling */
+.disabled-button {
+    opacity: 0.6;
+    background-color: #cccccc !important;
+    cursor: not-allowed !important;
+    pointer-events: none;
+    border-color: #999999 !important;
+}
 
 /* Add other V1 styles as needed (e.g., fonts, specific button looks) */

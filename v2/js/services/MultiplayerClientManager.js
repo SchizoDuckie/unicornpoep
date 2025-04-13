@@ -19,6 +19,12 @@ const ClientMessageTypes = {
     // Add other client-specific outgoing message types here if needed
 };
 
+// Define a constant for client_ready in case the import fails
+const CLIENT_READY = 'client_ready';
+
+// ADDED: Explicit debug check to ensure MSG_TYPE is properly imported
+console.log(`[MultiplayerClientManager] MSG_TYPE.CLIENT_READY = "${MSG_TYPE.CLIENT_READY || CLIENT_READY}"`);
+
 /**
  * Manages the client-side state and interactions during a multiplayer game.
  * Listens for game data received from the host (via WebRTCManager) and
@@ -270,13 +276,14 @@ class MultiplayerClientManager {
             case MSG_TYPE.GAME_START:
                 console.log(`[${this.constructor.name}] Received GAME_START from host.`);
                 
-                // Hide the WaitingDialog before navigating
+                // Hide waiting dialog before navigating
                 const waitingDialog = uiManager.getComponent('WaitingDialog');
                 if (waitingDialog) {
                     waitingDialog.hide();
                 }
 
-                // Now navigate to the GameArea view
+                // Navigate to the GameArea view
+                console.log(`[${this.constructor.name}] Navigating to GameArea.`);
                 eventBus.emit(Events.Navigation.ShowView, { viewName: Views.GameArea });
                 break;
 
@@ -459,21 +466,29 @@ class MultiplayerClientManager {
         }
         console.log(`[MultiplayerClientManager] Sending join request to host ${this.hostPeerId} with name: ${playerName}`);
 
-        // --- ADD DEBUG LOG ---
-        const messageType = ClientMessageTypes.REQUEST_JOIN;
-        console.log(`[MultiplayerClientManager DEBUG] messageType before sendToHost: '${messageType}' (Type: ${typeof messageType})`);
-        // --- END DEBUG LOG ---
-
-        // Use the WebRTCManager's core send function
-        webRTCManager.sendToHost(messageType, { name: playerName });
+        // Send the join request
+        webRTCManager.sendToHost(ClientMessageTypes.REQUEST_JOIN, { name: playerName });
         
-        // After sending join request, also send a CLIENT_READY message to mark as ready
+        // Send CLIENT_READY with explicit string type to avoid null type issues
         setTimeout(() => {
-            console.log(`[MultiplayerClientManager] Sending CLIENT_READY to host ${this.hostPeerId}`);
-            // Use the correct message type constant from MSG_TYPE
-            // Always use the SAME name as the initial join request to ensure consistency
-            webRTCManager.sendToHost(MSG_TYPE.CLIENT_READY, { name: playerName });
-        }, 200); // Small delay to ensure join request is processed first
+            // Use the constant directly to avoid any issues with undefined imports
+            console.log(`[MultiplayerClientManager] Sending CLIENT_READY message (first attempt). Using string literal: '${CLIENT_READY}'`);
+            
+            // Use the explicit string to avoid any import issues
+            webRTCManager.sendToHost(CLIENT_READY, { 
+                name: playerName,
+                isReady: true  // Explicitly include isReady flag
+            });
+            
+            // Send a second CLIENT_READY message as backup with explicit string
+            setTimeout(() => {
+                console.log(`[MultiplayerClientManager] Sending CLIENT_READY message (second attempt). Using explicit string '${CLIENT_READY}'`);
+                webRTCManager.sendToHost(CLIENT_READY, { 
+                    name: playerName,
+                    isReady: true  // Explicitly include isReady flag
+                });
+            }, 1000); // Try again 1 second after the first attempt
+        }, 800); // Increase delay to ensure join request is fully processed first
     }
 
      /**

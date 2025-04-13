@@ -3,6 +3,7 @@ import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import miscUtils from '../utils/miscUtils.js';
 import webRTCManager from '../services/WebRTCManager.js'; // Import WebRTCManager
+import Views from '../core/view-constants.js';
 
 /**
  * @class JoinLobbyComponent
@@ -76,6 +77,7 @@ class JoinLobbyComponent extends BaseComponent {
         this._handleCancel = this._handleCancel.bind(this);
         this._handleBackClick = this._handleBackClick.bind(this);
         this._handleConfirmRefreshName = this._handleConfirmRefreshName.bind(this); // Bind new handler
+        this._handleMainMenuShow = this._handleMainMenuShow.bind(this); // Bind handler for main menu shows
 
         // Add DOM Listeners
         if (this.submitCodeButton) this.submitCodeButton.addEventListener('click', this._handleSubmitCode);
@@ -99,6 +101,19 @@ class JoinLobbyComponent extends BaseComponent {
     }
 
     /**
+     * Handles when the MainMenu is shown to ensure fetchingInfoView is hidden.
+     * @param {object} payload
+     * @param {string} payload.viewName
+     * @private
+     */
+    _handleMainMenuShow({ viewName }) {
+        if (viewName === Views.MainMenu && this.fetchingInfoView) {
+            console.log(`[${this.name}] MainMenu shown, ensuring fetchingInfoView is hidden.`);
+            this.fetchingInfoView.classList.add('hidden');
+        }
+    }
+
+    /**
      * Handles the ShowView event to set up the initial state.
      * @param {object} payload
      * @param {string} payload.viewName
@@ -108,6 +123,12 @@ class JoinLobbyComponent extends BaseComponent {
      * @param {boolean} [payload.data.showConnecting] - Optional flag to immediately show connecting state.
      */
     handleShowView({ viewName, data = {} }) {
+        // Handle MainMenu being shown to ensure fetchingInfoView is hidden
+        if (viewName === Views.MainMenu && this.fetchingInfoView) {
+            this.fetchingInfoView.classList.add('hidden');
+            return;
+        }
+
         if (viewName === this.name) {
             console.log(`[${this.name}] Showing view. Data:`, data);
             // Use template for default name
@@ -412,6 +433,17 @@ class JoinLobbyComponent extends BaseComponent {
     _handleBackClick() {
         console.log(`[${this.name}] Back button clicked.`);
         this._handleCancel();
+    }
+
+    /**
+     * Override the hide method from BaseComponent to ensure fetchingInfoView is hidden
+     * when the component is hidden, even if a subview was visible.
+     */
+    hide() {
+        if (this.fetchingInfoView) {
+            this.fetchingInfoView.classList.add('hidden');
+        }
+        super.hide(); // Call the parent class hide method
     }
 }
 

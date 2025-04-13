@@ -28,7 +28,8 @@ export const MSG_TYPE = {
 
     // --- NEW TYPES ---
     C_SCORE_UPDATE: 'c_scoreUpdate',       // Client -> Host (During game)
-    H_PLAYER_SCORES_UPDATE: 'h_playerScoresUpdate', // Host -> Client (During game)
+    H_PLAYER_SCORES_UPDATE: 'h_player_scores_update',
+    H_START_GAME_LOGIC: 'h_start_game_logic', // Host signals clients to start core game logic
     // --- END NEW TYPES ---
 
     // Internal / Ping

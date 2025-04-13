@@ -206,9 +206,7 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
                             </a>
                         </div>
-                    </div>
 
-                    <div class="host-lobby-section link-section"> <!-- Removed inline style -->
                         <p class="help-text">Of deel deze directe link:</p>
                         <div class="host-code-wrapper">
                             <span id="hostJoinLinkDisplay" class="host-code-text join-link-text">Laden...</span>
@@ -566,7 +564,7 @@
          <dialog id="waitingDialog" class="dialog unicorn-theme">
            <div class="dialog-content text-center"> <!-- Added text-center -->
              <!-- Title using translation key -->
-             <h2 data-translation-key="waitingDialogTitle" class="text-2xl font-bold mb-4">Wachten op de Baas...</h2>
+             <h2 data-translation-key="waitingDialogTitle" class="text-2xl font-bold mb-4">Duurt Lang...</h2>
 
              <!-- Message using translation key - CORRECTED CLASS -->
              <p class="dialog-message" data-translation-key="waitingDialogDefaultMsg">Even geduld, de baas van het spel gaat zo beginnen!</p> <!-- Changed id="waitingMessage" class="mb-4" to class="dialog-message" -->
@@ -640,6 +638,11 @@
         <!-- Moved Global/RTC Templates (Place near top of #app or body) -->
         <data data-translation-key="rtcErrorPeerJSLoad">PeerJS library niet geladen. Multiplayer is niet beschikbaar.</data>
 
+        <!-- Renamed ID to #countdown and added inner #countdownText -->
+        <div id="countdown" class="hidden">
+            <span id="countdownText">5</span> 
+        </div>
+
     </div> <!-- End #app -->
 
     <script src="js/lib/peerjs.min.js"></script>
@@ -658,7 +661,7 @@
         <data data-translation-key="timerDefault">⏳</data> 
         <data data-translation-key="hostLoading">Laden...</data> 
         <data data-translation-key="errorDialogHostUnavailable">Oeps! Kon het spelletje niet vinden. Misschien is de code niet goed, of is de ander al gestopt?</data>
-        <data data-translation-key="errorDialogNetwork">Oeps! Er is iets mis met het internet. Vraag papa of mama even om te kijken!</data>
+        <data data-translation-key="errorDialogNetwork">Oeps! Er is iets mis met het internet. Probeert het later opnieuw!</data>
         <data data-translation-key="errorDialogGenericConnection">Oeps! Er ging iets mis met verbinden. Probeer het nog een keer!</data>
         <data data-translation-key="genericInternalError">Er is een onverwachte fout opgetreden. Probeer het opnieuw.</data>
         <data data-translation-key="gameWarnAlreadyActive">Je bent al in een spel!</data>
@@ -695,6 +698,81 @@
         <data data-translation-key="errorUnexpectedConsole">Onverwachte consolefout opgetreden.</data>
         <!-- END ADDED -->
 
+        <!-- Random name generator word lists -->
+        <datalist id="name-adjectives">
+            <option value="Glimmende"></option>
+            <option value="Regenboog"></option>
+            <option value="Sprankelende"></option>
+            <option value="Vrolijke"></option>
+            <option value="Dappere"></option>
+            <option value="Snelle"></option>
+            <option value="Slimme"></option>
+            <option value="Knetterende"></option>
+            <option value="Blitse"></option>
+            <option value="Gestoorde"></option>
+            <option value="Krankzinnige"></option>
+            <option value="Ruftende"></option>
+            <option value="Zingende"></option>
+            <option value="Idiote"></option>
+            <option value="Spugende"></option>
+            <option value="Kwakende"></option>
+            <option value="Geprakte"></option>
+            <option value="Blaffende"></option>
+            <option value="Pluizige"></option>
+            <option value="Gillende"></option>
+            <option value="Magische"></option>
+            <option value="Dansende"></option>
+            <option value="Stuiterende"></option>
+            <option value="Glitterende"></option>
+            <option value="Fluisterende"></option>
+            <option value="Pruttelende"></option>
+            <option value="Smeltende"></option>
+            <option value="Verwarde"></option>
+            <option value="Hypnotiserende"></option>
+            <option value="Onzichtbare"></option>
+            <option value="Vliegende"></option>
+            <option value="Geheime"></option>
+            <option value="Ondeugende"></option>
+            <option value="Razende"></option>
+            <option value="Stralende"></option>
+            <option value="Waggelende"></option>
+        </datalist>
+        
+        <datalist id="name-nouns">
+            <option value="Eenhoorn"></option>
+            <option value="Drol"></option>
+            <option value="Scheet"></option>
+            <option value="Banaan"></option>
+            <option value="Wolk"></option>
+            <option value="Ster"></option>
+            <option value="Donut"></option>
+            <option value="Muffin"></option>
+            <option value="Fee"></option>
+            <option value="Kabouter"></option>
+            <option value="Pannenkoek"></option>
+            <option value="Knakworst"></option>
+            <option value="Kroket"></option>
+            <option value="Kaassoufflé"></option>
+            <option value="Bamischijf"></option>
+            <option value="Bal Gehakt"></option>
+            <option value="Regendruppel"></option>
+            <option value="Maanstraal"></option>
+            <option value="Raket"></option>
+            <option value="Sok"></option>
+            <option value="Pantoffel"></option>
+            <option value="Theepot"></option>
+            <option value="Koektrommel"></option>
+            <option value="Goudvis"></option>
+            <option value="Krekel"></option>
+            <option value="Wortel"></option>
+            <option value="Pizza"></option>
+            <option value="Wafel"></option>
+            <option value="Knuffelbeer"></option>
+            <option value="Stuiterbal"></option>
+            <option value="Laserstraal"></option>
+            <option value="Ninja"></option>
+            <option value="Piraat"></option>
+        </datalist>
     </div>
 
     <!-- Add more template keys as needed -->
@@ -705,6 +783,7 @@
 
     <!-- General UI -->
     <data data-translation-key="backButton">Back</data>
+
 
     <!-- ADD Basic Styling for the button container -->
     <style>

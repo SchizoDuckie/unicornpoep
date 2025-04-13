@@ -507,9 +507,34 @@ class GameCoordinator {
             return;
         }
 
+        // Get the peer ID early to avoid redeclaration
+        const myPeerId = webRTCManager.getMyPeerId();
+        
+        // Check if any clients are connected
+        const players = webRTCManager.getConnectedPlayers();
+        let totalClientCount = 0;
+        
+        if (players && players.size > 0) {
+            players.forEach((playerData, peerId) => {
+                // Skip the host in the count
+                if (peerId !== myPeerId) {
+                    totalClientCount++;
+                }
+            });
+        }
+        
+        // Ensure there's at least one client connected
+        if (totalClientCount === 0) {
+            console.warn("[GameCoordinator] Host tried to start game without any connected clients.");
+            eventBus.emit(Events.System.ShowFeedback, { 
+                message: miscUtils.getTextTemplate('mpHostErrorNoClients') || "Cannot start game without players", 
+                level: 'error'
+            });
+            return;
+        }
+
         // Retrieve stored info
         const { playerName, settings } = this.pendingHostInfo;
-        const myPeerId = webRTCManager.getMyPeerId(); // Get the host's own ID
 
         if (!myPeerId) {
             console.error("[GameCoordinator] Internal Error: Host clicked Start Game, but WebRTCManager has no local peer ID.");
@@ -1092,29 +1117,27 @@ class GameCoordinator {
                     this.activeGame.finishGame(true); // Use flag to signal final cleanup
                 }
 
-                // Attempt to save score if client exists
+                // Save just the local player's score if they're playing
                 if (this.localPlayerName) {
-                    console.log(`[GameCoordinator Client ASYNC] Host declared winner: ${payload.winner?.name || 'Tie'}. Attempting to save score locally.`);
+                    console.log(`[GameCoordinator Client ASYNC] Game over. Saving local player score.`);
                     try {
                         // Ensure all necessary data is present for saving
                         if (payload.gameName && payload.difficulty && typeof this.activeGame?.score === 'number') {
-                             await highscoreManager.addHighscore(
-                                 this.localPlayerName,
-                                 this.activeGame.score,
-                                 payload.gameName, 
-                                 'multiplayer', // Use generic mode
-                                 payload.difficulty
-                             );
-                            console.log("[GameCoordinator Client ASYNC] Highscore add attempt finished locally.");
+                            await highscoreManager.addHighscore(
+                                this.localPlayerName,
+                                this.activeGame.score,
+                                payload.gameName, 
+                                'multiplayer', // Use generic mode
+                                payload.difficulty
+                            );
+                            console.log("[GameCoordinator Client ASYNC] Local player's highscore saved.");
                         } else {
-                            console.warn("[GameCoordinator Client ASYNC] Missing data required to save local highscore on GAME_OVER.", { gameName: payload.gameName, difficulty: payload.difficulty, score: this.activeGame?.score });
+                            console.warn("[GameCoordinator Client ASYNC] Missing data required to save local highscore on GAME_OVER.");
                         }
                     } catch (error) {
                         console.error("[GameCoordinator Client ASYNC] Error saving local highscore on GAME_OVER:", error);
                         eventBus.emit(Events.System.ShowFeedback, { message: 'Error saving local highscore.', level: 'error' });
                     }
-                } else {
-                    console.warn("[GameCoordinator Client ASYNC] Cannot save local score, localPlayerName is not set.");
                 }
 
                 // Show MultiplayerEndDialog for the client
@@ -1124,6 +1147,37 @@ class GameCoordinator {
                 // Reset coordinator state related to the active game
                 this.activeGame = null; // Nullify active game *after* processing GAME_OVER
                 this.currentGameMode = null;
+                break;
+
+            // Handle dedicated score update message from host
+            case MSG_TYPE.H_PLAYER_SCORES_UPDATE:
+                console.log(`[GameCoordinator Client ASYNC] Received player scores update from host`, payload);
+                
+                // Check if this contains the winner information
+                if (payload.winner && payload.winner.name && typeof payload.winner.score === 'number') {
+                    try {
+                        console.log(`[GameCoordinator Client ASYNC] Saving winner's (${payload.winner.name}) score: ${payload.winner.score}`);
+                        if (payload.gameName && payload.difficulty) {
+                            await highscoreManager.addHighscore(
+                                payload.winner.name,
+                                payload.winner.score,
+                                payload.gameName,
+                                'multiplayer',
+                                payload.difficulty
+                            );
+                            console.log(`[GameCoordinator Client ASYNC] Winner's highscore saved successfully.`);
+                        } else {
+                            console.warn("[GameCoordinator Client ASYNC] Missing game info for saving winner's score", payload);
+                        }
+                    } catch (error) {
+                        console.error("[GameCoordinator Client ASYNC] Error saving winner's highscore:", error);
+                    }
+                }
+                
+                // Update player list if applicable
+                if (payload.players) {
+                    this._handlePlayerListUpdate({ players: payload.players });
+                }
                 break;
 
             case MSG_TYPE.PLAYER_LIST_UPDATE:
@@ -1173,24 +1227,24 @@ class GameCoordinator {
      */
     _handleLocalPlayerFinished({ score }) {
          console.log(`[GameCoordinator Client ASYNC] LocalPlayerFinished event received. Final score: ${score}`);
-         // Ensure this is actually a client and the game is active
          if (this.currentGameMode !== 'multiplayer-client' || !this.activeGame) {
              console.warn("[GameCoordinator Client ASYNC] LocalPlayerFinished ignored: not in active client game mode or game inactive.");
              return;
          }
 
-         // --- ONLY Show Waiting Dialog ---
-         /** @type {WaitingDialog | undefined} */
-         const waitingDialog = uiManager.getComponent('WaitingDialog'); // Use component name
+         // Show waiting dialog - keep it simple
+         const waitingDialog = uiManager.getComponent('WaitingDialog');
          if (waitingDialog) {
-             console.log("[GameCoordinator Client ASYNC] Showing WaitingDialog.");
              const waitMessage = miscUtils.getTextTemplate('mpClientWaitOthers') || "Je bent klaar! We wachten op de andere spelers";
              waitingDialog.show(waitMessage);
          } else {
              console.error("[GameCoordinator Client ASYNC] WaitingDialog component not found!");
-             eventBus.emit(Events.System.ShowFeedback, { message: 'Je bent klaar! Wachten op anderen...', level: 'info' });
+             eventBus.emit(Events.System.ShowFeedback, { 
+                 message: 'Je bent klaar! Wachten op anderen...', 
+                 level: 'info',
+                 duration: 8000
+             });
          }
-         // --- DO NOT trigger save score logic or events here ---
      }
 
     /**
@@ -1276,43 +1330,38 @@ class GameCoordinator {
 
     // +++ ADDED: Handler for Host Waiting +++
     /**
-     * Handles the host finishing before clients.
-     * Shows the waiting dialog ONLY FOR CLIENTS (logic error fixed).
-     * Host should not see this dialog.
-     * @param {object} payload - Event payload.
-     * @param {string} payload.messageKey - The localization key for the waiting message.
+     * Handles the event when the host is waiting for clients to finish.
+     * @param {object} payload - The payload from the HostWaiting event.
+     * @param {string} [payload.messageKey] - Optional message key for translation.
      * @private
      */
     _handleHostWaiting(payload) {
-        // --- Check if this is the HOST ---
-        if (this.currentGameMode === 'multiplayer-host') {
-            console.log("[GameCoordinator] Host finished locally. _handleHostWaiting invoked, but Host doesn't need waiting dialog. Ignoring.");
-            return; // Do nothing for the host
-        }
+        console.log(`[GameCoordinator DEBUG] _handleHostWaiting called with payload:`, payload);
+        console.log(`[GameCoordinator DEBUG] Current game mode: ${this.currentGameMode}, Active game exists: ${!!this.activeGame}`);
 
-        // --- Existing logic (now only runs for non-hosts, e.g., if event was misused) ---
-        // Check: Don't show if game is already finishing/finished
-        if (!this.activeGame) { // Simplified check
+        // If game is not active, don't show dialog
+        if (!this.activeGame) {
             console.log("[GameCoordinator] _handleHostWaiting called, but game is not active. Ignoring.");
             return;
         }
 
-        console.log("[GameCoordinator] Non-host waiting triggered (potentially unexpected). Showing WaitingDialog."); // Adjusted log
-        const messageKey = payload?.messageKey || 'mpClientWaitOthers'; // Default relevant for client
-        const message = miscUtils.getTextTemplate(messageKey) || "Waiting for other players...";
+        // Different message template based on role
+        const messageKey = this.currentGameMode === 'multiplayer-host' ? 
+                          'mpHostWaitOthers' : 'mpClientWaitOthers';
+        const message = miscUtils.getTextTemplate(payload?.messageKey || messageKey) || "Waiting for other players...";
+
+        console.log(`[GameCoordinator] ${this.currentGameMode} waiting for others. Showing WaitingDialog with message: "${message}"`);
 
         /** @type {import('../dialogs/waiting-dialog.js').default | undefined} */
         const waitingDialog = uiManager.getComponent('WaitingDialog');
+        console.log(`[GameCoordinator DEBUG] WaitingDialog component found: ${!!waitingDialog}`);
+        
         if (waitingDialog) {
-            console.log(`[GameCoordinator] Found WaitingDialog component. Attempting to show with message: "${message}"`);
             try {
-                if (waitingDialog.isOpen) {
-                    console.warn("[GameCoordinator] WaitingDialog was already open when _handleHostWaiting was called. Updating message.");
-                }
                 waitingDialog.show(message);
-                console.log("[GameCoordinator] Called waitingDialog.show(). Current isOpen state: ", waitingDialog.isOpen);
+                console.log("[GameCoordinator] WaitingDialog shown. Current isOpen state:", waitingDialog.isOpen);
             } catch (error) {
-                console.error("[GameCoordinator] Error calling waitingDialog.show():", error);
+                console.error("[GameCoordinator] Error showing WaitingDialog:", error);
             }
         } else {
             console.error("[GameCoordinator] WaitingDialog component not found.");

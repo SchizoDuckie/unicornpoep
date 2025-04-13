@@ -820,15 +820,21 @@ class WebRTCManager {
         }
          if (connection.open) {
             const message = { type, payload };
-            // *** ADDED DEBUG LOGGING FOR PING ***
+            // Debug specific message types
             if (type === MSG_TYPE.PING) {
                  console.log(`[WebRTC Send PING] Attempting to send PING to ${connection.peer}`);
+            } else if (type === MSG_TYPE.CLIENT_READY) {
+                 console.log(`[WebRTC Send CLIENT_READY] Sending CLIENT_READY to ${connection.peer} with payload:`, payload);
             }
-            // *** END ADDED DEBUG LOGGING ***
-            // console.debug(`[WebRTCManager] Sending to ${connection.peer}:`, message);
+            
             try {
                  // PeerJS handles serialization, but stringify explicitly for safety/consistency
                  connection.send(message); // Send the object directly
+                 
+                 // Log confirmation for important messages
+                 if (type === MSG_TYPE.CLIENT_READY) {
+                     console.log(`[WebRTC Send CLIENT_READY] Successfully sent CLIENT_READY message to ${connection.peer}`);
+                 }
             } catch (error) {
                  console.error(`[WebRTCManager] Error sending message to ${connection.peer}:`, error, message);
                   // --- Resilience Check for Broken Connection State --- 
@@ -930,6 +936,14 @@ class WebRTCManager {
      getConnectedPeerIds() {
          return Array.from(this.connections.keys());
      }
+
+    /**
+     * DEBUG: Logs detailed information about the current player list
+     * and connection state. Useful for troubleshooting issues.
+     */
+    getConnectedPlayers() {
+        return new Map(this.players);
+    }
 
     // --- Heartbeat and Timeout Methods ---
 

@@ -245,35 +245,39 @@ class HostLobbyComponent extends BaseComponent {
      _handlePlayerListUpdate({ players }) {
         if (!this.hostViewContainer || !this.waitingTextContainer || !players) return;
         console.log(`[${this.name}] Received PlayerListUpdated. Updating display with ${players.size} players.`);
+        console.log(`[${this.name}] Player data:`, Object.fromEntries(players));
 
         let clientCount = 0;
 
         // Iterate over the map to count clients and build the list
         if (this.playerListUL) {
-            this.playerListUL.replaceChildren(); // Clear previous list
-        }
-        
-        players.forEach((playerData, peerId) => {
-            if (peerId !== this.hostPeerId) { // Use stored actual host PeerJS ID for comparison
-                clientCount++;
-                // Build list item using latest data
-                if (this.playerListUL) {
+            // Clear the existing list before rebuilding
+            this.playerListUL.replaceChildren();
+            
+            // Build the player list
+            players.forEach((playerData, peerId) => {
+                if (peerId !== this.hostPeerId) { // Use stored actual host PeerJS ID for comparison
+                    clientCount++;
+                    // Build list item using latest data
                     const li = document.createElement('li');
                     const playerName = playerData.name || getTextTemplate('playerListUnnamed') || `Speler_${peerId.slice(-4)}`;
                     
                     // Check if player is ready and add ready tag if they are
+                    console.log(`[${this.name}] Player ${playerName} ready status:`, playerData.isReady);
                     if (playerData.isReady) {
                         const readyTag = getTextTemplate('lobbyReadyTag') || '[IS ER KLAAR VOOR]';
                         li.textContent = `${playerName} ${readyTag}`;
                         li.classList.add('player-ready'); // Add a class for styling if needed
+                        console.log(`[${this.name}] Added ready tag to ${playerName}: ${readyTag}`);
                     } else {
                         li.textContent = playerName;
+                        console.log(`[${this.name}] Player ${playerName} is not ready.`);
                     }
                     
                     this.playerListUL.appendChild(li);
                 }
-            }
-        });
+            });
+        }
 
         console.log(`[${this.name}] Display updated. Client count: ${clientCount}`);
 
@@ -340,11 +344,32 @@ class HostLobbyComponent extends BaseComponent {
      */
     updateStartButtonState(clientCount) {
         if (!this.startGameButton) return;
-        // Enable start button only if there is at least one client connected
-        const canStart = clientCount > 0;
+        
+        // First check if any clients are connected
+        const hasClients = clientCount > 0;
+        
+        // Make button visible if there are clients
+        this.startGameButton.classList.toggle('hidden', !hasClients);
+        
+        // Enable start button if any clients are connected
+        // We now show ready status visually in the player list, but allow host to start regardless
+        const canStart = hasClients;
+        
+        console.log(`[${this.name}] Start button state calculation: hasClients=${hasClients}, canStart=${canStart}`);
+        
+        // Set disabled attribute
         this.startGameButton.disabled = !canStart;
-        this.startGameButton.classList.toggle('hidden', !canStart);
-        console.log(`[${this.name}] Start button ${canStart ? 'enabled' : 'disabled'} and ${canStart ? 'visible' : 'hidden'}.`);
+        
+        // Add visual class to indicate disabled state
+        this.startGameButton.classList.toggle('disabled-button', !canStart);
+        
+        if (!hasClients) {
+            this.startGameButton.title = getTextTemplate('hostLobbyNoPlayers') || 'Need at least one player to start';
+        } else {
+            this.startGameButton.title = '';
+        }
+        
+        console.log(`[${this.name}] Start button ${canStart ? 'enabled' : 'disabled'} and ${hasClients ? 'visible' : 'hidden'}.`);
     }
 
     /** 
@@ -417,11 +442,34 @@ class HostLobbyComponent extends BaseComponent {
      * @private
      */
     _handleStartGameClick() {
-        // Check if button should be enabled (double safety check)
-        if (!this.startGameButton || this.startGameButton.disabled) {
-            console.warn(`[${this.name}] Start Game button clicked, but it was disabled.`);
+        // Check if any clients are connected
+        let totalClientCount = 0;
+        
+        // Get the latest player list
+        const players = webRTCManager.getConnectedPlayers();
+        
+        if (players && players.size > 0) {
+            players.forEach((playerData, peerId) => {
+                // Only count non-host players
+                if (peerId !== this.hostPeerId) {
+                    totalClientCount++;
+                }
+            });
+        }
+        
+        // Only allow start if we have at least one client
+        const canStart = totalClientCount > 0;
+        
+        if (!canStart) {
+            console.warn(`[${this.name}] Start Game button clicked, but no clients are connected.`);
+            eventBus.emit(Events.System.ShowFeedback, { 
+                message: getTextTemplate('mpHostErrorNoPlayers') || "Cannot start without any players", 
+                level: 'error'
+            });
             return;
         }
+        
+        // If we get this far, we can start the game
         console.log(`[${this.name}] Start Game button clicked. Emitting ${Events.UI.HostLobby.StartGameClicked}`);
         this.startGameButton.disabled = true; // Prevent double-clicks immediately
         eventBus.emit(Events.UI.HostLobby.StartGameClicked); // Ensure correct event name

@@ -49,6 +49,7 @@ class CountdownComponent extends BaseComponent {
      * @private
      */
     handleCountdownStart(payload = {}) {
+        console.log(`[${this.name}] handleCountdownStart called with payload:`, payload);
         const duration = payload.duration && typeof payload.duration === 'number' ? payload.duration : 3;
         // Define end message and completion event if needed, or pass from payload
         const endMessage = payload.endMessage || getTextTemplate('countdownGo');

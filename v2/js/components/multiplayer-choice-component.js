@@ -28,11 +28,11 @@ class MultiplayerChoiceComponent extends BaseComponent {
         this.joinButton = this.rootElement.querySelector('#joinGame');
         this.backButton = this.rootElement.querySelector('.backToMain');
         this.difficultyRadios = this.rootElement.querySelectorAll('input[name="mpDifficulty"]');
-        this.difficultySelect = this.rootElement.querySelector('#difficultySelect');
+        this.difficultyContainer = this.rootElement.querySelector('.difficulty-selection-mp');
         this.nameError = this.rootElement.querySelector('#choiceError');
         this.refreshNameButton = this.rootElement.querySelector('#refreshPlayerNameButton');
 
-        if (!this.playerNameInput || !this.hostButton || !this.joinButton || !this.backButton || !this.difficultySelect || !this.nameError || !this.refreshNameButton) {
+        if (!this.playerNameInput || !this.hostButton || !this.joinButton || !this.backButton || !this.nameError || !this.refreshNameButton) {
              console.error(`[${this.name}] Missing one or more required elements.`);
         }
         
@@ -115,14 +115,14 @@ class MultiplayerChoiceComponent extends BaseComponent {
         console.log(`[${this.name}] Host button clicked. Player: ${playerName}`);
 
         let selectedDifficulty = 'medium'; // Default
-        if (this.difficultyRadios) {
+        
+        // Check for selected difficulty radio button
+        if (this.difficultyRadios && this.difficultyRadios.length > 0) {
             this.difficultyRadios.forEach(radio => {
                 if (radio.checked) {
                     selectedDifficulty = radio.value;
                 }
             });
-        } else {
-             console.warn(`[${this.name}] Difficulty radios not found.`);
         }
 
         // Settings are now determined later in sheet selection, pass only difficulty for now
