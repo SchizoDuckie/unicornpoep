@@ -639,6 +639,34 @@ class MultiplayerGame extends BaseGameMode {
         // Ensure base class cleanup runs (handles eventBus listeners etc.)
         super.destroy();
     }
+
+    /** [Client Only] Stop timer before checking the answer. @override @protected */
+    _beforeAnswerCheck() {
+        // Only clients have an active gameplay timer that needs stopping here.
+        if (!this.isHost && this.timer) {
+            this.timer.stop();
+            // console.log("[MultiplayerGame Client] Stopped timer before answer check."); // Optional: Add log if needed
+        }
+        // Assuming BaseGameMode._beforeAnswerCheck does nothing critical or doesn't exist.
+        // If it might, add: super._beforeAnswerCheck?.();
+    }
+
+    /** [Client Only] Stop timer before moving to the next question. @override @protected */
+    _beforeNextQuestion() {
+        if (!this.isHost && this.timer) {
+            this.timer.stop();
+            // console.log("[MultiplayerGame Client] Stopped timer before next question."); // Optional
+        }
+    }
+
+    /** [Client Only] Reset and start timer after a new question is presented. @override @protected */
+    _afterQuestionPresented() {
+        if (!this.isHost && this.timer) {
+            this.timer.reset();
+            this.timer.start();
+            // console.log("[MultiplayerGame Client] Reset and started timer after question presented."); // Optional
+        }
+    }
 } // End of MultiplayerGame class
 
 export default MultiplayerGame;
