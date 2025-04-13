@@ -179,7 +179,7 @@ class BaseGameMode {
 
         // Delay moving to the next question to allow feedback display
         setTimeout(() => {
-            if (!this.isFinished && this.lastAnswerCorrect !== null) { // Check ensures we don't proceed if finished during delay
+            if (this.quizEngine && !this.isFinished && this.lastAnswerCorrect !== null) { 
                  this.nextQuestion();
             }
         }, 1500); // Standard delay
@@ -239,7 +239,6 @@ class BaseGameMode {
      */
     destroy() {
         console.log(`[BaseGameMode:${this.mode}] Destroying instance.`);
-        this.finishGame(); // Ensure game is marked finished and listeners cleaned
         this.quizEngine = null; // Release reference
         // Any other subclass-specific cleanup should happen before/after super.destroy()
     }

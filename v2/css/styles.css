@@ -105,12 +105,7 @@ html {
     top: 15px;
     left: 15px;
 }
-#highscores .backToMain {
-    margin-top: 20px;
-    position: relative; /* Reset fixed positioning */
-    top: auto;
-    left: auto;
-}
+
 #connectionStatus .backToMain { /* Kept from lobby styles */
     position: fixed;
     top: 11%;

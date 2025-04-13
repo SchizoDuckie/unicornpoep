@@ -47,7 +47,7 @@ class UnicornPoepApp {
         window.appServices = {
             eventBus,
             uiManager,
-            gameCoordinator: gameCoordinatorInstance, // Add the instance
+            gameCoordinator: gameCoordinatorInstance, // Add the instance back directly
             questionsManager,
             highscoreManager,
             webRTCManager,
@@ -59,23 +59,21 @@ class UnicornPoepApp {
         this.setupGlobalErrorHandling();
 
         // UIManager initializes its components on DOMContentLoaded.
-        // Wait for UIManager to signal readiness or just proceed after DOMContentLoaded.
         document.addEventListener('DOMContentLoaded', () => {
             console.log("[UnicornPoepApp] DOM Content Loaded. Resetting WebRTC and setting up...");
 
-            // Force reset WebRTC state on initial load before anything else happens
+            // Force reset WebRTC state on initial load
             webRTCManager.closeConnection();
 
-            // Setup coordinators/listeners for UI actions
-            this.setupCoordinators();
+            // Setup coordinators/listeners for UI actions (Uncomment if needed)
+            // this.setupCoordinators(); 
 
-            // Check if UIManager handled initial navigation (e.g., via ?join=)
-            // UIManager.checkInitialHash emits ValidJoinCodeDetected if needed.
+            // Check if UIManager handled initial navigation
             const initialNavigationHandled = uiManager.checkInitialHash(); 
 
-            // Trigger the initial view - Main Menu, ONLY if UIManager didn't handle initial nav.
+            // Trigger the initial view if needed
             if (!initialNavigationHandled) {
-                // Only show MainMenu if UIManager didn't handle anything
+                // REMOVE check for Views here, assume it's loaded
                 console.log("[UnicornPoepApp] Initial navigation not handled by UIManager, requesting MainMenu view.");
                 eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
                 console.info("[UnicornPoepApp] Application initialization flow complete. Initial view requested: MainMenu.");

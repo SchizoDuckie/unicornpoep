@@ -62,7 +62,7 @@ class HighscoreManager {
             if (Array.isArray(parsed) && parsed.every(s => typeof s === 'object' && s !== null && 'player' in s && 'score' in s)) {
                 // Map to ensure consistent structure, deriving gameName for single player V1 entries
                 return parsed.map(score => ({
-                    player: score.player || getTextTemplate('hsDefaultPlayerName'),
+                    player: score.player,
                     score: score.score,
                     date: score.date, // Pass date as is
                     // V1: gameName exists only in multi entries. For single, use sheetKey.
@@ -236,7 +236,7 @@ class HighscoreManager {
                                     }
 
                                     return {
-                                        player: score.player || getTextTemplate('hsDefaultPlayerName'),
+                                        player: score.player,
                                         score: score.score,
                                         date: score.date, // Pass date as is
                                         // Use stored gameName if present (V1 multi), otherwise use the derived fallback (V1 single/corner cases)

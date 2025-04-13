@@ -74,12 +74,10 @@ class MultiplayerEndDialog extends BaseDialog {
             }
 
         let winnerText = getTextTemplate('mpEndDraw') || 'It\'s a draw!';
-        if (results.winnerId) {
-            const winner = results.players.find(p => p.id === results.winnerId);
-            if (winner) {
-                 const name = winner.name || getTextTemplate('mpEndDefaultPlayerName') || `Player ${winner.id.slice(-4)}`;
-                 winnerText = getTextTemplate('mpEndWinnerPrefix', { name: name }) || `${name} wint!`; 
-            }
+        if (results.winner) {
+            const winner = results.winner;
+            const name = winner.name || getTextTemplate('mpEndDefaultPlayerName') || `Player ${winner.peerId.slice(-4)}`;
+            winnerText = getTextTemplate('mpEndWinnerPrefix', { '%NAME%': name }) || `${name} wint!`; 
         }
         if (this.titleDisplay) this.titleDisplay.textContent = winnerText;
 

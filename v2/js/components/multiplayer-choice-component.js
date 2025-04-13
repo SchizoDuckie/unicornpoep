@@ -5,8 +5,6 @@ import Views from '../core/view-constants.js';
 import { getTextTemplate } from '../utils/miscUtils.js';
 import miscUtils from '../utils/miscUtils.js'; // Ensure default import
 
-const PLAYER_NAME_STORAGE_KEY = 'unicornPoepPlayerName';
-
 /**
  * @class MultiplayerChoiceComponent
  * @extends BaseComponent
@@ -29,11 +27,12 @@ class MultiplayerChoiceComponent extends BaseComponent {
         this.hostButton = this.rootElement.querySelector('#hostGame');
         this.joinButton = this.rootElement.querySelector('#joinGame');
         this.backButton = this.rootElement.querySelector('.backToMain');
-        this.errorDisplay = this.rootElement.querySelector('#choiceError');
         this.difficultyRadios = this.rootElement.querySelectorAll('input[name="mpDifficulty"]');
+        this.difficultySelect = this.rootElement.querySelector('#difficultySelect');
+        this.nameError = this.rootElement.querySelector('#choiceError');
 
-        if (!this.playerNameInput || !this.hostButton || !this.joinButton || !this.backButton || !this.errorDisplay) {
-             console.warn(`[${this.name}] Missing one or more required elements.`);
+        if (!this.playerNameInput || !this.hostButton || !this.joinButton || !this.backButton || !this.difficultySelect || !this.nameError) {
+             console.error(`[${this.name}] Missing one or more required elements.`);
         }
         
         // --- Bind Handlers Here --- 
@@ -42,6 +41,10 @@ class MultiplayerChoiceComponent extends BaseComponent {
         this._handleJoinClick = this._handleJoinClick.bind(this);
         this._handleBackClick = this._handleBackClick.bind(this);
         this._clearError = this._clearError.bind(this); 
+
+        // --- PRE-POPULATE Name Input --- 
+        this._loadAndSetName();
+        // --- END PRE-POPULATE ---
 
         console.log(`[${this.name}] Initialized.`);
     }
@@ -64,30 +67,22 @@ class MultiplayerChoiceComponent extends BaseComponent {
     handleShowView({ viewName }) {
         if (viewName === this.name) {
             console.log(`[${this.name}] Showing view.`);
-            const storedName = localStorage.getItem(PLAYER_NAME_STORAGE_KEY);
-            if (storedName) {
-                this.playerNameInput.value = storedName;
-            } else {
-                // Generate random name if needed (check V1)
-                this.playerNameInput.value = miscUtils.generateRandomPlayerName ? miscUtils.generateRandomPlayerName() : '';
-            }
-            this._clearError();
             this.show();
             this.playerNameInput.focus();
         }
     }
     
     _clearError() {
-        if (this.errorDisplay) {
-            this.errorDisplay.textContent = '';
-            this.errorDisplay.classList.add('hidden');
+        if (this.nameError) {
+            this.nameError.textContent = '';
+            this.nameError.classList.add('hidden');
         }
     }
 
     _showError(message) {
-        if (this.errorDisplay) {
-            this.errorDisplay.textContent = message;
-            this.errorDisplay.classList.remove('hidden');
+        if (this.nameError) {
+            this.nameError.textContent = message;
+            this.nameError.classList.remove('hidden');
         }
     }
     
@@ -112,7 +107,7 @@ class MultiplayerChoiceComponent extends BaseComponent {
         const playerName = this._validateAndGetName();
         if (!playerName) return;
 
-        localStorage.setItem(PLAYER_NAME_STORAGE_KEY, playerName); // Save validated name
+        localStorage.setItem('unicornPoepUserName', playerName); // Save validated name
 
         console.log(`[${this.name}] Host button clicked. Player: ${playerName}`);
 
@@ -141,7 +136,7 @@ class MultiplayerChoiceComponent extends BaseComponent {
         const playerName = this._validateAndGetName();
         if (!playerName) return;
 
-        localStorage.setItem(PLAYER_NAME_STORAGE_KEY, playerName); // Save validated name
+        localStorage.setItem('unicornPoepUserName', playerName); // Save validated name
 
         console.log(`[${this.name}] Join button clicked. Player: ${playerName}`);
         eventBus.emit(Events.UI.MultiplayerChoice.JoinClicked, { 
@@ -155,6 +150,24 @@ class MultiplayerChoiceComponent extends BaseComponent {
     }
     
     // BaseComponent handles show/hide/destroy
+
+    /** Loads name from localStorage and sets the input field value. */
+    _loadAndSetName() {
+        try {
+            // Use the key you specified: unicornPoepUserName
+            const storedName = localStorage.getItem('unicornPoepUserName'); 
+            if (storedName && this.playerNameInput) {
+                this.playerNameInput.value = storedName;
+                console.log(`[${this.name}] Pre-populated name input with: ${storedName}`);
+            } else if (!storedName) {
+                console.log(`[${this.name}] No name found in localStorage.unicornPoepUserName.`);
+                // Optional: Generate a random name if none is stored?
+                this.playerNameInput.value = miscUtils.generateRandomPlayerName();
+            }
+        } catch (error) {
+            console.error(`[${this.name}] Error loading name from localStorage:`, error);
+        }
+    }
 }
 
 export default MultiplayerChoiceComponent; 

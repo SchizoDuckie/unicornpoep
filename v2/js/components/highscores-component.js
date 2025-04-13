@@ -20,20 +20,26 @@ export default class HighscoresComponent extends BaseComponent {
      */
     constructor() {
         super();
+        // NO element selection here
+        console.log("[HighscoresComponent] Constructor completed.");
+    }
 
+    /**
+     * Initializes the component by selecting DOM elements.
+     * Called by BaseComponent.
+     */
+    initialize() {
+        console.log(`[${this.name}] initialize() called.`);
+        // Select elements here, AFTER this.rootElement is available
         this.listContainer = this.rootElement.querySelector('#scoreList');
         this.backButton = this.rootElement.querySelector('.backToMain');
         this.rowTemplate = this.rootElement.querySelector('#highscore-row-template');
 
+        // Error check remains important
         if (!this.listContainer || !this.backButton || !this.rowTemplate) {
-            throw new Error(`[${this.name}] Missing required child elements (#scoreList, .backToMain, #highscore-row-template). Component cannot function.`);
+            throw new Error(`[${this.name}] Missing required child elements (#scoreList, .backToMain, #highscore-row-template) after initialize(). Component cannot function.`);
         }
-
-        console.log("[HighscoresComponent] Initialized (via BaseComponent).");
-    }
-
-    initialize() {
-        console.log(`[${this.name}] initialize() called.`);
+        console.log(`[${this.name}] Elements selected in initialize.`);
     }
 
     _bindMethods() {
@@ -52,8 +58,8 @@ export default class HighscoresComponent extends BaseComponent {
         
         if(this.backButton) this.backButton.addEventListener('click', this._handleBackClick);
 
-        this.listen(Events.UI.Highscores.Loaded, this.handleScoresLoaded);
-        this.listen(Events.UI.Highscores.Error, this.handleScoresError);
+        this.listen(Events.Menu.Highscores.Loaded, this.handleScoresLoaded);
+        this.listen(Events.Menu.Highscores.LoadFailed, this.handleScoresError);
         this.listen(Events.Navigation.ShowView, this._handleNavigation);
         
         console.log(`[${this.name}] Listeners registered.`);
@@ -81,6 +87,7 @@ export default class HighscoresComponent extends BaseComponent {
      * Handles the Highscores.Error event.
      * @param {object} payload
      * @param {string} payload.message
+     * NOTE: Now listens for Events.Menu.Highscores.LoadFailed
      * @private
      */
     handleScoresError({ message }) {
@@ -123,14 +130,37 @@ export default class HighscoresComponent extends BaseComponent {
             else rankCell.textContent = rank;
             
             let displayGameName = score.gameName || '?';
-            const levelDisplay = displayGameName.split(',')
+            const gameNameCell = rowElement.querySelector('.game-name');
+            const difficultyCell = rowElement.querySelector('.difficulty');
+            // --- Restore FULL Original Formatting Logic --- 
+            const formattedGameName = displayGameName.split(',') // Handle multiple sheets
                 .map(part => {
-                    const subParts = part.trim().split('_');
-                    return subParts.length > 1 ? subParts[1].trim() : part.trim(); 
+                    // --- Corrected Formatting --- 
+                    let baseNamePart = part.trim();
+                    // Check for ':' first (likely multiplayer)
+                    if (baseNamePart.includes(':')) {
+                        const subParts = baseNamePart.split(':');
+                        if (subParts.length > 1) {
+                            // Join all parts after the first one
+                            baseNamePart = subParts.slice(1).join(':').trim(); 
+                        }
+                    // If no ':', check for '_' (likely V1 single player)
+                    } else if (baseNamePart.includes('_')) {
+                        const subParts = baseNamePart.split('_');
+                        if (subParts.length > 1) {
+                            // Join all parts after the first one
+                            baseNamePart = subParts.slice(1).join('_').trim(); 
+                        }
+                    }
+                    // Replace any remaining underscores in the name itself
+                    const finalNamePart = baseNamePart.replace(/_/g, ' ');
+                    return finalNamePart;
                 })
-                .sort()
-                .join(', ');
-            rowElement.querySelector('.level').textContent = levelDisplay; 
+                .join(', '); // Join back if multiple sheets
+            if(gameNameCell) gameNameCell.textContent = formattedGameName;
+             // REMOVED difficulty cell population - column will be removed
+            // if(difficultyCell) difficultyCell.textContent = score.difficulty || '-';
+            // --- End Restore Formatting ---
             
             rowElement.querySelector('.name').textContent = score.player;
             rowElement.querySelector('.score').textContent = score.score;
@@ -140,7 +170,7 @@ export default class HighscoresComponent extends BaseComponent {
                     const dateObj = new Date(score.date);
                     const formattedDate = `${dateObj.getDate()}-${dateObj.getMonth() + 1}-${dateObj.getFullYear()}`;
                     const formattedTime = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
-                    dateCell.innerHTML = `${formattedDate}<br>${formattedTime}`;
+                    dateCell.innerHTML = `${formattedDate} ${formattedTime}`;
                 } catch (e) {
                     console.warn(`Error formatting date: ${score.date}`, e);
                     dateCell.textContent = '-';
@@ -163,7 +193,7 @@ export default class HighscoresComponent extends BaseComponent {
         this.listContainer.innerHTML = ''; // Clear previous entries
         const row = this.listContainer.insertRow();
         const cell = row.insertCell();
-        cell.colSpan = 5; // Match column count
+        cell.colSpan = 5; // Reverted column count
         cell.textContent = `${getTextTemplate('hsRenderErrorPrefix')}${message}`;
         cell.style.textAlign = "center";
         cell.style.color = "red";

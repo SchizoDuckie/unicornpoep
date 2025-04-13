@@ -17,6 +17,15 @@ const Views = Object.freeze({
     Countdown:          'CountdownComponent',
     PlayerList:         'PlayerListComponent',
     MultiplayerLobby:   'MultiplayerLobbyDialog',
+    // Dialogs (used sometimes like views via ShowView)
+    SinglePlayerEndDialog: 'SinglePlayerEndDialog',
+    MultiplayerEndDialog:  'MultiplayerEndDialog',
+    PracticeEndDialog:     'PracticeEndDialog',
+    NamePromptDialog:      'NamePromptDialog',
+    DisconnectionDialog:   'DisconnectionDialog',
+    ErrorDialog:           'ErrorDialog',
+    ConfirmationDialog:    'ConfirmationDialog',
+    WaitingDialog:         'WaitingDialog',
 });
 
 export default Views;

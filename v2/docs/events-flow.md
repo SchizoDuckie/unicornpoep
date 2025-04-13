@@ -716,6 +716,8 @@ digraph MPGameSync_Direct {
 
 Illustrates the flow when a game finishes (any mode) and highscores are potentially saved and displayed, showing specific events.
 
+**Note on Multiplayer Host Waiting:** In multiplayer, if the host finishes before all clients, the `MultiplayerGame` (Host Logic) emits `Events.Multiplayer.HostWaiting`. `GameCoordinator` listens for this event and uses `UIManager` to show the `WaitingDialog` component. The `Game.Finished` event (leading to the end dialog/highscore logic) is only emitted by the host *after* all clients have also finished and the `GAME_OVER` message has been broadcast.
+
 ```dot
 // VERSION: With EventBus
 digraph GameEndFlow_WithBus {

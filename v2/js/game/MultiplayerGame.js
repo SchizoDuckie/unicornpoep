@@ -271,6 +271,12 @@ class MultiplayerGame extends BaseGameMode {
             // this._cleanupListeners(); 
         } else {
             console.log("[MultiplayerGame Host] Check Completion: Waiting for host or more clients to finish.");
+            // If host is finished but not all clients are, show waiting UI
+            if (this.hostFinished && !allClientsFinished) {
+                 console.log("[MultiplayerGame Host] Host finished, but waiting for clients. Emitting HostWaiting event.");
+                 // Emit event for GameCoordinator to handle UI update
+                 eventBus.emit(Events.Multiplayer.HostWaiting, { messageKey: 'mpHostWaitOthers' });
+            }
         }
     }
     /** [Host Only] Handles a player joining mid-game (not fully supported). @private */
@@ -449,6 +455,10 @@ class MultiplayerGame extends BaseGameMode {
                 console.log(`[MultiplayerGame Client] Finished last question (${nextIndex}). Sending CLIENT_FINISHED to host with score: ${this.score}`);
                 try {
                      this.webRTCManager.sendToHost(MSG_TYPE.CLIENT_FINISHED, { score: this.score });
+                     // --- REMOVED: Incorrect event emission by client --- 
+                     // console.log(`[MultiplayerGame Client] Emitting LocalPlayerFinished event.`);
+                     // eventBus.emit(Events.Game.LocalPlayerFinished, { score: this.score });
+                     // --- END REMOVED --- 
                 } catch (error) {
                     console.error("[MultiplayerGame Client] Error sending CLIENT_FINISHED message:", error);
                     // Optionally emit a local error event or show feedback
@@ -465,9 +475,17 @@ class MultiplayerGame extends BaseGameMode {
      * @override BaseGameMode.finishGame
      */
     finishGame(isFinalDestroy = false) {
-        console.log(`[MultiplayerGame ${this.isHost ? 'Host' : 'Client'}] Finishing game...`);
+        // --- Client should NOT finish locally --- 
+        if (!this.isHost) {
+             console.log("[MultiplayerGame Client] finishGame called, but ignoring as client game end is dictated by host GAME_OVER.");
+             // Client game state/timer might be stopped elsewhere (e.g., _beforeFinish if needed, or upon receiving GAME_OVER)
+             return; 
+         }
+         // --- End Client Check ---
+
+        console.log(`[MultiplayerGame Host] Finishing game...`);
         if (this.isFinished && !isFinalDestroy) {
-            console.warn(`[MultiplayerGame ${this.isHost ? 'Host' : 'Client'}] finishGame called, but already finished.`);
+            console.warn(`[MultiplayerGame Host] finishGame called, but already finished.`);
             return;
         }
         this.isFinished = true;
@@ -513,8 +531,8 @@ class MultiplayerGame extends BaseGameMode {
             // +++ Get the authoritative player list from WebRTCManager +++
             const playersMap = this.webRTCManager.getPlayerList(); 
             
-            // Add host score
-            finalScores.set(this.hostPeerId, { name: this.localPlayerName, score: this.score });
+            // +++ FIX: Add host score using localPlayerName +++
+            finalScores.set(this.hostPeerId, { name: this.localPlayerName || 'Host', score: this.score });
             
             // Add client scores (use names from WebRTCManager's player list)
             this.clientScores.forEach((clientScore, peerId) => {
@@ -555,7 +573,8 @@ class MultiplayerGame extends BaseGameMode {
                 mode: 'multiplayer-host',
                 difficulty: this.settings?.difficulty || 'unknown',
                 gameName: gameName,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                winnerId: winner ? winner.peerId : null
             };
         } else {
             // Client doesn't calculate, receives results from host

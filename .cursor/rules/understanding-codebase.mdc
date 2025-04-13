@@ -1,0 +1,14 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Before proceeding with any user request
+
+read [events-flow.md](mdc:v2/docs/events-flow.md) and [refactor-plan.md](mdc:v2/docs/refactor-plan.md) to understand the codebase first.
+NEVER use language like 'assume' and 'likely'. ALWAYS verify any assumptions made about the code by reading the files. If they are not availble DO NOT PROCEED ask the user for the files. 
+
+You will find the root cause for any problem the user gives you, trace the logic, read any dependencies that you need to understand the code path.  DO NOT resort to console.log debugging. If you need to really verify a code path, insert a `debugger;` statement for the user and ask if that hits, but verifing the code flow should always be the first choice. 
+
+Your suggested fixes will not be accepted if they do not address the root cause. 
