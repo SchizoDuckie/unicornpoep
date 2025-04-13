@@ -109,105 +109,121 @@ class PlayerListComponent extends BaseComponent {
 
     /**
      * Handles the Multiplayer.Common.PlayerListUpdated event.
-     * Rebuilds the player list display using the template.
+     * Rebuilds the player list display **sorted by score** using the template.
      * @param {object} payload - The event payload.
      * @param {Map<string, {name: string, isHost: boolean, score?: number}>} payload.players - Map of player data.
      * @private
      */
     _handlePlayerListUpdate({ players }) {
-        // Check if the component has been destroyed or rootElement is missing
         if (!this.rootElement || !this.template || !players) {
             console.warn(`[${this.name}] Cannot update player list: Component not ready or missing data.`);
             return;
         }
-        console.debug(`[${this.name}] Received player list update:`, players);
-
-        this._resetDisplay(false); // Clear DOM but keep component visible if already shown
+        // console.debug(`[${this.name}] Received player list update:`, players); // Can be noisy
 
         const myPeerId = webRTCManager.getMyPeerId();
 
-        players.forEach((playerInfo, peerId) => {
+        // --- Sorting Logic ---
+        // 1. Convert Map entries to an array: [[peerId, playerInfo], ...]
+        const playerEntries = Array.from(players.entries());
+
+        // 2. Sort the array by score (descending). Ensure score exists, default to 0.
+        playerEntries.sort(([, playerA], [, playerB]) => {
+             const scoreA = playerA.score ?? 0;
+             const scoreB = playerB.score ?? 0;
+             return scoreB - scoreA; // Sort descending
+        });
+        // --- End Sorting Logic ---
+
+        // --- Rebuild DOM ---
+        // Clear previous content and internal map *before* adding sorted items
+        this.rootElement.innerHTML = '';
+        this.playerData.clear();
+
+        // 3. Iterate sorted entries and add to DOM/internal map
+        playerEntries.forEach(([peerId, playerInfo]) => {
             this._addPlayerToList(peerId, playerInfo, myPeerId);
         });
+        // --- End Rebuild DOM ---
 
-        // Only show if we actually added players or if the component wasn't hidden by resetDisplay
-        if (players.size > 0 || this.isVisible) {
-             this.show(); // Ensure list container is visible (uses BaseComponent show)
+
+        // Ensure component is visible if it contains players
+        if (players.size > 0) {
+            this.show();
+            // console.debug(`[${this.name}] Showing component after sorted player list update.`);
+        } else {
+            // Optionally hide if list becomes empty? Or leave visible?
+            // this.hide();
         }
     }
 
     /**
-     * Adds or updates a single player in the list based on template.
+     * Adds a single player to the list display and internal map.
+     * Assumes the parent `_handlePlayerListUpdate` handles clearing and sorting.
      * @param {string} peerId - The player's peer ID.
      * @param {object} playerInfo - Player details ({ name, isHost, score }).
      * @param {string} myPeerId - The local player's peer ID.
      * @private
      */
     _addPlayerToList(peerId, playerInfo, myPeerId) {
-        if (!this.template || !this.rootElement) return; // Guard against missing template or root
+        if (!this.template || !this.rootElement) return; // Guard
 
         const score = playerInfo.score !== undefined ? playerInfo.score : 0;
-        // Use template for default name
         const name = playerInfo.name || getTextTemplate('playerListUnnamed');
 
-        // Clone the template CONTENT
         const templateContent = this.template.content.cloneNode(true);
-        const listItem = templateContent.querySelector('.opponent-entry'); // Get the main list item element
+        const listItem = templateContent.querySelector('.opponent-entry');
 
         if (!listItem) {
-            console.error(`[${this.name}] Template structure incorrect: .opponent-entry not found within #player-list-item-template.`);
+            console.error(`[${this.name}] Template structure incorrect: .opponent-entry not found.`);
             return;
         }
 
-        // Find elements within the template clone using correct class names
         const nameSpan = listItem.querySelector('.opponent-name');
         const scoreSpan = listItem.querySelector('.opponent-score');
         const tagsContainer = listItem.querySelector('.opponent-status');
 
-        // Populate the clone
         listItem.dataset.peerId = peerId;
         if (nameSpan) nameSpan.textContent = name;
-        if (scoreSpan) scoreSpan.textContent = String(score); // Ensure score is a string
+        if (scoreSpan) scoreSpan.textContent = String(score);
 
-        // Add tags (Host, You)
         if (tagsContainer) {
-            tagsContainer.innerHTML = ''; // Clear existing tags if any
-
+            tagsContainer.innerHTML = '';
             if (playerInfo.isHost) {
                 const hostTag = document.createElement('span');
                 hostTag.classList.add('player-tag', 'host-tag');
-                // Use template for tag text
                 hostTag.textContent = getTextTemplate('playerListHostTag');
                 tagsContainer.appendChild(hostTag);
             }
             if (peerId === myPeerId) {
                 const youTag = document.createElement('span');
                 youTag.classList.add('player-tag', 'you-tag');
-                // Use template for tag text
                 youTag.textContent = getTextTemplate('playerListYouTag');
                 tagsContainer.appendChild(youTag);
-                listItem.classList.add('local-player'); // Add class to the list item itself
+                listItem.classList.add('local-player');
             }
         } else {
-            console.warn(`[${this.name}] Template missing '.opponent-status' container for tags.`);
+            console.warn(`[${this.name}] Template missing '.opponent-status' container.`);
         }
 
-
-        // Append the populated clone (the .opponent-entry div) directly to the root element
         this.rootElement.appendChild(listItem);
 
-        // Store reference for updates
+        // Store reference AFTER appending
         this.playerData.set(peerId, {
             name: name,
             score: score,
             isHost: playerInfo.isHost || false,
-            element: listItem // Store the actual list item element
+            element: listItem
         });
     }
 
     /**
      * Handles the Multiplayer.Common.PlayerUpdated event.
      * Updates the specific player's display based on the received data.
+     * NOTE: In the current game flow, this event is not actively emitted for score
+     * changes during the game. Scores are primarily updated via PlayerListUpdate
+     * or reflected in the final GAME_OVER results. This handler exists for
+     * potential future updates (e.g., name changes, status indicators).
      * @param {object} payload - The event payload.
      * @param {string} payload.peerId - The ID of the player whose data changed.
      * @param {object} payload.updatedData - The specific fields that were updated (e.g., { score: 100 }).
@@ -231,6 +247,7 @@ class PlayerListComponent extends BaseComponent {
 
         // Update Score if present
         if (updatedData.score !== undefined) {
+            console.log(`[${this.name}] Updating score for ${peerId} to ${updatedData.score} (via PlayerUpdated event)`); // Add log
             const newScore = updatedData.score;
             playerData.score = newScore;
             // Find the score element *within the player's list item*
@@ -267,19 +284,27 @@ class PlayerListComponent extends BaseComponent {
 
         // Update other fields like 'finished' status if implemented
         // if (updatedData.isFinished !== undefined) { ... }
+
+        // Maybe add a log indicating this path was hit vs. full list update
+        console.log(`[${this.name}] Received PlayerUpdated event for ${peerId}`, updatedData);
+        // If score is updated here, list order *won't* change until next full update.
     }
 
     /**
      * Shows the list only if the game mode is multiplayer.
      * @param {object} payload
-     * @param {string} payload.mode - Game mode ('single', 'multiplayer', 'practice').
+     * @param {string} payload.mode - Game mode ('singleplayer', 'multiplayer-host', 'multiplayer-client', 'practice').
      * @private
      */
     _handleGameStart({ mode }) {
-        if (mode === 'multiplayer') {
-            this._resetDisplay(false); // Clear any previous state but keep visible if already shown
-            this.show(); // Ensure container is visible for MP games
+        // Correctly check if the mode indicates a multiplayer game
+        if (mode === 'multiplayer-host' || mode === 'multiplayer-client') {
+            console.log(`[${this.name}] Multiplayer game started (${mode}). Showing player list.`);
+            // Don't reset display here, PlayerListUpdate should handle population.
+            // Just ensure the component itself is visible.
+            this.show();
         } else {
+            console.log(`[${this.name}] Non-multiplayer game started (${mode}). Hiding player list.`);
             this._resetDisplay(); // Hide and clear for non-multiplayer modes
         }
     }

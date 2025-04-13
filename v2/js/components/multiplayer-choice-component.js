@@ -30,8 +30,9 @@ class MultiplayerChoiceComponent extends BaseComponent {
         this.difficultyRadios = this.rootElement.querySelectorAll('input[name="mpDifficulty"]');
         this.difficultySelect = this.rootElement.querySelector('#difficultySelect');
         this.nameError = this.rootElement.querySelector('#choiceError');
+        this.refreshNameButton = this.rootElement.querySelector('#refreshPlayerNameButton');
 
-        if (!this.playerNameInput || !this.hostButton || !this.joinButton || !this.backButton || !this.difficultySelect || !this.nameError) {
+        if (!this.playerNameInput || !this.hostButton || !this.joinButton || !this.backButton || !this.difficultySelect || !this.nameError || !this.refreshNameButton) {
              console.error(`[${this.name}] Missing one or more required elements.`);
         }
         
@@ -41,6 +42,7 @@ class MultiplayerChoiceComponent extends BaseComponent {
         this._handleJoinClick = this._handleJoinClick.bind(this);
         this._handleBackClick = this._handleBackClick.bind(this);
         this._clearError = this._clearError.bind(this); 
+        this._handleRefreshName = this._handleRefreshName.bind(this);
 
         // --- PRE-POPULATE Name Input --- 
         this._loadAndSetName();
@@ -58,6 +60,7 @@ class MultiplayerChoiceComponent extends BaseComponent {
         if (this.joinButton) this.joinButton.addEventListener('click', this._handleJoinClick);
         if (this.backButton) this.backButton.addEventListener('click', this._handleBackClick);
         if (this.playerNameInput) this.playerNameInput.addEventListener('input', this._clearError);
+        if (this.refreshNameButton) this.refreshNameButton.addEventListener('click', this._handleRefreshName);
         
         // eventBus Listeners
         this.listen(Events.Navigation.ShowView, this.handleShowView); 
@@ -118,9 +121,11 @@ class MultiplayerChoiceComponent extends BaseComponent {
                     selectedDifficulty = radio.value;
                 }
             });
+        } else {
+             console.warn(`[${this.name}] Difficulty radios not found.`);
         }
 
-        // Settings are now determined later in sheet selection, pass empty for now
+        // Settings are now determined later in sheet selection, pass only difficulty for now
         const settings = { 
             difficulty: selectedDifficulty 
             // sheetIds handled later
@@ -151,21 +156,37 @@ class MultiplayerChoiceComponent extends BaseComponent {
     
     // BaseComponent handles show/hide/destroy
 
-    /** Loads name from localStorage and sets the input field value. */
+    /** Handles the click on the refresh name button. @private */
+    _handleRefreshName() {
+        console.log(`[${this.name}] Refresh name button clicked.`);
+        const newName = miscUtils.generateRandomPlayerName();
+        if (this.playerNameInput) {
+            this.playerNameInput.value = newName;
+            this._clearError();
+            console.log(`[${this.name}] Set random name: ${newName}`);
+        }
+    }
+
+    /** Loads name from localStorage or generates a random one. */
     _loadAndSetName() {
         try {
-            // Use the key you specified: unicornPoepUserName
             const storedName = localStorage.getItem('unicornPoepUserName'); 
-            if (storedName && this.playerNameInput) {
-                this.playerNameInput.value = storedName;
-                console.log(`[${this.name}] Pre-populated name input with: ${storedName}`);
-            } else if (!storedName) {
-                console.log(`[${this.name}] No name found in localStorage.unicornPoepUserName.`);
-                // Optional: Generate a random name if none is stored?
-                this.playerNameInput.value = miscUtils.generateRandomPlayerName();
+            let nameToSet = '';
+            if (storedName) {
+                nameToSet = storedName;
+                console.log(`[${this.name}] Pre-populated name input with stored name: ${storedName}`);
+            } else {
+                nameToSet = miscUtils.generateRandomPlayerName();
+                console.log(`[${this.name}] No stored name found. Generated random name: ${nameToSet}`);
+            }
+             if (this.playerNameInput) {
+                this.playerNameInput.value = nameToSet;
             }
         } catch (error) {
-            console.error(`[${this.name}] Error loading name from localStorage:`, error);
+            console.error(`[${this.name}] Error loading/generating name:`, error);
+            if (this.playerNameInput) {
+                this.playerNameInput.value = 'Player'; 
+            }
         }
     }
 }

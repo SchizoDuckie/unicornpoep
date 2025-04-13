@@ -176,46 +176,61 @@ class MultiplayerClientManager {
     }
 
     /**
-     * Handles incoming WebRTC data messages, parsing the type and payload.
-     * @param {object} eventData - The event payload from Events.WebRTC.MessageReceived.
-     * @param {any} eventData.msg - The raw message data received.
-     * @param {string} eventData.sender - The PeerJS ID of the sender.
+     * Handles incoming WebRTC data messages received via the EventBus.
+     * Correctly destructures the event payload { msg, sender }.
+     * @param {object} eventPayload - The payload from Events.WebRTC.MessageReceived.
+     * @param {object} eventPayload.msg - The actual message object { type, payload }.
+     * @param {string} eventPayload.sender - The peer ID of the sender (the host).
      * @private
      */
-    handleDataReceived({ msg, sender }) {
-        if (!this.hostPeerId || sender !== this.hostPeerId) {
-            console.warn(`[MultiplayerClientManager] Received data from unexpected peer: ${sender}. Expected host: ${this.hostPeerId}. Ignoring.`);
+    handleDataReceived({ msg, sender }) { // Destructure the event payload here
+        const data = msg;
+        const senderId = sender;
+
+        if (!data || typeof data.type !== 'string' || !data.type) {
+            console.warn(`[MultiplayerClientManager] Received invalid data structure from host ${senderId}:`, data);
             return;
         }
 
-        // Revert to using local variables for clarity
-        const type = msg.type;
-        const payload = msg.payload;
+        // Verify sender is the expected host
+        const expectedHostId = this.hostPeerId;
+        if (!expectedHostId) {
+             // This case handles receiving a message before the handleConnectedToHost method has set this.hostPeerId
+             console.warn(`[MultiplayerClientManager] Received message from ${senderId}, but client manager has no expected host ID set yet.`);
+             // Optionally, could try webRTCManager.hostPeerId if that's maintained, but using local state is cleaner
+             return;
+        }
+        if (senderId !== expectedHostId) {
+             console.warn(`[MultiplayerClientManager] Received message from unexpected sender ${senderId} (expected host ${expectedHostId}). Ignoring.`);
+             return;
+        }
 
-        console.log(`[MultiplayerClientManager] Received data from host (${sender}): Type=${type}`, payload);
+        // console.log(`[MultiplayerClientManager] Received data from host (${senderId}): Type=${data.type}`, data.payload); // Reduce log noise
 
-        // --- Route message based on type ---
+        const { type, payload } = data; // Destructure the inner 'data' object
+
         switch (type) {
-            case 'game_info':
-                // Emitted before game officially starts, usually for confirmation screen
-                // Payload example: { questions: { sheets: [...] }, difficulty: '...', players: { peerId: playerData, ... }, hostId: '...' }
-                // Reconstruct the players Map from the plain object received via JSON
+            case MSG_TYPE.GAME_INFO:
                 let reconstructedPlayersMap = new Map();
-                if (payload.players && typeof payload.players === 'object') {
+                if (payload && payload.players && typeof payload.players === 'object') {
                     reconstructedPlayersMap = new Map(Object.entries(payload.players));
-                    // DEBUG: Log the reconstructed map and the host ID we expect
-                    console.log('[MultiplayerClientManager DEBUG] Reconstructed players map:', reconstructedPlayersMap);
-                    console.log('[MultiplayerClientManager DEBUG] Expecting host ID:', payload.hostId);
+                    // console.log('[MultiplayerClientManager DEBUG] Reconstructed players map:', reconstructedPlayersMap);
+                    // console.log('[MultiplayerClientManager DEBUG] Expecting host ID:', payload.hostId); // Host ID is in payload here
                 }
-                
-                // Prepare the payload for the event, including the full questions data and difficulty
+
                 const gameInfoPayload = {
-                    questionsData: payload.questions, // Pass the questions structure
-                    difficulty: payload.difficulty,   // Pass the difficulty
-                    players: reconstructedPlayersMap, // Use the reconstructed Map
-                    hostId: payload.hostId            // Pass the hostId
+                    questionsData: payload.questions,
+                    difficulty: payload.difficulty,
+                    players: reconstructedPlayersMap,
+                    hostId: payload.hostId // Use hostId from the payload
                 };
-                eventBus.emit(Events.Multiplayer.Client.GameInfoReceived, gameInfoPayload);
+                // Only emit if the host ID in the payload matches the connected host
+                if (gameInfoPayload.hostId === expectedHostId) {
+                    eventBus.emit(Events.Multiplayer.Client.GameInfoReceived, gameInfoPayload);
+                } else {
+                     console.warn(`[MultiplayerClientManager] Received GAME_INFO for a different host (${gameInfoPayload.hostId}) than connected (${expectedHostId}). Ignoring.`);
+                     return; // Don't process game info for the wrong host
+                }
 
                 // Attempt to save received custom sheets locally
                 try {
@@ -225,16 +240,13 @@ class MultiplayerClientManager {
 
                          gameInfoPayload.questionsData.sheets.forEach(sheet => {
                              if (sheet.isCustom) {
-                                 // questionsManager is imported as a singleton instance
                                  questionsManager.addReceivedCustomSheet(sheet, hostName);
                              }
                          });
                     }
                 } catch (saveError) {
                     console.error("[MultiplayerClientManager] Error trying to save received custom sheets:", saveError);
-                    // Don't block game flow for this, just log it.
                 }
-
                 break;
 
             case MSG_TYPE.PREPARE_GAME:
@@ -320,7 +332,7 @@ class MultiplayerClientManager {
                  }
                  break;
 
-            case 'game_over':
+            case MSG_TYPE.GAME_OVER:
                 // Payload example: { results: { rankings: [...], scores: {...} } }
                 this.isGameActive = false;
                 // Remove redundant Game.Finished emission. Coordinator handles GAME_OVER.
@@ -338,7 +350,7 @@ class MultiplayerClientManager {
                  eventBus.emit(Events.Game.TimeUp, payload);
                  break;
 
-             case 'error':
+             case MSG_TYPE.ERROR:
                 // Host reported an error
                 // Payload example: { message: string, context?: string }
                 eventBus.emit(Events.System.ErrorOccurred, {
@@ -393,8 +405,25 @@ class MultiplayerClientManager {
                 }
                 break;
 
+            // --- NEW CASE ---
+            case MSG_TYPE.H_PLAYER_SCORES_UPDATE:
+                // Check payload directly
+                if (payload && typeof payload.players === 'object' && payload.players !== null) {
+                    try {
+                        const playersMap = new Map(Object.entries(payload.players));
+                        // console.log(`[MultiplayerClientManager] Reconstructed player scores map:`, playersMap); // Reduce noise
+                        eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: playersMap });
+                    } catch (error) {
+                         console.error('[MultiplayerClientManager] Error processing H_PLAYER_SCORES_UPDATE payload:', error, payload.players);
+                    }
+                } else {
+                     console.warn('[MultiplayerClientManager] Invalid payload received for H_PLAYER_SCORES_UPDATE:', payload);
+                }
+                break;
+            // --- END NEW CASE ---
+
             default:
-                console.warn(`[MultiplayerClientManager] Received unhandled message type from host: ${type}`);
+                console.warn(`[MultiplayerClientManager] Received unhandled message type '${type}' from host ${senderId}.`);
         }
     }
 

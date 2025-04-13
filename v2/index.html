@@ -151,7 +151,12 @@
                 <!-- RESTORED Name Input Container -->
                 <div class="name-input-container mb-4">
                     <label for="playerNameInput" class="block mb-1">Jouw naam:</label>
-                    <input type="text" id="playerNameInput" placeholder="Typ je naam..." class="w-full p-2 rounded bg-white bg-opacity-20 focus:outline-none focus:ring-2 focus:ring-pink-400">
+                    <!-- ADDED Wrapper Div for Input + Button -->
+                    <div class="input-with-button"> 
+                        <input type="text" id="playerNameInput" placeholder="Typ je naam..." class="w-full p-2 rounded bg-white bg-opacity-20 focus:outline-none focus:ring-2 focus:ring-pink-400">
+                        <!-- ADDED Refresh Button -->
+                        <button id="refreshPlayerNameButton" class="refresh-name-button" title="Genereer willekeurige naam">🔄</button>
+                    </div>
                      <p id="choiceError" class="text-red-400 text-sm mt-1 hidden"></p> <!-- Adjusted error display -->
                 </div>
                 
@@ -286,7 +291,12 @@
                     <div class="host-lobby-section join-confirm-right-panel"> 
                         <div class="name-input-container"> 
                             <label for="joinConfirmPlayerNameInput" data-name-label="Jouw Naam:" class="help-text">Jouw Naam:</label> 
-                            <input type="text" id="joinConfirmPlayerNameInput" placeholder="Naam" data-name-placeholder="Naam" required>
+                            <!-- ADDED Wrapper Div for Input + Button -->
+                            <div class="input-with-button">
+                                <input type="text" id="joinConfirmPlayerNameInput" placeholder="Naam" data-name-placeholder="Naam" required>
+                                <!-- ADDED Refresh Button -->
+                                <button id="refreshJoinConfirmNameButton" class="refresh-name-button" title="Genereer willekeurige naam">🔄</button>
+                            </div>
                         </div>
                     </div>
                     
@@ -675,7 +685,7 @@
         <data data-translation-key="mpHostWaitOthers">Wachten op andere spelers...</data>
         <data data-translation-key="mpClientWaitOthers">Je bent klaar! Wachten op de andere spelers...</data>
         <data data-translation-key="mpEndDraw">Gelijkspel!</data>
-        <data data-translation-key="mpEndWinnerPrefix">#{name} wint!</data>
+        <data data-translation-key="mpEndWinnerPrefix">%NAME% wint!</data>
         <data data-translation-key="hsSaveErrorInvalidData">Fout bij opslaan: Ongeldige gegevens.</data>
         <data data-translation-key="errorUnexpectedConsole">Onverwachte consolefout opgetreden.</data>
         <!-- END ADDED -->
@@ -690,6 +700,28 @@
 
     <!-- General UI -->
     <data data-translation-key="backButton">Back</data>
+
+    <!-- ADD Basic Styling for the button container -->
+    <style>
+        .input-with-button {
+            display: flex;
+            align-items: center;
+        }
+        .input-with-button input[type="text"] {
+            flex-grow: 1;
+            /* Optional: Adjust margin if needed */
+            /* margin-right: 5px; */ 
+        }
+        .refresh-name-button {
+            background: none;
+            border: none;
+            font-size: 1.5em; /* Adjust size as needed */
+            cursor: pointer;
+            padding: 0 5px; /* Add some padding */
+            margin-left: 5px; /* Space between input and button */
+            line-height: 1; /* Align vertically */
+        }
+    </style>
 
 </body>
 </html>

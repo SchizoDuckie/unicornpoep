@@ -1,7 +1,7 @@
 import BaseComponent from './base-component.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
-import { getTextTemplate } from '../utils/miscUtils.js';
+import miscUtils from '../utils/miscUtils.js';
 import webRTCManager from '../services/WebRTCManager.js'; // Import WebRTCManager
 
 /**
@@ -22,36 +22,40 @@ class JoinLobbyComponent extends BaseComponent {
      */
     initialize() {
         console.log(`[${this.name}] Initializing (via BaseComponent)...`);
-        // Find the main container for the join view
+        // Main container views
         this.joinViewContainer = this.rootElement.querySelector('#joinView');
         this.fetchingInfoView = this.rootElement.querySelector('#fetchingInfoView');
         this.joinConfirmView = this.rootElement.querySelector('#joinConfirmView');
         this.waitingForStartView = this.rootElement.querySelector('#waitingForStartView');
-
-        console.log(`[${this.name}] Found joinViewContainer:`, this.joinViewContainer);
+        
         if (!this.joinViewContainer || !this.fetchingInfoView || !this.joinConfirmView || !this.waitingForStartView) {
-            console.error(`[${this.name}] Could not find one or more required sub-view containers (#joinView, #fetchingInfoView, #joinConfirmView, #waitingForStartView) within ${this.selector}.`);
+            console.error(`[${this.name}] Could not find one or more required sub-view containers.`);
         }
 
-        // Find elements strictly WITHIN the #joinView container
-        this.joinCodeInput = this.joinViewContainer.querySelector('#connectionCodeInput');
-        console.log(`[${this.name}] Found joinCodeInput:`, this.joinCodeInput);
-        this.submitCodeButton = this.joinViewContainer.querySelector('#submitCode');
-        console.log(`[${this.name}] Found submitCodeButton:`, this.submitCodeButton);
-        this.playerNameDisplay = this.joinViewContainer.querySelector('#joinPlayerName');
-        console.log(`[${this.name}] Found playerNameDisplay:`, this.playerNameDisplay);
-        this.joinErrorDisplay = this.joinViewContainer.querySelector('#connectionErrorMessage');
-        console.log(`[${this.name}] Found joinErrorDisplay:`, this.joinErrorDisplay);
+        // Elements in #joinView
+        this.joinCodeInput = this.joinViewContainer?.querySelector('#connectionCodeInput');
+        this.submitCodeButton = this.joinViewContainer?.querySelector('#submitCode');
+        this.playerNameDisplay = this.joinViewContainer?.querySelector('#joinPlayerName');
+        this.joinErrorDisplay = this.joinViewContainer?.querySelector('#connectionErrorMessage');
 
-        // Find shared elements in the parent (#connectionStatus)
+        // Elements in #joinConfirmView
+        this.confirmNameInput = this.joinConfirmView?.querySelector('#joinConfirmPlayerNameInput');
+        this.confirmRefreshNameButton = this.joinConfirmView?.querySelector('#refreshJoinConfirmNameButton'); // Find the button here
+        this.confirmJoinButton = this.joinConfirmView?.querySelector('#confirmJoinButton');
+        this.cancelJoinButton = this.joinConfirmView?.querySelector('#cancelJoinButton'); // Added for completeness
+
+        // Shared elements
         this.backButton = this.rootElement.querySelector('.backToMain');
-        console.log(`[${this.name}] Found backButton:`, this.backButton);
-
-        // Check ONLY for elements expected in the initial view (#joinView or parent)
-        if (!this.joinCodeInput || !this.submitCodeButton || !this.playerNameDisplay || !this.joinErrorDisplay || !this.backButton) {
-            // This console message will now only trigger if these specific core elements are missing
-            console.error(`[${this.name}] Missing required elements within #joinView or parent. Component may malfunction.`);
+        
+        // Check core elements needed initially
+        if (!this.joinCodeInput || !this.submitCodeButton || !this.backButton) {
+            console.error(`[${this.name}] Missing critical initial elements (#connectionCodeInput, #submitCode, .backToMain).`);
         }
+        // Check elements needed for confirmation step
+         if (!this.confirmNameInput || !this.confirmRefreshNameButton || !this.confirmJoinButton || !this.cancelJoinButton) {
+             console.warn(`[${this.name}] Missing elements for confirmation view (#joinConfirmPlayerNameInput, #refreshJoinConfirmNameButton, #confirmJoinButton, #cancelJoinButton). Will cause issues later.`);
+         }
+
 
         this.playerName = '';
         console.log(`[${this.name}] Initialized.`);
@@ -71,28 +75,26 @@ class JoinLobbyComponent extends BaseComponent {
         this._handleConfirmJoin = this._handleConfirmJoin.bind(this);
         this._handleCancel = this._handleCancel.bind(this);
         this._handleBackClick = this._handleBackClick.bind(this);
-        // KEEP Debugging logs for now
-        console.log('[${this.name}] Method on prototype (_handleGameInfoReceived):', JoinLobbyComponent.prototype._handleGameInfoReceived);
-        console.log('[${this.name}] Instance has own property _handleGameInfoReceived:', this.hasOwnProperty('_handleGameInfoReceived'));
-        console.log('[${this.name}] Type of this._handleGameInfoReceived before bind:', typeof this._handleGameInfoReceived);
-        console.log('[${this.name}] Method on prototype (handleConnectionFailed):', JoinLobbyComponent.prototype.handleConnectionFailed);
-        console.log('[${this.name}] Instance has own property handleConnectionFailed:', this.hasOwnProperty('handleConnectionFailed'));
-        console.log('[${this.name}] Type of this.handleConnectionFailed before bind:', typeof this.handleConnectionFailed);
-        
+        this._handleConfirmRefreshName = this._handleConfirmRefreshName.bind(this); // Bind new handler
+
         // Add DOM Listeners
         if (this.submitCodeButton) this.submitCodeButton.addEventListener('click', this._handleSubmitCode);
         if (this.joinCodeInput) {
             this.joinCodeInput.addEventListener('input', this._clearError);
-             // Optional: Add Enter key listener
-             this.joinCodeInput.addEventListener('keypress', this._handleInputKeyPress);
+            this.joinCodeInput.addEventListener('keypress', this._handleInputKeyPress);
         }
         if (this.backButton) this.backButton.addEventListener('click', this._handleBackClick);
+        
+        // Listeners for Confirm View (added in initialize, safe if elements exist)
+        if (this.confirmJoinButton) this.confirmJoinButton.addEventListener('click', this._handleConfirmJoin);
+        if (this.cancelJoinButton) this.cancelJoinButton.addEventListener('click', this._handleCancel);
+        if (this.confirmRefreshNameButton) this.confirmRefreshNameButton.addEventListener('click', this._handleConfirmRefreshName); // Add listener for refresh button
         
         // Add eventBus Listeners using BaseComponent helper
         this.listen(Events.Navigation.ShowView, this.handleShowView);
         this.listen(Events.Multiplayer.Client.GameInfoReceived, this._handleGameInfoReceived);
         this.listen(Events.WebRTC.ConnectionFailed, this.handleConnectionFailed);
-        this.listen(Events.Multiplayer.Client.DisconnectedFromHost, this.handleConnectionFailed);
+        this.listen(Events.Multiplayer.Client.DisconnectedFromHost, this.handleConnectionFailed); // Already handled by handleConnectionFailed? Keep for clarity
         console.log(`[${this.name}] Listeners registered.`);
     }
 
@@ -109,7 +111,7 @@ class JoinLobbyComponent extends BaseComponent {
         if (viewName === this.name) {
             console.log(`[${this.name}] Showing view. Data:`, data);
             // Use template for default name
-            this.playerName = data.playerName || getTextTemplate('joinDefaultPlayerName');
+            this.playerName = data.playerName || miscUtils.getTextTemplate('joinDefaultPlayerName');
 
             if (this.playerNameDisplay) {
                 this.playerNameDisplay.textContent = this.playerName;
@@ -182,16 +184,14 @@ class JoinLobbyComponent extends BaseComponent {
         this.lastReceivedGameInfo = { questionsData, difficulty, players, hostId }; // Store for later use
 
         // Query for elements within the specific view (#joinConfirmView)
-        const confirmView = this.rootElement.querySelector('#joinConfirmView');
-        const gameInfoDisplay = confirmView ? confirmView.querySelector('#joinGameInfo') : null;
-        const confirmButton = confirmView ? confirmView.querySelector('#confirmJoinButton') : null;
-        const nameInput = confirmView ? confirmView.querySelector('#joinConfirmPlayerNameInput') : null;
+        // Note: We already queried these in initialize, use the stored references
+        const gameInfoDisplay = this.joinConfirmView?.querySelector('#joinGameInfo');
 
         if (gameInfoDisplay) {
-            const defaultUnknown = getTextTemplate('joinInfoUnknown');
-            const defaultHost = getTextTemplate('joinInfoDefaultHost');
-            const defaultDifficulty = getTextTemplate('joinInfoDefaultDifficulty');
-            const defaultSheetsInfo = getTextTemplate('joinInfoNoSheets');
+            const defaultUnknown = miscUtils.getTextTemplate('joinInfoUnknown');
+            const defaultHost = miscUtils.getTextTemplate('joinInfoDefaultHost');
+            const defaultDifficulty = miscUtils.getTextTemplate('joinInfoDefaultDifficulty');
+            const defaultSheetsInfo = miscUtils.getTextTemplate('joinInfoNoSheets');
 
             // Safely get host player name
             const hostPlayer = players.get(hostId);
@@ -203,7 +203,7 @@ class JoinLobbyComponent extends BaseComponent {
                 sheetsInfo = questionsData.sheets.map(sheet => sheet.name || defaultUnknown).join(', ');
             } else if (questionsData && questionsData.sheets) {
                  // Handle case where sheets array might be empty
-                 sheetsInfo = getTextTemplate('joinInfoNoSheetsSelected');
+                 sheetsInfo = miscUtils.getTextTemplate('joinInfoNoSheetsSelected');
             }
 
             const playerNames = Array.from(players.values()).map(p => p.name || defaultUnknown).join(', ');
@@ -214,23 +214,26 @@ class JoinLobbyComponent extends BaseComponent {
                 <p><strong>Difficulty:</strong> ${difficulty || defaultDifficulty}</p>
                 <p><strong>Players:</strong> ${playerNames}</p>
             `;
+        } else {
+             console.error(`[${this.name}] Game info display area not found in #joinConfirmView.`);
         }
 
         this._showSpecificView('joinConfirmView');
         this._clearError();
 
-        if (confirmButton) {
-            confirmButton.disabled = false;
-            // Add listener here, remove in unregisterListeners or when hiding view
-            confirmButton.addEventListener('click', this._handleConfirmJoin);
+        // Use existing references found in initialize
+        if (this.confirmJoinButton) {
+            this.confirmJoinButton.disabled = false;
+            // Listener was added in registerListeners, no need to add again
         } else {
-             console.error(`[${this.name}] Confirm button not found in #joinConfirmView.`);
+             console.error(`[${this.name}] Confirm button not found (checked this.confirmJoinButton).`);
         }
-        if (nameInput) {
-             nameInput.value = this.playerName; // Pre-fill name
-             nameInput.focus();
+        if (this.confirmNameInput) {
+             // Load name from localStorage or generate random if not set yet
+             this._loadOrGenerateNameForConfirm();
+             this.confirmNameInput.focus();
         } else {
-             console.error(`[${this.name}] Name input not found in #joinConfirmView.`);
+             console.error(`[${this.name}] Name input not found (checked this.confirmNameInput).`);
         }
     }
 
@@ -244,7 +247,7 @@ class JoinLobbyComponent extends BaseComponent {
     handleConnectionFailed({ error, context }) { // Ensure regular method
         if (context === 'client-connect') {
              console.error(`[${this.name}] Connection failed:`, error.message);
-             this._showError(`${getTextTemplate('joinErrorConnectPrefix')}${error.message}`);
+             this._showError(`${miscUtils.getTextTemplate('joinErrorConnectPrefix')}${error.message}`);
              this._showSpecificView('joinView');
         } else if (this.isVisible) {
              console.warn(`[${this.name}] Received connection failure in context: ${context}`);
@@ -271,7 +274,7 @@ class JoinLobbyComponent extends BaseComponent {
     _handleSubmitCode() {
         const code = this.joinCodeInput.value.trim();
         if (!code || !/^[0-9]{6}$/.test(code)) {
-            this._showError(getTextTemplate('joinErrorInvalidCode'));
+            this._showError(miscUtils.getTextTemplate('joinErrorInvalidCode'));
             this.joinCodeInput.focus();
             return;
         }
@@ -287,58 +290,96 @@ class JoinLobbyComponent extends BaseComponent {
 
     /** Handles confirming the join after seeing game info. DEFINED AS REGULAR METHOD @private */
     _handleConfirmJoin() {
-        // Find the name input within the *confirmation view*
-        const confirmView = this.rootElement.querySelector('#joinConfirmView');
-        const confirmNameInput = confirmView ? confirmView.querySelector('#joinConfirmPlayerNameInput') : null;
-        const confirmButton = confirmView ? confirmView.querySelector('#confirmJoinButton') : null;
-
-        if (!confirmNameInput) {
-             console.error(`[${this.name}] Could not find confirm name input #joinConfirmPlayerNameInput`);
+        // Use existing references from initialize
+        if (!this.confirmNameInput) {
+             console.error(`[${this.name}] Could not find confirm name input (this.confirmNameInput).`);
              this._showError('Internal error: Missing name input.');
-             if (confirmButton) confirmButton.disabled = false; // Re-enable button if input missing
+             if (this.confirmJoinButton) this.confirmJoinButton.disabled = false; 
              return;
         }
-
-        const confirmedName = confirmNameInput.value.trim();
+        
+        const confirmedName = this.confirmNameInput.value.trim();
         if (!confirmedName) {
-            this._showError(getTextTemplate('joinErrorEmptyName'));
-            confirmNameInput.focus();
-            if (confirmButton) confirmButton.disabled = false; // Re-enable button on error
+            // Assuming joinErrorDisplay is used for this view too, or add a specific error element
+            this._showError(miscUtils.getTextTemplate('joinErrorEmptyName')); 
+            this.confirmNameInput.focus();
+            if (this.confirmJoinButton) this.confirmJoinButton.disabled = false; 
             return;
         }
         if (confirmedName.length > 40) {
-            this._showError(getTextTemplate('joinErrorNameTooLong'));
-            confirmNameInput.focus();
-            if (confirmButton) confirmButton.disabled = false; // Re-enable button on error
+            this._showError(miscUtils.getTextTemplate('joinErrorNameTooLong'));
+            this.confirmNameInput.focus();
+            if (this.confirmJoinButton) this.confirmJoinButton.disabled = false; 
             return;
         }
 
         console.log(`[${this.name}] Confirming join with name: ${confirmedName}`);
         this._clearError();
-        if (confirmButton) confirmButton.disabled = true; // Disable button on successful submission
+        if (this.confirmJoinButton) this.confirmJoinButton.disabled = true; 
+
+        // Save the confirmed name to localStorage
+        try {
+            localStorage.setItem('unicornPoepUserName', confirmedName);
+            console.log(`[${this.name}] Saved confirmed name to localStorage: ${confirmedName}`);
+        } catch (e) {
+            console.warn(`[${this.name}] Could not save name to localStorage`, e);
+        }
 
         // Resume timeout check before hiding
         console.log(`[${this.name}] Resuming host timeout check after confirmation.`);
         webRTCManager.resumeHostTimeoutCheck();
 
         eventBus.emit(Events.UI.JoinLobby.ConfirmClicked, { playerName: confirmedName });
-        this.hide();
+        this.hide(); // Hide the dialog/component
     }
 
-    /** Handles cancel button click or back button click. DEFINED AS REGULAR METHOD @private */
+    /** Handles cancel button click in the confirmation view. DEFINED AS REGULAR METHOD @private */
     _handleCancel() {
-        console.log(`[${this.name}] Cancel/Back clicked.`);
-        // Query for confirm button to re-enable it if necessary
-        const confirmButton = this.rootElement.querySelector('#confirmJoinButton'); 
-        if (confirmButton) confirmButton.disabled = false;
+        console.log(`[${this.name}] Cancel button clicked.`);
+        // Re-enable confirm button if needed
+        if (this.confirmJoinButton) this.confirmJoinButton.disabled = false;
 
         // Resume timeout check before hiding
         console.log(`[${this.name}] Resuming host timeout check after cancellation.`);
         webRTCManager.resumeHostTimeoutCheck();
 
         eventBus.emit(Events.UI.JoinLobby.CancelClicked);
-        this.hide();
+        this.hide(); // Hide the dialog/component
     }
+    
+    /** Handles the click on the refresh name button within the join confirmation view. @private */
+    _handleConfirmRefreshName() {
+        console.log(`[${this.name}] Refresh name button clicked in confirm view.`);
+        const newName = miscUtils.generateRandomPlayerName();
+        if (this.confirmNameInput) {
+            this.confirmNameInput.value = newName;
+            this._clearError(); // Clear any validation errors specific to this view if needed
+            console.log(`[${this.name}] Set random name in confirm view: ${newName}`);
+        } else {
+            console.error(`[${this.name}] Confirm name input not found for refresh.`);
+        }
+    }
+    
+     /** Loads name from localStorage or generates random for the confirm input. @private */
+     _loadOrGenerateNameForConfirm() {
+         if (!this.confirmNameInput) return;
+ 
+         try {
+             const storedName = localStorage.getItem('unicornPoepUserName');
+             if (storedName) {
+                 this.confirmNameInput.value = storedName;
+                 console.log(`[${this.name}] Pre-filled confirm name with stored: ${storedName}`);
+             } else {
+                 // If no stored name, generate one just for this input field
+                 const randomName = miscUtils.generateRandomPlayerName();
+                 this.confirmNameInput.value = randomName;
+                 console.log(`[${this.name}] Generated random name for confirm input: ${randomName}`);
+             }
+         } catch (error) {
+             console.error(`[${this.name}] Error loading/generating name for confirm input:`, error);
+             this.confirmNameInput.value = 'Player'; // Fallback
+         }
+     }
 
     /** Clears the error message display. @private */
     _clearError() {

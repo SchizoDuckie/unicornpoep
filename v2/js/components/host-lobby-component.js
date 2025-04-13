@@ -93,6 +93,7 @@ class HostLobbyComponent extends BaseComponent {
         this._handlePlayerListUpdate = this._handlePlayerListUpdate.bind(this);
         // --- ADDED: Bind back button handler ---
         this._handleBackClick = this._handleBackClick.bind(this);
+        this._handleStartGameClick = this._handleStartGameClick.bind(this);
     }
 
     /** Set up initial state of the lobby elements */
@@ -129,7 +130,7 @@ class HostLobbyComponent extends BaseComponent {
         // DOM listeners
         if (this.copyCodeButton) this.copyCodeButton.addEventListener('click', this.handleCopyCode);
         if (this.copyLinkButton) this.copyLinkButton.addEventListener('click', this.handleCopyLink);
-        if (this.startGameButton) this.startGameButton.addEventListener('click', this.handleStartGame);
+        if (this.startGameButton) this.startGameButton.addEventListener('click', this._handleStartGameClick);
         // --- ADDED: Add back button listener ---
         if (this.backButton) this.backButton.addEventListener('click', this._handleBackClick);
 
@@ -144,7 +145,7 @@ class HostLobbyComponent extends BaseComponent {
         // DOM listeners
         if (this.copyCodeButton) this.copyCodeButton.removeEventListener('click', this.handleCopyCode);
         if (this.copyLinkButton) this.copyLinkButton.removeEventListener('click', this.handleCopyLink);
-        if (this.startGameButton) this.startGameButton.removeEventListener('click', this.handleStartGame);
+        if (this.startGameButton) this.startGameButton.removeEventListener('click', this._handleStartGameClick);
         // --- ADDED: Remove back button listener ---
         if (this.backButton) this.backButton.removeEventListener('click', this._handleBackClick);
 
@@ -400,6 +401,22 @@ class HostLobbyComponent extends BaseComponent {
         this.hide(); // Hide this component's view/dialog
     }
     // --- END ADDED SECTION ---
+
+    /**
+     * Handles the click on the "Start Game" button.
+     * Emits the StartGameClicked event.
+     * @private
+     */
+    _handleStartGameClick() {
+        // Check if button should be enabled (double safety check)
+        if (!this.startGameButton || this.startGameButton.disabled) {
+            console.warn(`[${this.name}] Start Game button clicked, but it was disabled.`);
+            return;
+        }
+        console.log(`[${this.name}] Start Game button clicked. Emitting ${Events.UI.HostLobby.StartGameClicked}`);
+        this.startGameButton.disabled = true; // Prevent double-clicks immediately
+        eventBus.emit(Events.UI.HostLobby.StartGameClicked); // Ensure correct event name
+    }
 }
 
 export default HostLobbyComponent;

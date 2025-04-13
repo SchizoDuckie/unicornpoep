@@ -7,7 +7,7 @@ class HighscoresManager {
      * Initializes the manager, setting storage key prefix and entry limit.
      */
     constructor() {
-        this.storageKeyPrefix = "unicornpoep_highscore_";
+        this.storageKeyPrefix = "highscores_";
         this.maxEntriesPerSheet = 20;
     }
 

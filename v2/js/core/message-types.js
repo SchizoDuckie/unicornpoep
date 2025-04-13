@@ -20,9 +20,24 @@ export const MSG_TYPE = {
     GAME_START: 'game_start', // Host -> Client(s): Signal game begin
     GAME_OVER: 'game_over', // Host -> Client(s): Signal game end and send results
     ANSWER_SUBMITTED: 'answer_submitted', // Client -> Host: Submit an answer (if host needs to track/validate)
-    CLIENT_FINISHED: 'client_finished' // Client -> Host: Signal local quiz completion with score
+    CLIENT_FINISHED: 'client_finished', // Client -> Host: Signal local quiz completion with score
 
     // Possible future types (or handled differently):
     // GAME_STATE_UPDATE: 'game_state_update', // Host -> Client(s): For more complex real-time updates?
     // PLAYER_ACTION: 'player_action', // For other in-game actions
-}; 
+
+    // --- NEW TYPES ---
+    C_SCORE_UPDATE: 'c_scoreUpdate',       // Client -> Host (During game)
+    H_PLAYER_SCORES_UPDATE: 'h_playerScoresUpdate', // Host -> Client (During game)
+    // --- END NEW TYPES ---
+
+    // Internal / Ping
+    PING: '__ping__',
+    PONG: '__pong__',
+};
+
+// Optional: Add a check for duplicate values if desired during development
+// const values = Object.values(MSG_TYPE);
+// if (new Set(values).size !== values.length) {
+//     console.error("Duplicate values found in MSG_TYPE!");
+// } 

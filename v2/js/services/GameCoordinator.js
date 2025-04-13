@@ -23,7 +23,7 @@ import MultiplayerClientManager from './MultiplayerClientManager.js';
 import MultiplayerLobbyDialog from '../dialogs/multiplayer-lobby-dialog.js'; 
 import { MSG_TYPE } from '../core/message-types.js'; // NEW Import from isolated file
 import QuizEngine from '../services/QuizEngine.js'; // Import class
-import HighscoreManager from './HighscoreManager.js'; // Used for saving score
+import highscoreManager from './HighscoreManager.js'; // Import the singleton instance
 
 /**
  * Coordinates the creation and management of different game modes.
@@ -717,12 +717,12 @@ class GameCoordinator {
     handleGameFinished({ mode, results }) {
         console.log(`[GameCoordinator ASYNC] Received Game.Finished event for mode: ${mode}`, results);
 
-        // --- Client Ignore Host's Local Finish --- 
+        // --- Client Ignore Host's Local Finish ---
         if (this.currentGameMode === 'multiplayer-client' && mode === 'multiplayer-host') {
             console.log("[GameCoordinator Client] Ignored host's local Game.Finished event. Waiting for GAME_OVER message.");
             return; // Client waits for the GAME_OVER message via WebRTC
         }
-        // --- End Ignore --- 
+        // --- End Ignore ---
 
         const wasMultiplayerClient = (mode === 'multiplayer-client');
 
@@ -730,87 +730,89 @@ class GameCoordinator {
             // If it's NOT the client finishing its local loop, clean up now.
             if (!wasMultiplayerClient) {
                  console.log(`[GameCoordinator ASYNC] Cleaning up active ${mode} game.`);
-                 
+
                  // Store results before potentially destroying the game object that holds them
-                 const finalResults = results || this.activeGame?.getFinalResults?.(); 
+                 // Use optional chaining for safety in case results are missing
+                 const finalResults = results || this.activeGame?.getFinalResults?.();
 
                  if (typeof this.activeGame.destroy === 'function') {
                      this.activeGame.destroy();
                  }
                  this.activeGame = null;
                  this.currentGameMode = null;
-                 
-                 // +++ ADDED: Show appropriate End Dialog +++
+
                  // --- HIDE Waiting Dialog if open ---
                  /** @type {import('../dialogs/waiting-dialog').default | undefined} */
                  const waitingDialog = uiManager.getComponent('WaitingDialog');
-                 if (waitingDialog) {
+                 if (waitingDialog && waitingDialog.isOpen) { // Check if it's actually open
                      console.log("[GameCoordinator ASYNC] Hiding WaitingDialog before showing End Dialog.");
-                     waitingDialog.hide();
+                     waitingDialog.hide(); // Use hide() instead of close() if that's the method
                  }
                  // --- END HIDE Waiting Dialog ---
 
+                 // --- Show Appropriate End Dialog ---
                  if (mode === 'single') {
                      console.log("[GameCoordinator ASYNC] Requesting UIManager show Single Player End Dialog.");
-                     // Emit ShowView event using the constant
                      eventBus.emit(Events.Navigation.ShowView, {
-                         viewName: Views.SinglePlayerEndDialog, // Use constant
+                         viewName: Views.SinglePlayerEndDialog,
                          data: finalResults || {}
                      });
-                 } else if (mode === 'multiplayer-host') { // ++ MODIFIED THIS BLOCK ++
-                      console.log("[GameCoordinator ASYNC] Requesting UIManager show Multiplayer End Dialog for Host.");
-                      // --- SAVE Multiplayer Highscores ---
-                      if (finalResults && Array.isArray(finalResults.players)) {
-                          console.log("[GameCoordinator ASYNC] Saving multiplayer highscores...");
-                          finalResults.players.forEach(player => {
-                              if (player.score > 0) { // Only save positive scores
-                                  try {
-                                      HighscoreManager.addHighscore(
-                                          player.name, 
-                                          player.score, 
-                                          finalResults.gameName, // Use the determined game name
-                                          'multiplayer', // Explicitly mode 'multiplayer'
-                                          finalResults.difficulty
-                                      );
-                                  } catch (error) {
-                                       console.error(`[GameCoordinator ASYNC] Error saving highscore for player ${player.name}:`, error);
-                                  }
-                              }
-                          });
-                          console.log("[GameCoordinator ASYNC] Finished saving multiplayer highscores.");
-                      }
-                      // --- END SAVE Multiplayer Highscores ---
+                 } else if (mode === 'multiplayer-host') {
+                      console.log("[GameCoordinator ASYNC] Processing Multiplayer Host finish.");
 
-                      // Emit ShowView event using the constant
+                      // --- SAVE Multiplayer Highscore (WINNER ONLY) ---
+                      if (finalResults && finalResults.winner && finalResults.winner.score > 0) {
+                          const winner = finalResults.winner;
+                          console.log(`[GameCoordinator ASYNC] Multiplayer winner: ${winner.name}, Score: ${winner.score}. Attempting to save highscore.`);
+                          try {
+                              // CORRECTED: Use the correct method name 'addHighscore'
+                              highscoreManager.addHighscore(
+                                  winner.name,
+                                  winner.score,
+                                  finalResults.gameName || 'Multiplayer Game',
+                                  'multiplayer', // Set mode correctly
+                                  finalResults.difficulty || 'unknown'
+                              );
+                              console.log("[GameCoordinator ASYNC] Highscore save request sent for winner.");
+                          } catch (error) {
+                               console.error(`[GameCoordinator ASYNC] Error saving highscore for winner ${winner.name}:`, error);
+                               eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveErrorGeneric') || 'Failed to save score.', level: 'error' });
+                          }
+                      } else {
+                          console.log("[GameCoordinator ASYNC] No single winner found or winner score is 0. No highscore saved.");
+                      }
+                      // --- END SAVE Multiplayer Highscore ---
+
+                      // --- Show Multiplayer End Dialog ---
+                      console.log("[GameCoordinator ASYNC] Requesting UIManager show Multiplayer End Dialog.");
                       eventBus.emit(Events.Navigation.ShowView, {
-                          viewName: Views.MultiplayerEndDialog, // Use constant
+                          viewName: Views.MultiplayerEndDialog,
                           data: finalResults || {}
                       });
+                      // --- END Show Multiplayer End Dialog ---
+
                  } else if (mode === 'practice') {
                      console.log("[GameCoordinator ASYNC] Requesting UIManager show PracticeEndDialog.");
-                     // Emit ShowView event using the constant
                      eventBus.emit(Events.Navigation.ShowView, {
-                         viewName: Views.PracticeEndDialog, // Use constant
+                         viewName: Views.PracticeEndDialog,
                          data: finalResults || {}
                      });
                  }
-                 // +++ END MODIFIED +++
-                
-                 // Now close connection if host finished
+                 // --- End Show Appropriate End Dialog ---
+
+                 // Close connection if host finished
                  if (mode === 'multiplayer-host') {
-                     console.log("[GameCoordinator ASYNC] Closing WebRTC connection after Host game finished.");
-                     webRTCManager.closeConnection(); 
+                     console.log("[GameCoordinator ASYNC] Closing WebRTC connection after Host game finished and processed.");
+                     webRTCManager.closeConnection();
                  }
 
             } else {
-                 // If it IS the client finishing locally, just log. Don't cleanup yet.
+                 // Client finished locally - wait for GAME_OVER
                  console.log(`[GameCoordinator ASYNC] Client finished locally. Waiting for GAME_OVER from host for final cleanup.`);
-                 // The client instance is kept alive to receive GAME_OVER.
-                 // The actual cleanup will happen in the _handleWebRTCMessageReceived GAME_OVER case.
             }
         } else {
             console.warn("[GameCoordinator ASYNC] Game.Finished received, but no active game found.");
-            // If no active game, ensure connection is closed if mode suggests it should be
+            // Ensure connection is closed if necessary based on mode
              if (mode === 'multiplayer-host' || mode === 'multiplayer-client') {
                  webRTCManager.closeConnection();
              }
@@ -1085,75 +1087,84 @@ class GameCoordinator {
 
     /**
      * Handles the local client finishing their game.
-     * Sends CLIENT_FINISHED message to host and shows waiting dialog.
+     * Sends CLIENT_FINISHED message to host (done in MultiplayerGame)
+     * and shows the waiting dialog.
      * @param {object} payload - From Events.Game.LocalPlayerFinished
      * @param {number} payload.score - The final score achieved by the local client.
      * @private
      */
     _handleLocalPlayerFinished({ score }) {
          console.log(`[GameCoordinator Client ASYNC] LocalPlayerFinished event received. Final score: ${score}`);
-         // Ensure this is a client and the game is active
-         if (this.currentGameMode !== 'multiplayer-client' || !this.activeGame || this.webRTCManager.isHost) {
-             console.warn("[GameCoordinator Client ASYNC] LocalPlayerFinished ignored: not in active client game mode or is host.");
+         // Ensure this is actually a client and the game is active
+         if (this.currentGameMode !== 'multiplayer-client' || !this.activeGame) {
+             console.warn("[GameCoordinator Client ASYNC] LocalPlayerFinished ignored: not in active client game mode or game inactive.");
              return;
          }
 
-         // Show the waiting dialog
+         // --- ONLY Show Waiting Dialog ---
          /** @type {WaitingDialog | undefined} */
-         const waitingDialog = uiManager.getComponent('WaitingDialog');
+         const waitingDialog = uiManager.getComponent('WaitingDialog'); // Use component name
          if (waitingDialog) {
              console.log("[GameCoordinator Client ASYNC] Showing WaitingDialog.");
-             // Use exact message from plan, retrieved via template if possible
              const waitMessage = miscUtils.getTextTemplate('mpClientWaitOthers') || "Je bent klaar! We wachten op de andere spelers";
-             waitingDialog.show(waitMessage); 
+             waitingDialog.show(waitMessage);
          } else {
              console.error("[GameCoordinator Client ASYNC] WaitingDialog component not found!");
-             // Fallback: Show feedback
              eventBus.emit(Events.System.ShowFeedback, { message: 'Je bent klaar! Wachten op anderen...', level: 'info' });
          }
+         // --- DO NOT trigger save score logic or events here ---
      }
 
-    // +++ ADDED: Handler for saving highscore +++
     /**
-     * Handles the request to save a highscore from the SinglePlayerEndDialog.
-     * @param {object} payload - Event payload.
-     * @param {string} payload.name - Player name.
-     * @param {number} payload.score - Achieved score.
-     * @param {string} payload.gameName - Name of the game/sheets.
-     * @param {string} payload.mode - Game mode ('single').
-     * @param {string} payload.difficulty - Game difficulty.
+     * Handles the request to save a highscore, typically from the SP end-game dialog.
+     * NOTE: This should ONLY be called for Single Player games via the appropriate UI event.
+     * @param {object} payload
+     * @param {string} payload.playerName
+     * @param {number} payload.score
+     * @param {string} payload.gameName
+     * @param {string} payload.difficulty
+     * @param {string} [payload.mode='singleplayer'] - Mode is expected from the event source.
      * @private
      */
-    handleSaveHighscore({ name, score, gameName, mode, difficulty }) {
-        console.log(`[GameCoordinator] Received request to save highscore:`, { name, score, gameName, mode, difficulty });
-        
-        // Basic validation
-        if (!name || typeof score !== 'number' || score < 0 || !gameName || !mode || !difficulty) {
-            console.error("[GameCoordinator] Invalid data provided for saving highscore.", { name, score, gameName, mode, difficulty });
-            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveErrorInvalidData'), level: 'error' });
-            return;
-        }
+    handleSaveHighscore({ playerName, score, gameName, mode, difficulty }) {
+        console.log(`[GameCoordinator] Received request to save highscore:`, { playerName, score, gameName, mode, difficulty });
 
+        // --- Strengthened Validation ---
+        // Check if ALL required fields are present AND have valid types/values *before* proceeding.
+        // Explicitly check 'mode' is provided and is 'singleplayer'/'single'.
+        if (
+            playerName === undefined || typeof playerName !== 'string' || playerName.trim() === '' ||
+            score === undefined || typeof score !== 'number' || score < 0 || // Allow 0 score? Check requirement. Let's keep <0 for now.
+            gameName === undefined || typeof gameName !== 'string' || gameName.trim() === '' ||
+            difficulty === undefined || typeof difficulty !== 'string' || difficulty.trim() === '' ||
+            mode === undefined || (mode !== 'singleplayer' && mode !== 'single') // Check mode is provided and correct
+        ) {
+             console.error("[GameCoordinator] Attempted to save highscore with invalid or incomplete data. Ignoring.",
+                           { playerName, score, gameName, mode, difficulty });
+             // Emit specific feedback for validation failure
+             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveErrorInvalidData'), level: 'error' });
+             return; // Stop processing
+         }
+        // --- End Strengthened Validation ---
+
+        // Now we know we have valid single player data
         try {
-            // Use the HighscoreManager singleton
-            const hsManager = HighscoreManager.getInstance(); // Get the singleton
-            // Prepare the score object matching manager's expected format
-            const scoreData = {
-                player: name,
-                score: score,
-                gameName: gameName, // Use the provided gameName (likely sheet IDs)
-                mode: mode, 
-                difficulty: difficulty,
-                date: new Date().toISOString() // Add current date/time
-            };
-            
-            hsManager.saveScore(scoreData);
-            
+             highscoreManager.addHighscore(
+                 playerName,
+                 score,
+                 gameName,
+                 'singleplayer', // Force mode to singleplayer for saving consistency
+                 difficulty
+             );
             console.log("[GameCoordinator] Highscore save request sent to HighscoreManager.");
-            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveSuccess'), level: 'success' });
+            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveSuccess') || 'Score saved!', level: 'success' });
+            // Navigate AFTER successful save attempt
+            eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
         } catch (error) {
-            console.error("[GameCoordinator] Error calling HighscoreManager.saveScore:", error);
-             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveErrorGeneric'), level: 'error' });
+            console.error("[GameCoordinator] Error calling HighscoreManager.addHighscore:", error);
+            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveErrorGeneric') || 'Failed to save score.', level: 'error' });
+            // Optionally navigate back even on error, or leave dialog open
+             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
         }
     }
 

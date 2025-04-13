@@ -4,7 +4,7 @@ import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
 import { getTextTemplate } from '../utils/miscUtils.js';
 
-import HighscoreManager from '../services/HighscoreManager.js';
+import highscoreManager from '../services/HighscoreManager.js';
 import easterEggActivator from '../utils/easter-egg-activator.js';
 
 /**
