@@ -10,33 +10,35 @@ const DEFAULT_DURATION = 3000; // Default display time in ms
  * Listens for ShowFeedback events.
  */
 export default class ToastComponent extends BaseComponent {
-    /**
-     * Initializes the ToastComponent.
-     */
-    constructor() {
-        super('#toastNotification', 'Toast');
-        // BaseComponent constructor now throws if rootElement is null
+    static SELECTOR = '#toastNotification';
+    static VIEW_NAME = 'ToastComponent';
 
-        this.messageElement = this.rootElement.querySelector('#toastMessage'); // Assume an inner element for the message
+    /** Initializes the component. */
+    constructor() {
+        super();
+        console.log("[ToastComponent] Constructed (via BaseComponent).");
+    }
+    
+    initialize() {
+        this.messageElement = this.rootElement.querySelector('#toastMessage');
         this.hideTimeout = null;
 
-        // Keep the check for the essential child element
         if (!this.messageElement) {
-            console.error("[ToastComponent] Missing required child element (#toastMessage). Component cannot display messages.");
-            // Allow component to exist but log error
+            console.error("[ToastComponent] Missing #toastMessage. Cannot display messages.");
         }
-
-        this.listenForEvents();
-        this.hide(); // Start hidden
+        
+        // --- Bind Handlers Here --- 
+        this._handleShowFeedback = this._handleShowFeedback.bind(this);
+        
         console.log("[ToastComponent] Initialized.");
     }
 
-    /**
-     * Listens for ShowFeedback events.
-     * @private
-     */
-    listenForEvents() {
-        this.listen(Events.System.ShowFeedback, this.handleShowFeedback);
+    /** Registers eventBus listeners using pre-bound handlers. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering listeners.`);
+        
+        // eventBus Listeners
+        this.listen(Events.System.ShowFeedback, this._handleShowFeedback); 
     }
 
     /**
@@ -47,7 +49,7 @@ export default class ToastComponent extends BaseComponent {
      * @param {number} [payload.duration]
      * @private
      */
-    handleShowFeedback({ message, level = 'info', duration }) {
+    _handleShowFeedback({ message, level = 'info', duration }) {
         if (!message) return;
 
         console.log(`[ToastComponent] Show Feedback: [${level}] ${message}`);
@@ -105,5 +107,6 @@ export default class ToastComponent extends BaseComponent {
             clearTimeout(this.hideTimeout);
         }
         super.destroy();
+        console.log(`[${this.name}] Destroyed.`);
     }
 } 

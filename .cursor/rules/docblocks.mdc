@@ -1,0 +1,157 @@
+---
+description: If see or createing docblocks, use this rule
+globs: 
+---
+---
+description: If see or create docblocks, use this rule
+globs: 
+---
+# Docblock Implementation Rules
+
+## General Rules
+1. **Language**:  
+✅ All docblocks must be written in English  
+
+2. **Consistency**:  
+```php
+// Bad
+/** @var int The ID */
+
+// Good
+/** @var int $id The record's unique identifier */
+```
+
+## Model Class Docblocks
+1. **Class-level Documentation**:
+```php
+/**
+ * Class Asset.
+ * 
+ * An asset is a "thing" that can be identified and can be found on a location. It enables 
+ * the management of these things via operations and certifications.
+ * 
+ * @property int $id
+ * @property int $asset_type_id
+ * @property string $name
+ * @property-read Collection|Activity[] $activities
+ * @method AssetPresenter present()
+ */
+```
+
+2. **Relation Documentation**:
+```php
+/**
+ * Note: this relationship denotes the SALE of an Asset on an OrderLine.
+ * If rental/other invoicing needs are added, consider adding a "type" column.
+ */
+public function orderLines(): BelongsToMany
+```
+
+## Controller Docblocks
+1. **Method Documentation**:
+```php
+/**
+ * Display activity index page with filters.
+ * 
+ * @param Request $request
+ * @param FilterWidget $filterWidget
+ * @return View
+ */
+public function index(Request $request, FilterWidget $filterWidget): View
+```
+
+2. **Exception Documentation**:
+```php
+/**
+ * @throws GeneralException When debtor is blocked
+ * @throws AuthorizationException When missing permissions
+ */
+public function create(Project $project)
+```
+
+## Method Docblocks
+1. **Complex Methods**:
+```php
+/**
+ * Determine surcharge list based on plan window period and debtor settings.
+ * 
+ * @param Request $request
+ * @return JsonResponse
+ * @throws Exception When invalid parameters provided
+ */
+public function determineSurchargeList(Request $request): JsonResponse
+```
+
+2. **Return Types**:
+```php
+/**
+ * @return HasMany|Model|object|null
+ */
+public function getCurrentDebtorPriceList()
+```
+
+## Property Docblocks
+1. **Special Cases**:
+```php
+/**
+ * @property string|null $exact_online_email  
+ * Note: When using Exact Online this field is read-only and managed by coupling
+ */
+```
+
+2. **Status Flags**:
+```php
+/**
+ * @property bool $do_not_send_zero_invoices  
+ * When enabled, prevents sending invoices with 0 amount
+ */
+```
+
+## Best Practices
+1. **Todo Comments**:
+```php
+// TODO #SPLS-476 Tweak display with $textOverride variable
+// TODO Move this method to presenter
+```
+
+2. **See References**:
+```php
+/**
+ * @see DebtorTriggersDebtorWebhookEventsObserver
+ * @see HasAddressBookPageInterface
+ */
+```
+
+## Examples from Codebase
+1. **Model Property Documentation**:
+```php
+/**
+ * @property Carbon|null $out_of_order_at  
+ * Tracks when asset was marked out of order
+ */
+```
+
+2. **Controller Method Documentation**:
+```php
+/**
+ * Store new activity with related data.
+ * 
+ * @param StoreActivityRequest $request
+ * @param Project $project
+ * @return JsonResponse
+ * @throws Throwable
+ */
+public function store(StoreActivityRequest $request, Project $project): JsonResponse
+```
+
+## Checklist
+✅ All classes/methods have English docblocks  
+✅ Complex properties have explanations  
+✅ Relations have usage notes  
+✅ Exceptions documented with @throws  
+✅ Return types specified  
+✅ Todo comments include ticket numbers  
+✅ Maintain existing Dutch comments  
+✅ Use proper PHPDoc syntax  
+✅ Document special cases/constraints  
+✅ Include @see references for related classes

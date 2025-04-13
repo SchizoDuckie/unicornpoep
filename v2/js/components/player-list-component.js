@@ -20,31 +20,91 @@ import webRTCManager from '../services/WebRTCManager.js'; // Ensure correct path
  * @description Manages the display of the player list in multiplayer games using an HTML template.
  */
 class PlayerListComponent extends BaseComponent {
+    // --- Static properties REQUIRED by BaseComponent ---
+    static SELECTOR = '#playerListContainer';
+    static VIEW_NAME = 'PlayerListComponent'; // Or a more user-friendly name if needed
+
     /**
      * Creates an instance of PlayerListComponent.
+     * Calls super() which handles root element finding and basic setup.
      */
     constructor() {
-        super('#playerListContainer', Views.PlayerList);
-     
-        this.template = document.querySelector('#player-list-item-template');
-        if (!this.template) {
-            console.error(`[${this.name}] Template element not found: #player-list-item-template`);
-            return; // Cannot function without the template
+        // Call BaseComponent constructor WITHOUT arguments.
+        // It uses the static SELECTOR and VIEW_NAME defined above.
+        super();
+        // BaseComponent constructor calls this.initialize() and this.registerListeners() if they exist.
+        console.log(`[${this.name}] Constructed.`); // this.name is set by BaseComponent
+    }
+
+    /**
+     * Initializes component elements and state. Called by BaseComponent constructor.
+     * @protected
+     */
+    initialize() {
+        console.log(`[${this.name}] Initializing...`);
+        // Find the template using document.querySelector
+        const templateElement = document.querySelector('#player-list-item-template');
+
+        if (!templateElement || !(templateElement instanceof HTMLTemplateElement)) {
+            console.error(`[${this.name}] Template element not found or is not a <template>: #player-list-item-template`);
+            this.template = null;
+            // Optionally throw error if template is critical, preventing component init
+            // throw new Error(`[${this.name}] Critical template element not found: #player-list-item-template`);
+        } else {
+            this.template = templateElement; // Store the template element reference
         }
 
         /** @type {Map<string, PlayerData>} */
-        this.playerData = new Map(); // Map<peerId, PlayerData>
+        this.playerData = new Map();
 
-        this.listen(Events.Multiplayer.Common.PlayerListUpdated, this.handlePlayerListUpdate);
-        this.listen(Events.Multiplayer.Common.PlayerUpdated, this.handlePlayerUpdate); // Listen for specific updates
+        // --- Bind Handlers Needed for EventBus Listeners ---
+        // We bind them here so they are ready when registerListeners is called by BaseComponent
+        this._handlePlayerListUpdate = this._handlePlayerListUpdate.bind(this);
+        this._handlePlayerUpdate = this._handlePlayerUpdate.bind(this);
+        this._handleGameStart = this._handleGameStart.bind(this);
+        this._handleGameFinished = this._handleGameFinished.bind(this);
+        this._resetDisplay = this._resetDisplay.bind(this); // Keep if used internally
 
-        // Show/hide based on game state
-        this.listen(Events.Game.Started, this.handleGameStart);
-        this.listen(Events.Game.Finished, this.resetDisplay); // Hide/clear after game
-        this.listen(Events.Navigation.ShowView, this.handleViewChange); // Hide if navigating away
+        this._resetDisplay(); // Set initial visual state (e.g., clear list, hide)
+        console.log(`[${this.name}] Initialized.`);
+    }
 
-        console.debug(`[${this.name}] Initialized.`);
-        this.resetDisplay(); // Start hidden and clear
+    /**
+     * Registers GLOBAL eventBus listeners using `this.listen()`.
+     * Called by BaseComponent constructor.
+     * @protected
+     */
+    registerListeners() {
+        console.log(`[${this.name}] Registering listeners.`);
+        // Use this.listen() provided by BaseComponent for automatic cleanup
+        this.listen(Events.Multiplayer.Common.PlayerListUpdated, this._handlePlayerListUpdate);
+        this.listen(Events.Multiplayer.Common.PlayerUpdated, this._handlePlayerUpdate);
+        this.listen(Events.Game.Started, this._handleGameStart);
+        this.listen(Events.Game.Finished, this._handleGameFinished);
+        // Example: If we needed DOM listeners, they would be added here too,
+        // and removed in unregisterListeners.
+        // this.someButton = this.rootElement.querySelector(...);
+        // if (this.someButton) {
+        //    this._boundClickHandler = this._handleClick.bind(this); // Bind if needed
+        //    this.someButton.addEventListener('click', this._boundClickHandler);
+        // }
+    }
+
+    /**
+     * Unregisters DOM event listeners. Called by BaseComponent during hide() and destroy().
+     * NOTE: Global event bus listeners added via `this.listen()` are cleaned up
+     * automatically by BaseComponent's `destroy()` method.
+     * @protected
+     */
+    unregisterListeners() {
+        // Remove any specific DOM listeners added in registerListeners
+        // Example:
+        // if (this.someButton && this._boundClickHandler) {
+        //     this.someButton.removeEventListener('click', this._boundClickHandler);
+        // }
+        // Call super.unregisterListeners() if BaseComponent itself adds listeners someday
+        // super.unregisterListeners(); // Currently BaseComponent doesn't add DOM listeners itself
+        console.log(`[${this.name}] Unregistered DOM listeners (if any).`);
     }
 
     /**
@@ -54,11 +114,15 @@ class PlayerListComponent extends BaseComponent {
      * @param {Map<string, {name: string, isHost: boolean, score?: number}>} payload.players - Map of player data.
      * @private
      */
-    handlePlayerListUpdate({ players }) {
-        if (!this.template || !players) return;
+    _handlePlayerListUpdate({ players }) {
+        // Check if the component has been destroyed or rootElement is missing
+        if (!this.rootElement || !this.template || !players) {
+            console.warn(`[${this.name}] Cannot update player list: Component not ready or missing data.`);
+            return;
+        }
         console.debug(`[${this.name}] Received player list update:`, players);
 
-        this.resetDisplay(false); // Clear DOM but keep component visible if already shown
+        this._resetDisplay(false); // Clear DOM but keep component visible if already shown
 
         const myPeerId = webRTCManager.getMyPeerId();
 
@@ -66,7 +130,10 @@ class PlayerListComponent extends BaseComponent {
             this._addPlayerToList(peerId, playerInfo, myPeerId);
         });
 
-        this.show(); // Ensure list container is visible
+        // Only show if we actually added players or if the component wasn't hidden by resetDisplay
+        if (players.size > 0 || this.isVisible) {
+             this.show(); // Ensure list container is visible (uses BaseComponent show)
+        }
     }
 
     /**
@@ -77,47 +144,56 @@ class PlayerListComponent extends BaseComponent {
      * @private
      */
     _addPlayerToList(peerId, playerInfo, myPeerId) {
+        if (!this.template || !this.rootElement) return; // Guard against missing template or root
+
         const score = playerInfo.score !== undefined ? playerInfo.score : 0;
         // Use template for default name
-        const name = playerInfo.name || getTextTemplate('playerListUnnamed'); 
+        const name = playerInfo.name || getTextTemplate('playerListUnnamed');
 
-        // Clone the template
-        const listItem = this.template.content.cloneNode(true).querySelector('.player-item');
+        // Clone the template CONTENT
+        const templateContent = this.template.content.cloneNode(true);
+        const listItem = templateContent.querySelector('.opponent-entry'); // Get the main list item element
+
         if (!listItem) {
-            console.error(`[${this.name}] Template structure incorrect: .player-item not found.`);
+            console.error(`[${this.name}] Template structure incorrect: .opponent-entry not found within #player-list-item-template.`);
             return;
         }
 
-        // Find elements within the template clone
-        const nameSpan = listItem.querySelector('.player-name');
-        const scoreSpan = listItem.querySelector('.player-score');
-        const tagsContainer = listItem.querySelector('.player-tags'); // Optional container for tags
+        // Find elements within the template clone using correct class names
+        const nameSpan = listItem.querySelector('.opponent-name');
+        const scoreSpan = listItem.querySelector('.opponent-score');
+        const tagsContainer = listItem.querySelector('.opponent-status');
 
         // Populate the clone
         listItem.dataset.peerId = peerId;
         if (nameSpan) nameSpan.textContent = name;
-        if (scoreSpan) scoreSpan.textContent = String(score);
+        if (scoreSpan) scoreSpan.textContent = String(score); // Ensure score is a string
 
         // Add tags (Host, You)
-        if (tagsContainer) tagsContainer.innerHTML = ''; // Clear existing tags if any
+        if (tagsContainer) {
+            tagsContainer.innerHTML = ''; // Clear existing tags if any
 
-        if (playerInfo.isHost) {
-            const hostTag = document.createElement('span');
-            hostTag.classList.add('player-tag', 'host-tag');
-            // Use template for tag text
-            hostTag.textContent = getTextTemplate('playerListHostTag'); 
-            (tagsContainer || listItem).appendChild(hostTag); // Append to tags container or item
-        }
-        if (peerId === myPeerId) {
-            const youTag = document.createElement('span');
-            youTag.classList.add('player-tag', 'you-tag');
-            // Use template for tag text
-            youTag.textContent = getTextTemplate('playerListYouTag'); 
-            (tagsContainer || listItem).appendChild(youTag);
-            listItem.classList.add('local-player');
+            if (playerInfo.isHost) {
+                const hostTag = document.createElement('span');
+                hostTag.classList.add('player-tag', 'host-tag');
+                // Use template for tag text
+                hostTag.textContent = getTextTemplate('playerListHostTag');
+                tagsContainer.appendChild(hostTag);
+            }
+            if (peerId === myPeerId) {
+                const youTag = document.createElement('span');
+                youTag.classList.add('player-tag', 'you-tag');
+                // Use template for tag text
+                youTag.textContent = getTextTemplate('playerListYouTag');
+                tagsContainer.appendChild(youTag);
+                listItem.classList.add('local-player'); // Add class to the list item itself
+            }
+        } else {
+            console.warn(`[${this.name}] Template missing '.opponent-status' container for tags.`);
         }
 
-        // Append the populated clone to the list
+
+        // Append the populated clone (the .opponent-entry div) directly to the root element
         this.rootElement.appendChild(listItem);
 
         // Store reference for updates
@@ -125,7 +201,7 @@ class PlayerListComponent extends BaseComponent {
             name: name,
             score: score,
             isHost: playerInfo.isHost || false,
-            element: listItem
+            element: listItem // Store the actual list item element
         });
     }
 
@@ -137,22 +213,43 @@ class PlayerListComponent extends BaseComponent {
      * @param {object} payload.updatedData - The specific fields that were updated (e.g., { score: 100 }).
      * @private
      */
-    handlePlayerUpdate({ peerId, updatedData }) {
-        const playerData = this.playerData.get(peerId);
-        if (!playerData || !playerData.element || !updatedData) return;
+    _handlePlayerUpdate({ peerId, updatedData }) {
+        // Check if component/rootElement exists first
+        if (!this.rootElement) return;
 
-        // console.debug(`[${this.name}] Handling player update for ${peerId}:`, updatedData);
+        const playerData = this.playerData.get(peerId);
+        // Ensure playerData and the associated element exist in the DOM
+        if (!playerData || !playerData.element || !this.rootElement.contains(playerData.element) || !updatedData) {
+             if (!playerData) {
+                 // console.warn(`[${this.name}] Received update for unknown player ${peerId}. Maybe PlayerListUpdate is pending?`);
+             } else if (!this.rootElement.contains(playerData.element)) {
+                 // console.warn(`[${this.name}] Received update for player ${peerId} but their element is no longer in the DOM (inside root).`);
+                 this.playerData.delete(peerId); // Clean up stale data
+             }
+             return;
+        }
 
         // Update Score if present
         if (updatedData.score !== undefined) {
             const newScore = updatedData.score;
             playerData.score = newScore;
-            const scoreElement = playerData.element.querySelector('.player-score');
+            // Find the score element *within the player's list item*
+            const scoreElement = playerData.element.querySelector('.opponent-score');
             if (scoreElement) {
                 scoreElement.textContent = String(newScore);
                 // Optional: Add animation/highlight on update
                 playerData.element.classList.add('score-updated');
-                setTimeout(() => playerData.element.classList.remove('score-updated'), 300);
+                // Use requestAnimationFrame to ensure class is added before removal for transition/animation
+                requestAnimationFrame(() => {
+                     setTimeout(() => {
+                         // Check element still exists and is within our root before removing class
+                         if (playerData.element && this.rootElement && this.rootElement.contains(playerData.element)) {
+                             playerData.element.classList.remove('score-updated');
+                         }
+                     }, 300); // Duration of highlight/animation
+                });
+            } else {
+                 console.warn(`[${this.name}] Could not find .opponent-score element for player ${peerId} during update.`);
             }
         }
 
@@ -160,8 +257,12 @@ class PlayerListComponent extends BaseComponent {
         if (updatedData.name !== undefined) {
             const newName = updatedData.name;
             playerData.name = newName;
-            const nameElement = playerData.element.querySelector('.player-name');
-            if (nameElement) nameElement.textContent = newName;
+            const nameElement = playerData.element.querySelector('.opponent-name');
+            if (nameElement) {
+                 nameElement.textContent = newName;
+            } else {
+                console.warn(`[${this.name}] Could not find .opponent-name element for player ${peerId} during update.`);
+            }
         }
 
         // Update other fields like 'finished' status if implemented
@@ -174,43 +275,60 @@ class PlayerListComponent extends BaseComponent {
      * @param {string} payload.mode - Game mode ('single', 'multiplayer', 'practice').
      * @private
      */
-    handleGameStart({ mode }) {
+    _handleGameStart({ mode }) {
         if (mode === 'multiplayer') {
-            this.resetDisplay(false); // Clear any previous state but keep visible if already shown
-            // Expecting PlayerListUpdated shortly after
+            this._resetDisplay(false); // Clear any previous state but keep visible if already shown
+            this.show(); // Ensure container is visible for MP games
         } else {
-            this.resetDisplay(); // Hide and clear for non-multiplayer modes
-        }
-    }
-
-    /**
-     * Hides the list if navigating away from the GameArea.
-     * @param {object} payload
-     * @param {string} payload.viewName
-     * @private
-     */
-    handleViewChange({ viewName }) {
-        // Assuming the player list is only relevant inside 'GameArea' or multiplayer lobbies
-        // Adjust this logic based on where the list should be visible
-        if (viewName !== 'GameArea' && viewName !== 'HostLobby' && viewName !== 'JoinLobby') {
-            this.resetDisplay(); // Hide and clear data
+            this._resetDisplay(); // Hide and clear for non-multiplayer modes
         }
     }
 
     /**
      * Clears the player list display and internal data.
-     * @param {boolean} [hideComponent=true] - Whether to also hide the root element.
+     * @param {boolean} [hideComponent=true] - Whether to also hide the root element using BaseComponent's hide().
      * @private
      */
-    resetDisplay(hideComponent = true) {
+    _resetDisplay(hideComponent = true) {
         // console.debug(`[${this.name}] Resetting display.`);
+        // Always clear the root element directly
         if (this.rootElement) {
             this.rootElement.innerHTML = ''; // Clear list items
+        } else {
+             // Component might be resetting before rootElement is assigned or after destroy
+            // console.warn(`[${this.name}] Cannot clear display, rootElement is null/undefined.`);
         }
         this.playerData.clear();
         if (hideComponent) {
-            this.hide();
+            this.hide(); // Use BaseComponent's hide method
         }
+    }
+
+    /**
+     * Handles the Game.Finished event.
+     * @private
+     */
+    _handleGameFinished() {
+        console.log(`[${this.name}] Game finished, resetting display.`);
+        this._resetDisplay();
+    }
+
+
+    /**
+     * Clean up resources, remove listeners. Called by external manager (e.g., UIManager).
+     * BaseComponent's destroy method handles global listener cleanup.
+     */
+    destroy() {
+        console.log(`[${this.name}] Destroying component.`);
+        // BaseComponent's destroy calls unregisterListeners (for DOM)
+        // and cleanupListeners (for global bus via this.listen)
+        super.destroy(); // CRITICAL: Call base class destroy
+
+        // Nullify references specific to this component AFTER calling super.destroy()
+        this.playerData = null;
+        this.template = null;
+        // Bound handlers don't strictly need nulling if the instance is GC'd, but can be explicit
+        // this._handlePlayerListUpdate = null; // etc.
     }
 }
 

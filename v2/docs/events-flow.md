@@ -272,7 +272,7 @@ digraph GameStartup_Direct {
 
     // EventBus: Specific events or useful groups for lobby flow
     EventBus [shape="record", fillcolor="#343a40", color="#aaaaaa", penwidth=2,
-              label="{ EventBus | {<evUIHost> UI.HostGameRequest} | {<evUIJoin> UI.JoinGameRequest} | {<evUIStart> UI.StartHostedGame} | {<evWebRTC> WebRTC Status/Msg} | {<evMPState> MP.PlayerListUpdated} | {<evNav> System.Navigate} }"]; // More specific UI ports
+              label="{ EventBus | {<evUIHost> UI.HostGameRequest} | {<evUIJoin> UI.JoinGameRequest} | {<evUIStart> UI.StartHostedGame} | {<evWebRTC> WebRTC Status/Msg} | {<evPlayerListUpdate> MP.PlayerListUpdated} | {<evNav> System.Navigate} }"]; // Renamed evMPState to evPlayerListUpdate
 
     // 1. User Chooses Host/Join (Specific Events)
     MultiplayerChoiceComponent:emits_host -> EventBus:evUIHost; MultiplayerChoiceComponent:emits_join -> EventBus:evUIJoin;
@@ -295,19 +295,20 @@ digraph GameStartup_Direct {
     // 4. Client Connects / Disconnects (Specific Events -> Grouped Port)
     WebRTCManager:emits_cli_conn -> EventBus:evWebRTC [label=" (Client Connected)"];
     WebRTCManager:emits_cli_dis -> EventBus:evWebRTC [label=" (Client Disconnected)"];
+    WebRTCManager:emits_player_update -> EventBus:evPlayerListUpdate [label=" (Internal player list update)"]; // Target renamed port
 
     // 5. Host/Client Manager Notified (Handles Grouped Event)
     EventBus:evWebRTC -> MultiplayerGame:handles_rtc [label=""]; // Host needs connect/disconnect
     // Client manager already handled its connect/fail status in step 3
 
     // 6. Host/Client Managers Update Player State (Specific Event)
-    MultiplayerGame:emits_state -> EventBus:evMPState [label=""];
-    MultiplayerClientManager:emits_state -> EventBus:evMPState [label=" (from Host)"]; // Client relays state from host
+    // MultiplayerGame:emits_state -> EventBus:evPlayerListUpdate [label=""]; // Host logic no longer emits this directly for UI update
+    // MultiplayerClientManager:emits_state -> EventBus:evPlayerListUpdate [label=" (from Host)"]; // Client relays state from host
 
     // 7. UI Updates Player List (Handles Specific Event)
-    EventBus:evMPState -> HostLobbyComponent:handles_state [label=""];
-    EventBus:evMPState -> JoinLobbyComponent:handles_state [label=""];
-    EventBus:evMPState -> PlayerListComponent:handles_state [label=""];
+    EventBus:evPlayerListUpdate -> HostLobbyComponent:handles_state [label=""]; // Source renamed port
+    EventBus:evPlayerListUpdate -> JoinLobbyComponent:handles_state [label=""]; // Source renamed port
+    EventBus:evPlayerListUpdate -> PlayerListComponent:handles_state [label=""]; // Source renamed port
 
     // 8. Host Starts Game (Specific Event)
     HostLobbyComponent:emits_start -> EventBus:evUIStart [label=""];
@@ -479,7 +480,7 @@ digraph MPLobby_WithBus {
 
     // EventBus: Specific events or useful groups for lobby flow
     EventBus [shape="record", fillcolor="#343a40", color="#aaaaaa", penwidth=2,
-              label="{ EventBus | {<evUIHost> UI.HostGameRequest} | {<evUIJoin> UI.JoinGameRequest} | {<evUIStart> UI.StartHostedGame} | {<evWebRTC> WebRTC Status/Msg} | {<evMPState> MP.PlayerListUpdated} | {<evNav> System.Navigate} }"]; // More specific UI ports
+              label="{ EventBus | {<evUIHost> UI.HostGameRequest} | {<evUIJoin> UI.JoinGameRequest} | {<evUIStart> UI.StartHostedGame} | {<evWebRTC> WebRTC Status/Msg} | {<evPlayerListUpdate> MP.PlayerListUpdated} | {<evNav> System.Navigate} }"]; // Renamed evMPState to evPlayerListUpdate
 
     // 1. User Chooses Host/Join (Specific Events)
     MultiplayerChoiceComponent:emits_host -> EventBus:evUIHost; MultiplayerChoiceComponent:emits_join -> EventBus:evUIJoin;
@@ -502,6 +503,7 @@ digraph MPLobby_WithBus {
     // 4. Client Connects / Disconnects (Specific Events -> Grouped Port)
     WebRTCManager:emits_cli_conn -> EventBus:evWebRTC [label=" (Client Connected)"];
     WebRTCManager:emits_cli_dis -> EventBus:evWebRTC [label=" (Client Disconnected)"];
+    WebRTCManager:emits_player_update -> EventBus:evPlayerListUpdate [label=" (Internal player list update)"]; // Target renamed port
 
     // 5. Host/Client Manager Notified (Handles Grouped Event)
     EventBus:evWebRTC -> MultiplayerGame:handles_rtc [label=""]; // Host needs connect/disconnect
@@ -580,9 +582,13 @@ digraph MPLobby_Direct {
     WebRTCManager:emits_cli_dis -> MultiplayerGame:handles_rtc [label=" WebRTC.ClientDisconnected"];
 
     // 5. Host Updates Player State -> UI (Direct Event Flows)
-    MultiplayerGame:emits_state -> HostLobbyComponent:handles_state [label=" MP.PlayerListUpdated"];
-    MultiplayerGame:emits_state -> JoinLobbyComponent:handles_state [label=" MP.PlayerListUpdated"];
-    MultiplayerGame:emits_state -> PlayerListComponent:handles_state [label=" MP.PlayerListUpdated"];
+    WebRTCManager:emits_player_update -> HostLobbyComponent:handles_state [label=" MP.PlayerListUpdated"]; // NEW: Direct from WebRTC to UI
+    WebRTCManager:emits_player_update -> JoinLobbyComponent:handles_state [label=" MP.PlayerListUpdated"]; // NEW: Direct from WebRTC to UI
+    WebRTCManager:emits_player_update -> PlayerListComponent:handles_state [label=" MP.PlayerListUpdated"]; // NEW: Direct from WebRTC to UI
+    // Host logic (MultiplayerGame) no longer needs to emit this, WebRTCManager does
+    // MultiplayerGame:emits_state -> HostLobbyComponent:handles_state [label=" MP.PlayerListUpdated"];
+    // MultiplayerGame:emits_state -> JoinLobbyComponent:handles_state [label=" MP.PlayerListUpdated"];
+    // MultiplayerGame:emits_state -> PlayerListComponent:handles_state [label=" MP.PlayerListUpdated"];
     // Client Manager relaying state is omitted in direct view for simplicity unless explicitly needed
 
     // 6. Host Starts Game -> Coordinator (Direct Event Flow)

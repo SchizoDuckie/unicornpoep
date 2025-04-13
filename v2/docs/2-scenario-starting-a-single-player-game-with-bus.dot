@@ -10,9 +10,9 @@ digraph StartSPGame_WithBus {
 
     // Node Styles (Dark fill, specific border remains)
     MainMenuComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
-                       label="{ MainMenu UI | {<emits_ui> Emits: UI.StartSPGame} }"];
+                       label="{ MainMenu UI | {<emits_ui> Emits: UI.MainMenu.StartSinglePlayerClicked} }"];
     GameCoordinator [shape="record", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
-                     label="{ GameCoordinator | {<handles_ui> Handles: UI.StartSPGame} | {<emits_nav> Emits: System.Navigate} }"];
+                     label="{ GameCoordinator | {<handles_ui> Handles: UI.MainMenu.StartSinglePlayerClicked} | {<emits_nav> Emits: System.Navigate} }"];
     UIManager [shape="record", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
                label="{ UIManager | {<handles_nav> Handles: System.Navigate} }"];
     QuestionsManager [label="QuestionsManager", fillcolor="#343a40", color="#ffc107", penwidth=2]; // Passive target
@@ -21,7 +21,7 @@ digraph StartSPGame_WithBus {
 
     // EventBus: Shows relevant UI and Navigation events
     EventBus [shape="record", fillcolor="#343a40", color="#aaaaaa", penwidth=2,
-              label="{ EventBus | {<evUI> UI.StartSPGame} | {<evNav> System.Navigate} }"];
+              label="{ EventBus | {<evUI> UI.MainMenu.StartSinglePlayerClicked} | {<evNav> System.Navigate} }"];
 
     // 1. User clicks 'Single Player' on Main Menu (Event)
     MainMenuComponent:emits_ui -> EventBus:evUI [label=""];

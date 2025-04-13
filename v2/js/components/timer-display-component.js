@@ -7,23 +7,22 @@ import { getTextTemplate } from '../utils/miscUtils.js';
 /**
  * @class TimerDisplayComponent
  * @extends BaseComponent
- * Manages the display of the game timer.
- * Listens for time ticks to update the remaining time and handles low/critical time states.
+ * Displays the countdown timer for questions.
  */
 class TimerDisplayComponent extends BaseComponent {
-    /**
-     * Creates an instance of TimerDisplayComponent.
-     */
-    constructor() {
-        // *** FIX: Use the correct selector from v2/index.html ***
-        super('#timerDisplay', 'TimerDisplay'); 
+    static SELECTOR = '#timerDisplay';
+    static VIEW_NAME = 'TimerDisplayComponent';
 
-        if (!this.rootElement) {
-             // Error should have been thrown by super() if element not found
-             // This check is technically redundant due to BaseComponent's constructor validation
-             // but kept for clarity during debugging potential BaseComponent changes.
-             console.error(`[${this.name}] Component couldn't initialize because root element was not found.`);
-             return;
+
+    /** Initializes the component. */
+    initialize() {
+        console.log(`[${this.name}] Initializing...`);
+        // The root element itself will display the time
+        this.timerTextElement = this.rootElement; 
+        
+        // Check if root element was found by BaseComponent
+        if (!this.timerTextElement) {
+             throw new Error(`[${this.name}] Root element not found with selector: ${this.selector}`);
         }
         
         // Constants for styling
@@ -32,69 +31,78 @@ class TimerDisplayComponent extends BaseComponent {
         this.lowTimeClass = 'time-low';
         this.criticalTimeClass = 'time-critical';
         this.timeUpClass = 'time-up';
-        // Use template for default display
-        this.defaultDisplay = getTextTemplate('timerDefault');
+        this.defaultDisplay = getTextTemplate('timerDefault') || '--:--'; // Add fallback
 
-        this._bindMethods(); // Keep existing binding pattern
+        // --- Bind Handlers Here --- 
+        this._updateDisplay = this._updateDisplay.bind(this);
+        this._handleGameStart = this._handleGameStart.bind(this);
+        this._handleGameEnd = this._handleGameEnd.bind(this);
+        this.clearTimer = this.clearTimer.bind(this); // Bind clearTimer
+        
+        this.clearTimer(); // Set initial state
+        console.log(`[${this.name}] Initialized.`);
+    }
 
+    /** Registers eventBus listeners using pre-bound handlers. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering listeners.`);
         // Listen to relevant game events
-        this.listen(Events.Game.Started, this.handleGameStart);
-        this.listen(Events.Game.TimeTick, this.updateDisplay);
-        this.listen(Events.Game.Finished, this.handleGameEnd);
-        // Reset display on finish, UIManager handles visibility
-
-        // Initialize display state
-        this.hide(); // Start hidden, show when game starts or timer ticks
+        this.listen(Events.Game.Started, this._handleGameStart);
+        this.listen(Events.Game.TimeTick, this._updateDisplay);
+        this.listen(Events.Game.TimeUp, this._handleGameEnd); // Also stop/reset on TimeUp
+        this.listen(Events.Game.Finished, this._handleGameEnd);
     }
 
-    /**
-     * Binds component methods to the class instance.
-     * Preserved from original structure.
-     */
-    _bindMethods() {
-        this.updateDisplay = this.updateDisplay.bind(this);
-        this.handleGameStart = this.handleGameStart.bind(this);
-        this.handleGameEnd = this.handleGameEnd.bind(this);
-        // No need to bind show/hide from BaseComponent
-    }
+    /** Updates the timer display with the remaining time. */
+    _updateDisplay(payload) { // Receive raw payload first
+        const remainingTimeMs = payload?.remainingTimeMs; // Extract manually for checking
 
-    /**
-     * Updates the timer display with the remaining time.
-     * @param {object} payload - Event payload from Events.Game.TimeTick.
-     * @param {number} payload.remainingTimeMs - Remaining time in milliseconds.
-     */
-    updateDisplay({ remainingTimeMs }) {
-        if (this.rootElement && typeof remainingTimeMs === 'number') {
+        if (this.timerTextElement && typeof remainingTimeMs === 'number') {
             const formattedTime = Timer.formatTime(remainingTimeMs);
-
             this.show(); // Ensure visible
-            this.rootElement.textContent = formattedTime; 
-            // Check if element is actually visible after update
-            setTimeout(() => { // Use setTimeout to check after potential rendering updates
-                 if (this.rootElement.offsetParent === null && this.isVisible) { // Only warn if component thinks it's visible
-                      console.warn(`[${this.name}] Element might be hidden by CSS or other means after update attempt.`);
-                 }
-            }, 0);
+            this.timerTextElement.textContent = formattedTime; 
+
+            // Apply styling based on thresholds
+            const remainingSeconds = remainingTimeMs / 1000;
+            this.timerTextElement.classList.remove(this.lowTimeClass, this.criticalTimeClass, this.timeUpClass);
+            if (remainingSeconds <= this.criticalTimeThresholdSeconds) {
+                 this.timerTextElement.classList.add(this.criticalTimeClass);
+            } else if (remainingSeconds <= this.lowTimeThresholdSeconds) {
+                 this.timerTextElement.classList.add(this.lowTimeClass);
+            }
+            
         } else {
-            console.warn(`[${this.name}] updateDisplay called with invalid data or missing rootElement. Data:`, { remainingTimeMs, rootExists: !!this.rootElement });
+            console.warn(`[${this.name}] updateDisplay called with invalid data or missing rootElement.`);
         }
     }
 
     /** Shows the timer when the game starts. */
-    handleGameStart(payload) {
+    _handleGameStart(payload) {
+        console.log(`[${this.name}] Game started, showing timer.`);
         this.show();
-        if (payload && typeof payload.initialDurationMs === 'number') {
-             this.rootElement.textContent = Timer.formatTime(payload.initialDurationMs);
+        const initialDuration = payload?.settings?.timerDuration || payload?.initialDurationMs; // Check potential payload structures
+        if (typeof initialDuration === 'number') {
+             this.timerTextElement.textContent = Timer.formatTime(initialDuration);
         } else {
-             this.rootElement.textContent = Timer.formatTime(0);
+             this.clearTimer(); // Use default if no duration found
         }
     }
     
-    /** Hides or resets the timer when the game ends. */
-    handleGameEnd() {
+    /** Hides and resets the timer when the game ends or time runs out. */
+    _handleGameEnd() {
+        console.log(`[${this.name}] Game ended or time up, hiding timer.`);
         this.hide(); 
+        this.clearTimer();
     }
 
+    /** Clears the timer display and resets styling. */
+    clearTimer() {
+        if (this.timerTextElement) {
+             this.timerTextElement.textContent = this.defaultDisplay;
+             this.timerTextElement.classList.remove(this.lowTimeClass, this.criticalTimeClass, this.timeUpClass);
+        }
+    }
+    
     /**
      * Cleans up listeners on destruction.
      * Overrides BaseComponent.destroy if needed, but base handles listeners.

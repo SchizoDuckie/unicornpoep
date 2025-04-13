@@ -11,19 +11,21 @@ import Views from '../core/view-constants.js';
  * @extends BaseComponent
  */
 class GameFeedbackComponent extends BaseComponent {
+    static SELECTOR = '#gameFeedback';
+    static VIEW_NAME = 'GameFeedback';
+
     /**
      * Creates an instance of GameFeedbackComponent.
      */
     constructor() {
-        super('#gameFeedback', Views.GameFeedback);
+        super(GameFeedbackComponent.SELECTOR, GameFeedbackComponent.VIEW_NAME);
 
         if (!this.rootElement) {
-            console.warn(`[${this.name}] Root element #gameFeedback not found. Component initialized but might not have a visual container.`);
+            console.warn(`[${this.name}] Root element ${GameFeedbackComponent.SELECTOR} not found. Component initialized but might not have a visual container.`);
         }
 
         this._bindMethods();
-        this.listen(Events.Game.AnswerChecked, this.handleAnswerChecked);
-        this.listen('multiplayer:client:answerResult', this.handleAnswerChecked);
+        this.initialize();
     }
 
     /** Binds methods */
@@ -31,6 +33,30 @@ class GameFeedbackComponent extends BaseComponent {
         this.handleAnswerChecked = this.handleAnswerChecked.bind(this);
         this.triggerConfetti = this.triggerConfetti.bind(this);
         this.triggerIncorrectFeedback = this.triggerIncorrectFeedback.bind(this);
+        this.handleGameFinished = this.handleGameFinished.bind(this);
+    }
+
+    /** Initializes component elements. */
+    initialize() {
+        this.hideTimeout = null;
+        this.listenForEvents();
+        this.hide(); // Start hidden
+        console.log(`[${this.name}] Initialized.`);
+    }
+
+    /** Registers DOM listeners (none needed). */
+    registerListeners() {
+        console.log(`[${this.name}] Registering DOM listeners (none).`);
+    }
+    /** Unregisters DOM listeners (none needed). */
+    unregisterListeners() {
+        console.log(`[${this.name}] Unregistering DOM listeners (none).`);
+    }
+
+    /** Listens for global game events */
+    listenForEvents() {
+        this.listen(Events.Game.AnswerChecked, this.handleAnswerChecked);
+        this.listen(Events.Game.Finished, this.handleGameFinished); // Hide on finish
     }
 
     /**
@@ -47,6 +73,15 @@ class GameFeedbackComponent extends BaseComponent {
             console.debug(`[${this.name}] Triggering negative feedback.`);
             this.triggerIncorrectFeedback();
         }
+    }
+
+    /**
+     * Handles the game finished event. Hides the component.
+     * @private
+     */
+    handleGameFinished() {
+        console.debug(`[${this.name}] Game finished, hiding feedback component if visible.`);
+        this.hide(); // Hide the component
     }
 
     /**

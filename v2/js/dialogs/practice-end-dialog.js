@@ -6,84 +6,76 @@ import Events from '../core/event-constants.js';
 /**
  * @class PracticeEndDialog
  * @extends BaseDialog
- * Dialog shown at the end of a practice session.
+ * Dialog displayed at the end of a practice game.
  */
 class PracticeEndDialog extends BaseDialog {
-    /**
-     * Creates an instance of PracticeEndDialog.
-     */
-    constructor() {
-        super('#practiceEndDialog', 'PracticeEndDialog');
+    static SELECTOR = '#practiceEndDialog';
+    static VIEW_NAME = 'PracticeEndDialog';
 
-        this.tryAgainButton = this.rootElement.querySelector('#practiceTryAgainButton');
-        this.menuButton = this.rootElement.querySelector('#practiceMenuButton');
+    /** Initializes component elements. */
+    initialize() {
+        // this.scoreDisplay = this.rootElement.querySelector('#practiceFinalScore'); // Removed, no matching element
+        this.restartButton = this.rootElement.querySelector('#practiceTryAgainButton'); // Corrected ID
+        this.backToMenuButton = this.rootElement.querySelector('#practiceMenuButton'); // Corrected ID
 
-        if (!this.tryAgainButton || !this.menuButton) {
-            throw new Error(`[${this.name}] Missing required child elements: #practiceTryAgainButton or #practiceMenuButton.`);
-        }
+        // if (!this.scoreDisplay) console.error(`[${this.name}] Missing #practiceFinalScore.`); // Removed check
+        if (!this.restartButton) console.error(`[${this.name}] Missing #practiceTryAgainButton.`); // Corrected ID
+        if (!this.backToMenuButton) console.error(`[${this.name}] Missing #practiceMenuButton.`); // Corrected ID
 
         this._bindMethods();
-        this._addEventListeners();
-
-        // Listen for the game to finish
-        this.listen(Events.Game.Finished, this.handleGameFinished);
-
+        // Listeners added by registerListeners
         console.log(`[${this.name}] Initialized.`);
     }
 
-    /** Binds component methods to the class instance. */
     _bindMethods() {
-        this.handleGameFinished = this.handleGameFinished.bind(this);
-        this.handleTryAgainClick = this.handleTryAgainClick.bind(this);
-        this.handleMenuClick = this.handleMenuClick.bind(this);
+        this.handleRestart = this.handleRestart.bind(this);
+        this.handleBackToMenu = this.handleBackToMenu.bind(this);
     }
 
-    /** Adds DOM event listeners. */
-    _addEventListeners() {
-        this.tryAgainButton.addEventListener('click', this.handleTryAgainClick);
-        this.menuButton.addEventListener('click', this.handleMenuClick);
+    /** Registers DOM listeners. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering DOM listeners.`);
+        if (this.restartButton) this.restartButton.addEventListener('click', this.handleRestart);
+        if (this.backToMenuButton) this.backToMenuButton.addEventListener('click', this.handleBackToMenu);
     }
 
-    /** Removes DOM event listeners. */
-    _removeEventListeners() {
-        // Assuming elements exist because constructor throws if they don't
-        this.tryAgainButton.removeEventListener('click', this.handleTryAgainClick);
-        this.menuButton.removeEventListener('click', this.handleMenuClick);
+    /** Unregisters DOM listeners. */
+    unregisterListeners() {
+        console.log(`[${this.name}] Unregistering DOM listeners.`);
+        if (this.restartButton) this.restartButton.removeEventListener('click', this.handleRestart);
+        if (this.backToMenuButton) this.backToMenuButton.removeEventListener('click', this.handleBackToMenu);
+    }
+
+    /** Handles the restart button click */
+    handleRestart() {
+        console.log("[PracticeEndDialog] Restart clicked.");
+        eventBus.emit(Events.UI.EndDialog.RestartPracticeClicked);
+        this.hide();
+    }
+
+    /** Handles the back to menu button click */
+    handleBackToMenu() {
+        console.log("[PracticeEndDialog] Back to menu clicked.");
+        eventBus.emit(Events.UI.EndDialog.ReturnToMenuClicked);
+        this.hide();
     }
 
     /**
-     * Handles the Game.Finished event.
-     * If the mode is 'practice', shows the dialog.
-     * @param {object} payload - Event payload.
-     * @param {'single' | 'multiplayer' | 'practice'} payload.mode
-     * @private
+     * Shows the dialog.
+     * @param {object} results - The game results (score is ignored).
      */
-    handleGameFinished({ mode }) {
-        if (mode === 'practice') {
-            console.log(`[${this.name}] Practice finished, showing dialog.`);
-            this.show(); // Show the dialog
-        }
-    }
-
-    /** Handles the try again button click. */
-    handleTryAgainClick() {
-        console.log(`[${this.name}] Try again clicked.`);
-        // Emit PlayAgainClicked with mode context
-        eventBus.emit(Events.UI.EndDialog.PlayAgainClicked, { mode: 'practice' }); 
-        this.hide(); // Close the dialog
-    }
-
-    /** Handles the return to menu button click. */
-    handleMenuClick() {
-        console.log(`[${this.name}] Return to menu clicked.`);
-        eventBus.emit(Events.UI.EndDialog.ReturnToMenuClicked);
-        this.hide(); // Close the dialog
+    show(results) {
+        // Score display removed as element doesn't exist
+        // if (this.scoreDisplay) {
+        //     this.scoreDisplay.textContent = `Your Score: ${results.score}`; 
+        // }
+        super.show();
     }
 
     // Override destroy to ensure listeners are removed
     destroy() {
          console.log(`[${this.name}] Destroying...`);
-         this._removeEventListeners(); 
+        this.unregisterListeners();
          super.destroy();
     }
 }

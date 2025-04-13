@@ -1,102 +1,84 @@
 import BaseComponent from './base-component.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
+import { getTextTemplate } from '../utils/miscUtils.js';
 
 
 /**
- * Manages the display of the current question progress (e.g., "Question 1 / 10").
- * Listens for new questions to update the progress count.
+ * Displays the current question progress (e.g., "Question 5 of 10").
  * @extends BaseComponent
  */
 class ProgressDisplayComponent extends BaseComponent {
+    static SELECTOR = '#progressIndicator';
+    static VIEW_NAME = 'ProgressDisplayComponent';
+
     /**
      * Creates an instance of ProgressDisplayComponent.
      * @throws {Error} If the root element or essential child elements (#progressBar, #progressText) are not found.
      */
     constructor() {
-        super('#progressIndicator', 'ProgressDisplay'); // Hardcode the selector
+        super();
+        console.log("[ProgressDisplayComponent] Constructed (via BaseComponent).");
+    }
 
-        if (!this.rootElement) return; // BaseComponent constructor should handle this
-
-        // Find the progress bar and text elements within the root
-        this.progressBarElement = this.rootElement.querySelector('#progressBar');
+    /** Initializes the component. */
+    initialize() {
+        console.log(`[${this.name}] Initializing...`);
         this.progressTextElement = this.rootElement.querySelector('#progressText');
+        this.progressBarElement = this.rootElement.querySelector('#progressBar');
 
-        // Validate that child elements were found (as per refactor plan)
-        if (!this.progressBarElement || !this.progressTextElement) {
-            const missing = [];
-            if (!this.progressBarElement) missing.push('#progressBar'); // Use correct ID in error message
-            if (!this.progressTextElement) missing.push('#progressText');
-            // Throw error immediately if essential children are missing
-            throw new Error(`[${this.name}] Component cannot function without required child elements: ${missing.join(' and ')}.`);
+        if (!this.progressTextElement || !this.progressBarElement) {
+            throw new Error(`[${this.name}] Missing required child elements: #progressText or #progressBar.`);
         }
 
-        this._bindMethods();
-        this.listen(Events.Game.QuestionNew, this.handleNewQuestion);
-        // Listen for game start to ensure visibility and potentially reset
-        this.listen(Events.Game.Started, this.handleGameStart);
-        // Listen for game finish/stop to hide
-        this.listen(Events.Game.Finished, this.handleGameFinished);
-
-        this.resetDisplay(); // Reset and hide initially
-    }
-
-    /** Binds component methods to the class instance. */
-    _bindMethods() {
-        this.handleNewQuestion = this.handleNewQuestion.bind(this);
-        this.handleGameFinished = this.handleGameFinished.bind(this); // Bind finish handler
-        this.resetDisplay = this.resetDisplay.bind(this); // Bind reset handler
-    }
-
-    /**
-     * Updates the progress display when a new question is presented.
-     * Assumes progressBar and progressText exist due to constructor check.
-     * @param {object} payload - The event payload.
-     * @param {number} payload.questionIndex - 0-based index of the current question.
-     * @param {number} payload.totalQuestions - Total number of questions.
-     */
-    handleNewQuestion({ questionIndex, totalQuestions }) {
-        const currentQuestionNumber = questionIndex + 1; 
-        console.debug(`[${this.name}] Updating progress: ${currentQuestionNumber} / ${totalQuestions}`);
-
-        // No need for null checks here due to constructor guarantee
-        this.progressTextElement.textContent = `Vraag ${currentQuestionNumber} / ${totalQuestions}`;
-        this.progressBarElement.max = totalQuestions;
-        this.progressBarElement.value = currentQuestionNumber;
+        // --- Bind Handlers Here --- 
+        this._updateDisplay = this._updateDisplay.bind(this);
+        this._handleGameEnd = this._handleGameEnd.bind(this);
         
-        this.show();
+        this._updateDisplay({ current: 0, total: 0 }); // Initial state
+        console.log(`[${this.name}] Initialized.`);
     }
-    
-    /**
-     * Resets the display elements to initial state.
-     * Assumes progressBar and progressText exist due to constructor check.
-     * @param {boolean} [hide=true] - Whether to hide the component after reset.
-     */
-    resetDisplay(hide = true) {
-        console.debug(`[${this.name}] Resetting progress display.`);
-        // No need for null checks here
-        this.progressTextElement.textContent = `Vraag 0 / 0`;
-        this.progressBarElement.max = 1; 
-        this.progressBarElement.value = 0;
 
-        if (hide) {
-            this.hide();
+    /** Registers eventBus listeners using pre-bound handlers. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering listeners.`);
+        // Listen to relevant game events
+        this.listen(Events.Game.QuestionNew, this._updateDisplay); 
+        this.listen(Events.Game.Finished, this._handleGameEnd); // Reset on game end
+        // Could also listen to Game.Started to get initial total
+    }
+
+    /** Unregisters DOM listeners (none needed). */
+    unregisterListeners() {
+        console.log(`[${this.name}] Unregistering DOM listeners (none).`);
+    }
+
+    /** Updates the progress display. */
+    _updateDisplay(payload) {
+        const current = payload.questionIndex !== undefined ? payload.questionIndex + 1 : (payload.current || 0);
+        const total = payload.totalQuestions || payload.total || 0;
+
+        if (this.progressTextElement) {
+            const label = getTextTemplate('progressLabel') || 'Question';
+            this.progressTextElement.textContent = `${label} ${current} / ${total}`;
+        }
+        if (this.progressBarElement) {
+            this.progressBarElement.max = total;
+            this.progressBarElement.value = current;
+        }
+        
+        if (total > 0) {
+             this.show(); // Show if there are questions
+        } else {
+             this.hide(); // Hide if no total is known (e.g., initial state)
         }
     }
     
-    /**
-     * Hides and resets the display when the game finishes.
-     */
-    handleGameFinished() {
-        this.resetDisplay(true);
-    }
-
-    /** Resets and potentially shows the progress indicator when a game starts. */
-    handleGameStart(payload) {
-        // Reset on game start
-        const totalQuestions = payload.settings.totalQuestions || payload.totalQuestions || 0; // Get total questions if available in start payload
-        this.handleNewQuestion({ questionIndex: -1, totalQuestions: totalQuestions }); // Show 0 / total
-        this.show();
+    /** Resets the display when the game ends. */
+    _handleGameEnd() {
+         console.log(`[${this.name}] Game ended, resetting progress.`);
+         this._updateDisplay({ current: 0, total: 0 }); // Reset to 0/0
+         this.hide();
     }
 
     // No specific DOM listeners to add/remove in this component

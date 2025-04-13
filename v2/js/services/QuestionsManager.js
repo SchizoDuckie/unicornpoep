@@ -14,7 +14,7 @@ const CUSTOM_SHEETS_STORAGE_KEY = 'customSheets';
  */
 class QuestionsManager {
     constructor() {
-        this.customSheets = new Map(); // Stores { name, questions: [{ question, answer }] }
+        this.customSheets = new Map(); // Stores { id, name, questions: [{ question, answer }], isCustom: true, originHostName?: string }
         this.loadedQuestionsCache = new Map(); // Caches parsed CATEGORY OBJECTS keyed by FILE ID (e.g., 'tafels')
         this.selectableItems = []; // Holds { id: string, name: string, isCustom: boolean } for UI
         this.isInitialized = false;
@@ -176,9 +176,11 @@ class QuestionsManager {
             const storedData = localStorage.getItem(CUSTOM_SHEETS_STORAGE_KEY);
             if (storedData) {
                 const parsedData = JSON.parse(storedData);
+                // V2: Expecting format { sheetId: { id, name, questions, isCustom, originHostName? } }
                 if (typeof parsedData === 'object' && parsedData !== null) {
-                    this.customSheets = new Map(Object.entries(parsedData));
-                    // console.log(`[QuestionsManager] Loaded ${this.customSheets.size} custom sheets data.`);
+                    // Directly create Map from entries, assuming stored data has correct format
+                    this.customSheets = new Map(Object.entries(parsedData)); 
+                    console.log(`[QuestionsManager] Loaded ${this.customSheets.size} custom sheets data.`);
                 } else {
                     console.warn("[QuestionsManager] Invalid data format found in localStorage for custom sheets. Starting fresh.");
                     this.customSheets = new Map();
@@ -508,6 +510,88 @@ class QuestionsManager {
     }
 
     /**
+     * Retrieves the actual question data for a list of selectable sheet IDs.
+     * Handles both default (composite ID) and custom sheets.
+     * Ensures initialization is complete before proceeding.
+     *
+     * @param {string[]} selectableIds - An array of sheet IDs (e.g., ["tafels:Tafel van 2", "custom_123"]).
+     * @returns {Promise<object>} A promise resolving to an object { sheets: Array<{ id: string, name: string, isCustom: boolean, questions: Array<{question: string, answer: string}> }> }.
+     * @throws {Error} If initialization fails or a sheet ID is invalid.
+     */
+    async getQuestionsForSheets(selectableIds) {
+        await this._ensureInitialized();
+        console.log(`[QuestionsManager] Getting combined questions for IDs:`, selectableIds);
+
+        const results = {
+            sheets: []
+        };
+
+        if (!Array.isArray(selectableIds) || selectableIds.length === 0) {
+            console.warn("[QuestionsManager] getQuestionsForSheets called with empty or invalid IDs array.");
+            return results; // Return empty structure
+        }
+
+        for (const id of selectableIds) {
+            try {
+                const sheetInfo = this.selectableItems.find(item => item.id === id);
+                if (!sheetInfo) {
+                    console.warn(`[QuestionsManager] Selectable item not found for ID: ${id}. Skipping.`);
+                    continue;
+                }
+
+                let questions = [];
+                if (sheetInfo.isCustom) {
+                    // Custom sheet
+                    const customSheetData = this.customSheets.get(id);
+                    if (customSheetData && Array.isArray(customSheetData.questions)) {
+                        questions = customSheetData.questions;
+                    } else {
+                        console.warn(`[QuestionsManager] Custom sheet data missing or invalid for ID: ${id}. Skipping.`);
+                        continue;
+                    }
+                } else {
+                    // Default sheet (composite ID: fileId:categoryTitle)
+                    const parts = id.split(':');
+                    if (parts.length < 2) { // Allow for titles containing colons
+                         console.warn(`[QuestionsManager] Invalid default sheet ID format: ${id}. Skipping.`);
+                         continue;
+                    }
+                    const fileId = parts[0];
+                    const categoryTitle = parts.slice(1).join(':'); // Re-join title if it contained colons
+
+                    const cachedCategoryObject = this.loadedQuestionsCache.get(fileId);
+                    if (cachedCategoryObject && cachedCategoryObject[categoryTitle] && Array.isArray(cachedCategoryObject[categoryTitle])) {
+                        questions = cachedCategoryObject[categoryTitle];
+                    } else {
+                        console.warn(`[QuestionsManager] Default category questions not found in cache for ID: ${id} (File: ${fileId}, Category: ${categoryTitle}). Skipping.`);
+                        continue;
+                    }
+                }
+                
+                 // Ensure questions have the correct format
+                 const formattedQuestions = questions.map(q => ({
+                     question: q.question || '',
+                     answer: q.answer || '' 
+                 }));
+
+                results.sheets.push({
+                    id: id,
+                    name: sheetInfo.name, // Use the name from selectableItems
+                    isCustom: sheetInfo.isCustom,
+                    questions: formattedQuestions
+                });
+
+            } catch (error) {
+                console.error(`[QuestionsManager] Error processing sheet ID ${id}:`, error);
+                // Optionally re-throw or just log and continue with other sheets
+            }
+        }
+
+        console.log(`[QuestionsManager] Successfully retrieved data for ${results.sheets.length} sheets.`);
+        return results;
+    }
+
+    /**
      * Gets a display-friendly name for a given sheet ID.
      * Placeholder implementation - adjust based on how sheet data is stored.
      * @param {string} sheetId - The ID of the sheet (e.g., 'default_1', 'custom_abc').
@@ -526,6 +610,64 @@ class QuestionsManager {
         }
         console.warn(`[QuestionsManager] Display name not found for sheetId: ${sheetId}`);
         return null; // Not found
+    }
+
+    /** Refreshes the `selectableItems` array based on current default and custom sheets. */
+    _updateSelectableItems() {
+        console.debug("[QuestionsManager] Refreshing selectable items list.");
+        this.selectableItems = [];
+        // Add default categories from cache
+        this.loadedQuestionsCache.forEach((categoryObject, fileId) => {
+            Object.keys(categoryObject).forEach(categoryTitle => {
+                this.selectableItems.push({
+                    id: `${fileId}:${categoryTitle}`, // Composite ID
+                    name: categoryTitle,
+                    isCustom: false
+                });
+            });
+        });
+        // Add custom sheets
+        this.customSheets.forEach((sheetData, sheetId) => {
+            this.selectableItems.push({
+                id: sheetId,
+                name: sheetData.name || getTextTemplate('qmDefaultCustomName'),
+                isCustom: true
+            });
+        });
+        console.debug(`[QuestionsManager] Selectable items refreshed. Count: ${this.selectableItems.length}`);
+    }
+
+    /**
+     * Safely adds a custom sheet received from a host.
+     * Prevents overwriting existing sheets with the same ID.
+     * @param {object} sheetData - The sheet data object { id, name, isCustom, questions }.
+     * @param {string} originHostName - The name of the host the sheet came from.
+     */
+    addReceivedCustomSheet(sheetData, originHostName) {
+        if (!sheetData || !sheetData.id || !sheetData.name || !Array.isArray(sheetData.questions) || !sheetData.isCustom) {
+            console.warn("[QuestionsManager] Attempted to add invalid received custom sheet data:", sheetData);
+            return; // Invalid data
+        }
+
+        if (this.customSheets.has(sheetData.id)) {
+            console.log(`[QuestionsManager] Custom sheet with ID ${sheetData.id} already exists locally. Skipping save.`);
+            // Optional: Emit feedback event?
+            // eventBus.emit(Events.System.ShowFeedback, { message: `Lijst '${sheetData.name}' bestaat al lokaal.`, level: 'info' });
+            return; // Do not overwrite existing sheet
+        }
+
+        // Add origin host name to the data before saving
+        const dataToSave = {
+            ...sheetData,
+            originHostName: originHostName || 'Unknown Host' // Store host name
+        };
+
+        this.customSheets.set(sheetData.id, dataToSave);
+        this._saveCustomSheets(); // Persist to localStorage
+        this._updateSelectableItems(); // Update the internal list for UI
+
+        console.log(`[QuestionsManager] Saved received custom sheet '${sheetData.name}' (ID: ${sheetData.id}) from host '${originHostName}'.`);
+        eventBus.emit(Events.System.ShowFeedback, { message: `Nieuwe lijst '${sheetData.name}' ontvangen en opgeslagen.`, level: 'success' });
     }
 }
 

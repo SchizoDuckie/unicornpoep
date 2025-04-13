@@ -7,19 +7,23 @@ import { getTextTemplate } from '../utils/miscUtils.js';
 /**
  * @class CountdownComponent
  * @extends BaseComponent
- * Manages a visual countdown (e.g., "3, 2, 1, Go!") before a game or round starts.
+ * Displays the 3..2..1 countdown before a game starts.
  */
 class CountdownComponent extends BaseComponent {
-    /**
-     * Creates an instance of CountdownComponent.
-     */
-    constructor() {
-        super('#countdownDisplay', Views.Countdown);
+    static SELECTOR = '#countdown';
+    static VIEW_NAME = 'Countdown';
 
+    /** Initializes component elements. */
+    initialize() {
+        this.countdownText = this.rootElement.querySelector('#countdownText');
+        if (!this.countdownText) {
+            console.error(`[${this.name}] Missing required child element #countdownText.`);
+        }
         this.intervalId = null;
-
+        this.currentCount = 0;
+        this.completionCallback = null;
         this.hide(); // Start hidden
-        console.log(`[${this.name}] Initialized`);
+        console.log(`[${this.name}] Initialized.`);
 
         // Listen for an event to trigger the countdown
         this.listen(Events.Game.CountdownStart, this.handleCountdownStart); 
@@ -27,6 +31,15 @@ class CountdownComponent extends BaseComponent {
         this.listen(Events.Game.Finished, this.stopCountdown);
         // Assuming an Aborted or Leave event exists that GameCoordinator/BaseGameMode might emit
         this.listen(Events.Game.Aborted, this.stopCountdown); // Add listener for abort
+    }
+
+    /** Registers DOM listeners (none needed). */
+    registerListeners() {
+        console.log(`[${this.name}] Registering DOM listeners (none).`);
+    }
+    /** Unregisters DOM listeners (none needed). */
+    unregisterListeners() {
+        console.log(`[${this.name}] Unregistering DOM listeners (none).`);
     }
 
     /**
@@ -58,17 +71,24 @@ class CountdownComponent extends BaseComponent {
         console.log(`[${this.name}] Starting countdown from ${duration}...`);
         let remaining = duration;
 
-        this.rootElement.textContent = remaining;
+        // Use the inner span to display the text
+        if (this.countdownText) { 
+            this.countdownText.textContent = remaining;
+        } else {
+             console.error(`[${this.name}] countdownText element not found in startCountdown!`);
+        }
         this.show(); // Make countdown visible
 
         this.intervalId = setInterval(() => {
             remaining--;
             if (remaining > 0) {
-                this.rootElement.textContent = remaining;
+                // Use the inner span
+                if (this.countdownText) this.countdownText.textContent = remaining;
             } else {
                 clearInterval(this.intervalId);
                 this.intervalId = null;
-                this.rootElement.textContent = finalEndMessage; // Use the fetched/provided message
+                // Use the inner span
+                if (this.countdownText) this.countdownText.textContent = finalEndMessage; 
                 console.log(`[${this.name}] Countdown finished.`);
 
                 // Hide after a brief moment

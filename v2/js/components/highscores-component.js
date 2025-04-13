@@ -12,62 +12,58 @@ import easterEggActivator from '../utils/easter-egg-activator.js';
  * Displays the list of high scores.
  */
 export default class HighscoresComponent extends BaseComponent {
+    static SELECTOR = '#highscores';
+    static VIEW_NAME = 'HighscoresComponent';
+
     /**
      * Initializes the HighscoresComponent.
      */
     constructor() {
-        super('#highscores', Views.Highscores); // Use registration name
-        // BaseComponent constructor throws if rootElement is null.
+        super();
 
-        this.scoreListBody = this.rootElement.querySelector('#scoreList');
+        this.listContainer = this.rootElement.querySelector('#scoreList');
         this.backButton = this.rootElement.querySelector('.backToMain');
         this.rowTemplate = this.rootElement.querySelector('#highscore-row-template');
 
-        // Throw if essential child elements are missing
-        if (!this.scoreListBody || !this.backButton || !this.rowTemplate) {
+        if (!this.listContainer || !this.backButton || !this.rowTemplate) {
             throw new Error(`[${this.name}] Missing required child elements (#scoreList, .backToMain, #highscore-row-template). Component cannot function.`);
         }
 
-        this._bindMethods();
-        this.addEventListeners();
-        this.listenForEvents();
-        console.log("[HighscoresComponent] Initialized.");
+        console.log("[HighscoresComponent] Initialized (via BaseComponent).");
+    }
+
+    initialize() {
+        console.log(`[${this.name}] initialize() called.`);
     }
 
     _bindMethods() {
+        this._handleBackClick = this._handleBackClick.bind(this);
         this.handleScoresLoaded = this.handleScoresLoaded.bind(this);
-        this.handleLoadFailed = this.handleLoadFailed.bind(this);
+        this.handleScoresError = this.handleScoresError.bind(this);
         this.clearDisplay = this.clearDisplay.bind(this);
     }
 
     /**
-     * Adds DOM event listeners.
-     * @private
+     * Adds DOM and eventBus event listeners.
+     * Called by BaseComponent constructor.
      */
-    addEventListeners() {
-        this.backButton.addEventListener('click', () => {
-            console.log("[HighscoresComponent] Back button clicked.");
-            eventBus.emit(Events.UI.Highscores.BackClicked);
-            eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu }); // Use imported constant
-        });
+    registerListeners() {
+        this._bindMethods();
+        
+        if(this.backButton) this.backButton.addEventListener('click', this._handleBackClick);
+
+        this.listen(Events.UI.Highscores.Loaded, this.handleScoresLoaded);
+        this.listen(Events.UI.Highscores.Error, this.handleScoresError);
+        this.listen(Events.Navigation.ShowView, this._handleNavigation);
+        
+        console.log(`[${this.name}] Listeners registered.`);
     }
-
-    /**
-     * Listens for highscore data events.
-     * @private
-     */
-    listenForEvents() {
-        // Listen for the data loaded event from HighscoreManager
-        this.listen(Events.Menu.Highscores.Loaded, this.handleScoresLoaded);
-        this.listen(Events.Menu.Highscores.LoadFailed, this.handleLoadFailed);
-
-        // Clear list if navigating away
-        this.listen(Events.Navigation.ShowView, ({ viewName }) => {
-            if (viewName !== this.name) { // Use this.name for comparison
-                this.clearDisplay();
-                easterEggActivator.deactivate();
-            }
-        });
+    
+    _handleNavigation({ viewName }) {
+        if (viewName !== this.name) {
+            this.clearDisplay();
+            easterEggActivator.deactivate();
+        }
     }
 
     /**
@@ -82,13 +78,13 @@ export default class HighscoresComponent extends BaseComponent {
     }
 
     /**
-     * Handles the Highscores.LoadFailed event.
+     * Handles the Highscores.Error event.
      * @param {object} payload
      * @param {string} payload.message
      * @private
      */
-    handleLoadFailed({ message }) {
-        console.error(`[HighscoresComponent] Load failed event received: ${message}`);
+    handleScoresError({ message }) {
+        console.error(`[HighscoresComponent] Error event received: ${message}`);
         this.renderError(message || getTextTemplate('hsLoadErrorDefault'));
     }
 
@@ -98,55 +94,53 @@ export default class HighscoresComponent extends BaseComponent {
      * @private
      */
     renderScores(scores) {
-        // Check if necessary elements are available (already checked in constructor, but good practice)
-        if (!this.scoreListBody || !this.rowTemplate) return;
+        if (!this.listContainer || !this.rowTemplate) return;
 
-        this.scoreListBody.innerHTML = ''; // Clear previous entries
+        this.listContainer.innerHTML = '';
 
         if (!scores || scores.length === 0) {
-            const row = this.scoreListBody.insertRow();
+            const row = this.listContainer.insertRow();
             const cell = row.insertCell();
-            cell.colSpan = 5; // Ensure it spans all columns defined in the template/thead
+            cell.colSpan = 5;
             cell.textContent = getTextTemplate('hsListEmpty');
             cell.style.textAlign = "center";
             return;
         }
 
-        // Use the template to create and append rows
         scores.forEach((score, index) => {
-            // Clone the template content for each row
             const templateClone = this.rowTemplate.content.cloneNode(true);
-            // Get the actual <tr> element from the cloned fragment
             const rowElement = templateClone.querySelector('tr');
 
-            // Apply rank class for styling
             const rank = index + 1;
             if (rank <= 3) {
                 rowElement.classList.add(`rank-${rank}`);
             }
            
-            // Populate the cells within the cloned row using their class names
             const rankCell = rowElement.querySelector('.rank');
-            if (rank === 1) rankCell.innerHTML = '🥇'; // Medal for 1st
-            else if (rank === 2) rankCell.innerHTML = '🥈'; // Medal for 2nd
-            else if (rank === 3) rankCell.innerHTML = '🥉'; // Medal for 3rd
-            else rankCell.textContent = rank; // Number for others
+            if (rank === 1) rankCell.innerHTML = '🥇';
+            else if (rank === 2) rankCell.innerHTML = '🥈';
+            else if (rank === 3) rankCell.innerHTML = '🥉';
+            else rankCell.textContent = rank;
             
-            // Display gameName directly as retrieved from V1 data (no prefix stripping needed)
             let displayGameName = score.gameName || '?';
-            const parts = displayGameName.split(':');
-            rowElement.querySelector('.level').textContent = parts.length > 1 ? parts[1].trim() : displayGameName; // Use second part if split worked, else show full name
+            const levelDisplay = displayGameName.split(',')
+                .map(part => {
+                    const subParts = part.trim().split('_');
+                    return subParts.length > 1 ? subParts[1].trim() : part.trim(); 
+                })
+                .sort()
+                .join(', ');
+            rowElement.querySelector('.level').textContent = levelDisplay; 
             
             rowElement.querySelector('.name').textContent = score.player;
             rowElement.querySelector('.score').textContent = score.score;
-            // Format date and time like V1 screenshot: D-M-YYYY HH:MM
             const dateCell = rowElement.querySelector('.date');
             if (score.date && typeof score.date === 'string') {
                 try {
                     const dateObj = new Date(score.date);
                     const formattedDate = `${dateObj.getDate()}-${dateObj.getMonth() + 1}-${dateObj.getFullYear()}`;
                     const formattedTime = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
-                    dateCell.innerHTML = `${formattedDate}<br>${formattedTime}`; // Use innerHTML for line break
+                    dateCell.innerHTML = `${formattedDate}<br>${formattedTime}`;
                 } catch (e) {
                     console.warn(`Error formatting date: ${score.date}`, e);
                     dateCell.textContent = '-';
@@ -155,8 +149,7 @@ export default class HighscoresComponent extends BaseComponent {
                 dateCell.textContent = '-';
             }
             
-            // Append the populated row to the table body
-            this.scoreListBody.appendChild(rowElement);
+            this.listContainer.appendChild(rowElement);
         });
     }
 
@@ -166,9 +159,9 @@ export default class HighscoresComponent extends BaseComponent {
      * @private
      */
     renderError(message) {
-        if (!this.scoreListBody) return;
-        this.scoreListBody.innerHTML = ''; // Clear previous entries
-        const row = this.scoreListBody.insertRow();
+        if (!this.listContainer) return;
+        this.listContainer.innerHTML = ''; // Clear previous entries
+        const row = this.listContainer.insertRow();
         const cell = row.insertCell();
         cell.colSpan = 5; // Match column count
         cell.textContent = `${getTextTemplate('hsRenderErrorPrefix')}${message}`;
@@ -181,8 +174,8 @@ export default class HighscoresComponent extends BaseComponent {
      * @private
      */
     clearDisplay() {
-        if (this.scoreListBody) {
-            this.scoreListBody.innerHTML = '';
+        if (this.listContainer) {
+            this.listContainer.innerHTML = '';
             console.debug("[HighscoresComponent] Display cleared.");
         }
     }
@@ -213,5 +206,15 @@ export default class HighscoresComponent extends BaseComponent {
     destroy() {
         easterEggActivator.deactivate();
         super.destroy();
+    }
+
+    /**
+     * Handles the back button click.
+     * @private
+     */
+    _handleBackClick() {
+        console.log("[HighscoresComponent] Back button clicked.");
+        eventBus.emit(Events.UI.Highscores.BackClicked);
+        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu }); // Use imported constant
     }
 } 

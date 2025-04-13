@@ -4,57 +4,66 @@ import Events from '../core/event-constants.js';
 import { getTextTemplate } from '../utils/miscUtils.js';
 
 /**
- * A reusable confirmation dialog.
- * Emits GenericConfirm or GenericCancel events with context.
+ * Generic confirmation dialog (Yes/No).
  */
 class ConfirmationDialog extends BaseDialog {
-    constructor() {
-        super('#confirmationDialog', 'ConfirmationDialog');
+    static SELECTOR = '#confirmationDialog';
+    static VIEW_NAME = 'ConfirmationDialog';
 
-        this.titleElement = this.rootElement.querySelector('#confirmationTitle');
-        this.messageElement = this.rootElement.querySelector('#confirmationMessage');
-        this.okButton = this.rootElement.querySelector('#confirmOkButton');
-        this.cancelButton = this.rootElement.querySelector('#confirmCancelButton');
+    /** Initializes component elements. */
+    initialize() {
+        this.messageElement = this.rootElement.querySelector('.dialog-message');
+        this.confirmButton = this.rootElement.querySelector('#confirmButton');
+        this.cancelButton = this.rootElement.querySelector('#cancelButton');
 
-        if (!this.titleElement || !this.messageElement || !this.okButton || !this.cancelButton) {
-            throw new Error(`[${this.name}] Missing required child elements within #confirmationDialog.`);
+        if (!this.messageElement || !this.confirmButton || !this.cancelButton) {
+            console.error(`[${this.name}] Missing required elements.`);
         }
 
-        this._confirmCallback = null;
-        this._cancelCallback = null;
-        this._dialogContext = null;
+        this.confirmCallback = null;
+        this.cancelCallback = null;
 
-        this._addEventListeners();
+        this._bindMethods();
+        // Listeners added by registerListeners
         console.log(`[${this.name}] Initialized.`);
     }
 
-    _addEventListeners() {
-        this.okButton.addEventListener('click', () => {
+    _bindMethods() {
+        this.handleConfirm = this.handleConfirm.bind(this);
+        this.handleCancel = this.handleCancel.bind(this);
+    }
+
+    /** Registers DOM listeners. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering DOM listeners.`);
+        if (this.confirmButton) this.confirmButton.addEventListener('click', this.handleConfirm);
+        if (this.cancelButton) this.cancelButton.addEventListener('click', this.handleCancel);
+        // BaseDialog handles ESC close
+    }
+
+    /** Unregisters DOM listeners. */
+    unregisterListeners() {
+        console.log(`[${this.name}] Unregistering DOM listeners.`);
+        if (this.confirmButton) this.confirmButton.removeEventListener('click', this.handleConfirm);
+        if (this.cancelButton) this.cancelButton.removeEventListener('click', this.handleCancel);
+    }
+
+    /** Handles the confirm button click */
+    handleConfirm() {
             this.hide();
-            if (this._confirmCallback) {
-                this._confirmCallback(this._dialogContext);
+        if (this.confirmCallback) {
+            this.confirmCallback(this._dialogContext);
             }
             eventBus.emit(Events.UI.Dialog.GenericConfirm, { dialogId: this.name, context: this._dialogContext });
-        });
+    }
 
-        this.cancelButton.addEventListener('click', () => {
+    /** Handles the cancel button click */
+    handleCancel() {
             this.hide();
-            if (this._cancelCallback) {
-                this._cancelCallback(this._dialogContext);
-            }
-            eventBus.emit(Events.UI.Dialog.GenericCancel, { dialogId: this.name, context: this._dialogContext });
-        });
-
-        // Also handle native 'close' (e.g., ESC) as cancel
-        this.rootElement.addEventListener('close', () => {
-            if (this.isVisible) { // Only trigger cancel if it was closed while visible (not on initial hide)
-                if (this._cancelCallback) {
-                    this._cancelCallback(this._dialogContext);
+        if (this.cancelCallback) {
+            this.cancelCallback(this._dialogContext);
                 }
                  eventBus.emit(Events.UI.Dialog.GenericCancel, { dialogId: this.name, context: this._dialogContext });
-                 this.isVisible = false; // Ensure isVisible state matches
-            }
-        });
     }
 
     /**
@@ -87,8 +96,8 @@ class ConfirmationDialog extends BaseDialog {
         this.okButton.textContent = okText;
         this.cancelButton.textContent = cancelText;
 
-        this._confirmCallback = onConfirm;
-        this._cancelCallback = onCancel;
+        this.confirmCallback = onConfirm;
+        this.cancelCallback = onCancel;
         this._dialogContext = context;
 
         super.show(); // Show the modal

@@ -10,17 +10,17 @@ digraph CustomQCRUD_Direct {
 
     // Node Styles (Record for specific event interactions)
     CustomQuestionsComponent [shape="record", style="rounded,filled", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
-                              label="{ Custom Questions UI | {<emits_save> Emits: UI.SaveCustomSheet} | {<emits_del> Emits: UI.DeleteCustomSheet} | {<handles_feedback> Handles: System.ShowFeedback} }"];
+                              label="{ Custom Questions UI | {<emits_save> Emits: UI.CustomQuestions.SaveClicked} | {<emits_del> Emits: UI.CustomQuestions.DeleteClicked} | {<handles_feedback> Handles: System.ShowFeedback} }"];
     ToastComponent [shape="record", style="rounded,filled", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
                     label="{ Toast UI | {<handles_feedback> Handles: System.ShowFeedback} }"];
     UnicornPoep [shape="record", style="rounded,filled", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
-                 label="{ App Entry Point | {<handles_save> Handles: UI.SaveCustomSheet} | {<handles_del> Handles: UI.DeleteCustomSheet} }"];
+                 label="{ App Entry Point | {<handles_save> Handles: UI.CustomQuestions.SaveClicked} | {<handles_del> Handles: UI.CustomQuestions.DeleteClicked} }"];
     QuestionsManager [shape="record", style="rounded,filled", fillcolor="#343a40", color="#ffc107", penwidth=2,
                       label="{ QuestionsManager | {<emits_feedback> Emits: System.ShowFeedback} }"];
 
     // 1. User clicks Save/Delete -> App (Direct Event Flows)
-    CustomQuestionsComponent:emits_save -> UnicornPoep:handles_save [label=" UI.SaveCustomSheet"];
-    CustomQuestionsComponent:emits_del -> UnicornPoep:handles_del [label=" UI.DeleteCustomSheet"];
+    CustomQuestionsComponent:emits_save -> UnicornPoep:handles_save [label=" UI.CustomQuestions.SaveClicked"];
+    CustomQuestionsComponent:emits_del -> UnicornPoep:handles_del [label=" UI.CustomQuestions.DeleteClicked"];
 
     // 2. Handler calls service (Direct Call)
     UnicornPoep -> QuestionsManager [label=" Calls save/deleteSheet()", style=dashed];

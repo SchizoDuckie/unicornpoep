@@ -54,6 +54,49 @@ export function getTextTemplate(key, substitutions) {
     return text;
 }
 
+/**
+ * Generates a fun, random Unicorn-Poep themed player name, avoiding grammatically incorrect combinations.
+ * @returns {string}
+ */
+function generateRandomPlayerName() {
+    const adjectives = [
+        "Glimmende", "Regenboog", // Regenboog often used as is.
+        "Sprankelende", "Vrolijke", "Dappere", "Snelle",
+        "Slimme", "Knetterende", "Blitse", "Gestoorde", "Krankzinnige", 
+        "Ruftende", "Zingende", "Idiote", "Spugende", "Geprakte", "Blaffende",
+        "Fluffy" // Loanword, stays as is
+    ];
+    const nouns = [
+        "Eenhoorn", "Drol", "Scheet", "Banaan", "Wolk", "Ster", "Hartje",
+        "Donut", "Muffin", "Drol", "Fee", "Kabouter", "Elfje", "Pannenkoek", "Banaan",
+        "Knakworst", "Kroket", "Kaassoufflé", "Bamischijf", "Bal Gehakt"
+    ];
+
+    const diminutiveEndings = ['je', 'tje'];
+
+    let attempts = 0;
+    const maxAttempts = 50; // Prevent infinite loops in edge cases
+
+    while (attempts < maxAttempts) {
+        const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
+
+        const isDiminutive = diminutiveEndings.some(ending => randomNoun.endsWith(ending));
+        const isProblematicAdjective = randomAdjective.endsWith('e');
+
+        // If it's NOT a combination of a problematic adjective AND a diminutive noun, it's valid
+        if (!(isProblematicAdjective && isDiminutive)) {
+            return `${randomAdjective} ${randomNoun}`;
+        }
+
+        attempts++;
+    }
+
+    // Fallback in case no valid combination is found quickly (should be rare)
+    console.warn("[generateRandomPlayerName] Could not find a valid adjective/noun combination after max attempts. Returning a default.");
+    return "Vrolijke Eenhoorn"; // Or pick a known safe default
+}
+
 // Export functions individually if needed elsewhere,
 // or export an object as default for consistency.
-export default { generateId, parseQuestionLine, getTextTemplate }; 
+export default { generateId, parseQuestionLine, getTextTemplate, generateRandomPlayerName }; 

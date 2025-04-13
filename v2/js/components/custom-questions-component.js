@@ -10,12 +10,20 @@ import { getTextTemplate } from "../utils/miscUtils.js"; // Import the utility
  * Handles input for creating/editing question lists and displays existing ones.
  */
 export default class CustomQuestionsComponent extends BaseComponent {
-    /**
-     * Initializes the CustomQuestionsComponent.
-     */
-    constructor() {
-        super("#customQuestionsManager", Views.CustomQuestions);
+    static SELECTOR = '#customQuestionsManager';
+    static VIEW_NAME = 'CustomQuestionsComponent';
 
+    /** Initializes the component. */
+    constructor() {
+        super();
+        console.log("[CustomQuestionsComponent] Constructed (via BaseComponent).");
+    }
+
+    /** 
+     * Initializes component elements and binds methods/listeners.
+     * Called by BaseComponent constructor.
+     */
+    initialize() {
         this.sheetNameInput = this.rootElement.querySelector("#customSheetName");
         this.questionsTextarea = this.rootElement.querySelector("#customQuestionsTextarea");
         this.saveButton = this.rootElement.querySelector("#saveCustomQuestionsButton");
@@ -28,71 +36,71 @@ export default class CustomQuestionsComponent extends BaseComponent {
 
         if (!this.sheetNameInput || !this.questionsTextarea || !this.saveButton || !this.backButton || !this.customSheetListContainer || !this.sheetItemTemplate) {
             console.error("[CustomQuestionsComponent] Missing required elements within #customQuestionsManager (incl #customSheetList, #custom-sheet-item-template). Component cannot function.");
-            return;
+            // Let BaseComponent handle potential errors from missing root, but maybe return early?
+             return;
         }
 
-        this.addEventListeners();
-        this.listenForEvents();
-        console.log("[CustomQuestionsComponent] Initialized.");
+        this._handleSaveClick = this._handleSaveClick.bind(this);
+        this._handleBackClick = this._handleBackClick.bind(this);
+        this._handleListClick = this._handleListClick.bind(this);
+        this._handleSaveSuccess = this._handleSaveSuccess.bind(this);
+        this._handleSaveFailed = this._handleSaveFailed.bind(this);
+        this._handleDeleteSuccess = this._handleDeleteSuccess.bind(this);
+        this._handleDeleteFailed = this._handleDeleteFailed.bind(this);
+        this._populateFormForEdit = this._populateFormForEdit.bind(this);
+        this._handleShowView = this._handleShowView.bind(this);
+
+        console.log("[CustomQuestionsComponent] Initialized elements & global listeners.");
+    }
+
+    /** Registers DOM and eventBus listeners using pre-bound handlers. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering listeners.`);
+        
+        // DOM Listeners
+        if (this.saveButton) this.saveButton.addEventListener("click", this._handleSaveClick);
+        if (this.backButton) this.backButton.addEventListener("click", this._handleBackClick);
+        if (this.customSheetListContainer) this.customSheetListContainer.addEventListener("click", this._handleListClick);
+
+        // eventBus Listeners
+        this.listen(Events.Menu.CustomQuestions.SaveSuccess, this._handleSaveSuccess);
+        this.listen(Events.Menu.CustomQuestions.SaveFailed, this._handleSaveFailed);
+        this.listen(Events.Menu.CustomQuestions.DeleteSuccess, this._handleDeleteSuccess);
+        this.listen(Events.Menu.CustomQuestions.DeleteFailed, this._handleDeleteFailed);
+        this.listen(Events.Menu.CustomQuestions.SheetLoadedForEdit, this._populateFormForEdit);
+        this.listen(Events.Navigation.ShowView, this._handleShowView);
     }
 
     /**
-     * Adds DOM event listeners.
+     * Handles back button click.
      * @private
      */
-    addEventListeners() {
-        this.saveButton.addEventListener("click", this.handleSaveClick.bind(this));
-
-        this.backButton.addEventListener("click", () => {
-            console.log("[CustomQuestionsComponent] Back button clicked.");
-            eventBus.emit(Events.UI.CustomQuestions.BackClicked);
-            eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
-        });
-
-        // Use event delegation for list item actions
-        this.customSheetListContainer.addEventListener("click", (event) => {
-            const targetButton = event.target.closest("button");
-            if (!targetButton) return; // Click wasn't on a button or its descendant
-
-            const sheetId = targetButton.dataset.sheetId;
-            const listItem = targetButton.closest('.custom-sheet-item');
-            // Use template for fallback name
-            const sheetName = listItem.querySelector('.sheet-name').textContent || sheetId || getTextTemplate('customQDeleteFallbackName'); 
-            if (!sheetId) return; // Button doesn't have a sheet ID
-
-            if (targetButton.classList.contains("delete-button")) {
-                this.handleDeleteClick(sheetId, sheetName);
-            } else if (targetButton.classList.contains("edit-button")) {
-                this.handleEditClick(sheetId);
-            }
-        });
+    _handleBackClick() {
+        console.log("[CustomQuestionsComponent] Back button clicked.");
+        // Assuming BackClicked event is not crucial if we navigate directly
+        // eventBus.emit(Events.UI.CustomQuestions.BackClicked);
+        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
     }
 
     /**
-     * Listens for relevant application events.
+     * Handles clicks within the custom sheet list using event delegation.
+     * @param {Event} event
      * @private
      */
-    listenForEvents() {
-        // Listen for save success/failure to refresh list or provide context
-        this.listen(Events.Menu.CustomQuestions.SaveSuccess, this.handleSaveSuccess);
-        this.listen(Events.Menu.CustomQuestions.SaveFailed, this.handleSaveFailed);
-        // TODO: Listen for LoadSuccess/LoadFailed, DeleteSuccess/DeleteFailed for the list
-        this.listen(Events.Menu.CustomQuestions.DeleteSuccess, this.handleDeleteSuccess);
-        this.listen(Events.Menu.CustomQuestions.DeleteFailed, this.handleDeleteFailed);
+    _handleListClick(event) {
+        const targetButton = event.target.closest("button");
+        if (!targetButton) return; // Click wasn't on a button or its descendant
 
-        // Listen for sheet data loaded for editing
-        this.listen(Events.Menu.CustomQuestions.SheetLoadedForEdit, this.populateFormForEdit);
+        const sheetId = targetButton.dataset.sheetId;
+        const listItem = targetButton.closest('.custom-sheet-item');
+        const sheetName = listItem?.querySelector('.sheet-name')?.textContent || sheetId || getTextTemplate('customQDeleteFallbackName');
+        if (!sheetId) return; // Button doesn't have a sheet ID
 
-        // Clear display if navigating away
-        this.listen(Events.Navigation.ShowView, ({ viewName }) => {
-            // Use the registered name from the constant map if available, else use component's this.name
-            const registeredName = Object.entries(Views).find(([, val]) => val === this.name)[0] ?? this.name;
-            if (viewName !== registeredName) {
-                this.clearInputs();
-                this.clearSheetList();
-                this.editingSheetId = null;
-            }
-        });
+        if (targetButton.classList.contains("delete-button")) {
+            this._handleDeleteClick(sheetId, sheetName);
+        } else if (targetButton.classList.contains("edit-button")) {
+            this._handleEditClick(sheetId);
+        }
     }
 
     /**
@@ -100,7 +108,7 @@ export default class CustomQuestionsComponent extends BaseComponent {
      * Emits a UI save event with raw text for the coordinator/manager to parse.
      * @private
      */
-    handleSaveClick() {
+    _handleSaveClick() {
         const sheetName = this.sheetNameInput.value.trim();
         const questionsText = this.questionsTextarea.value.trim(); // Get raw text
 
@@ -140,7 +148,7 @@ export default class CustomQuestionsComponent extends BaseComponent {
      * @param {string} payload.name
      * @private
      */
-    handleSaveSuccess({ sheetId, name }) {
+    _handleSaveSuccess({ sheetId, name }) {
         console.log(`[CustomQuestionsComponent] Received SaveSuccess for ${name} (${sheetId}). Triggering list refresh.`);
         // Inputs should already be clear from handleSaveClick, but clear again just in case.
         this.clearInputs();
@@ -154,7 +162,7 @@ export default class CustomQuestionsComponent extends BaseComponent {
      * @param {string} payload.message
      * @private
      */
-    handleSaveFailed({ message }) {
+    _handleSaveFailed({ message }) {
         console.warn(`[CustomQuestionsComponent] Received SaveFailed. Message: ${message}`);
         // Feedback is already shown via ShowFeedback event from coordinator.
         // Could potentially add specific UI state changes here (e.g., re-enable save button if disabled).
@@ -254,27 +262,13 @@ export default class CustomQuestionsComponent extends BaseComponent {
     }
 
     /**
-     * Override show to clear inputs and load/display the list.
-     */
-    show() {
-        super.show();
-        console.log("[CustomQuestionsComponent] Shown.");
-        this.clearInputs();
-        this.clearSheetList(); // Ensure list is clear before loading
-        // Load and display existing custom question lists
-        this.loadAndDisplaySheets();
-        // Potentially emit LoadRequested if loading needs coordination or is async
-        // eventBus.emit(Events.Menu.CustomQuestions.LoadRequested);
-    }
-
-    /**
      * Handles the click on a delete button for a specific sheet.
      * Shows a confirmation dialog before emitting the delete event.
      * @param {string} sheetId - The ID of the sheet to delete.
      * @param {string} sheetName - The name of the sheet for the confirmation message.
      * @private
      */
-    handleDeleteClick(sheetId, sheetName) {
+    _handleDeleteClick(sheetId, sheetName) {
         console.log(`[CustomQuestionsComponent] Delete button clicked for: ${sheetName} (${sheetId})`);
 
         const confirmationDialog = uiManager.components.get('ConfirmationDialog');
@@ -308,7 +302,7 @@ export default class CustomQuestionsComponent extends BaseComponent {
      * @param {string} payload.sheetId
      * @private
      */
-    handleDeleteSuccess({ sheetId }) {
+    _handleDeleteSuccess({ sheetId }) {
         console.log(`[CustomQuestionsComponent] Received DeleteSuccess for ${sheetId}. Refreshing list.`);
         // Refresh the list to remove the deleted item
         this.loadAndDisplaySheets();
@@ -321,7 +315,7 @@ export default class CustomQuestionsComponent extends BaseComponent {
      * @param {string} payload.message
      * @private
      */
-    handleDeleteFailed({ sheetId, message }) {
+    _handleDeleteFailed({ sheetId, message }) {
         console.warn(`[CustomQuestionsComponent] Received DeleteFailed for ${sheetId}. Message: ${message}`);
         // Feedback is handled by coordinator's ShowFeedback.
         // Might want to add UI specific feedback here if needed.
@@ -332,7 +326,7 @@ export default class CustomQuestionsComponent extends BaseComponent {
      * @param {string} sheetId
      * @private
      */
-    handleEditClick(sheetId) {
+    _handleEditClick(sheetId) {
         console.log(`[CustomQuestionsComponent] Edit button clicked for sheet: ${sheetId}`);
         // Set the editing state
         this.editingSheetId = sheetId;
@@ -351,7 +345,7 @@ export default class CustomQuestionsComponent extends BaseComponent {
      * @param {string} payload.questionsText - The raw questions text.
      * @private
      */
-    populateFormForEdit({ sheetId, name, questionsText }) {
+    _populateFormForEdit({ sheetId, name, questionsText }) {
         if (sheetId !== this.editingSheetId) {
             console.warn(`[CustomQuestionsComponent] Received SheetLoadedForEdit for ${sheetId}, but currently editing ${this.editingSheetId}. Ignoring.`);
             return;
@@ -359,5 +353,25 @@ export default class CustomQuestionsComponent extends BaseComponent {
         console.log(`[CustomQuestionsComponent] Populating form for editing sheet: ${name} (${sheetId})`);
         if (this.sheetNameInput) this.sheetNameInput.value = name;
         if (this.questionsTextarea) this.questionsTextarea.value = questionsText;
+    }
+
+    /**
+     * Handles show view event.
+     * @param {object} payload
+     * @param {string} payload.viewName
+     * @private
+     */
+    _handleShowView({ viewName }) {
+        // Use the registered name from the constant map if available, else use component's this.name
+        const registeredName = Object.entries(Views).find(([, val]) => val === this.name)?.[0] ?? this.name;
+        if (viewName === Views.CustomQuestions) {
+            this.loadAndDisplaySheets();
+            this.show();
+        } else {
+            this.clearInputs();
+            this.clearSheetList();
+            this.editingSheetId = null;
+            this.hide();
+        }
     }
 } 

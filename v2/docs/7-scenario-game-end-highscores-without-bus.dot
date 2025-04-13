@@ -12,15 +12,15 @@ digraph GameEndFlow_Direct {
     BaseGameMode [shape="record", style="rounded,filled", fillcolor="#343a40", color="#20c997", penwidth=2,
                   label="{ Game Mode (Any) | {<emits_fin> Emits: Game.Finished} }"];
     GameEndDialog [shape="record", style="rounded,filled", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
-                   label="{ Game End Dialog UI | {<handles_fin> Handles: Game.Finished} | {<emits_menu> Emits: UI.ReturnToMenu} | {<emits_play> Emits: UI.PlayAgain} }"];
+                   label="{ Game End Dialog UI | {<handles_fin> Handles: Game.Finished} | {<emits_menu> Emits: UI.GameEndDialog.ReturnToMenuClicked} | {<emits_play> Emits: UI.GameEndDialog.PlayAgainClicked} }"];
     HighscoresComponent [shape="record", style="rounded,filled", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
                          label="{ Highscores UI | {<handles_loaded> Handles: Highscores.Loaded} | {<handles_failed> Handles: Highscores.Failed} }"]; // Specific handles
     MainMenuComponent [shape="record", style="rounded,filled", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
-                       label="{ MainMenu UI | {<emits_hs> Emits: UI.ShowHighscores} }"];
+                       label="{ MainMenu UI | {<emits_hs> Emits: UI.MainMenu.HighscoresClicked} }"];
     GameCoordinator [shape="record", style="rounded,filled", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
-                     label="{ GameCoordinator | {<handles_fin> Handles: Game.Finished} | {<handles_play> Handles: UI.PlayAgain} }"];
+                     label="{ GameCoordinator | {<handles_fin> Handles: Game.Finished} | {<handles_play> Handles: UI.GameEndDialog.PlayAgainClicked} }"];
     UnicornPoep [shape="record", style="rounded,filled", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
-                 label="{ App Entry Point | {<handles_menu> Handles: UI.ReturnToMenu} | {<handles_hs> Handles: UI.ShowHighscores} | {<emits_nav> Emits: System.Navigate} }"];
+                 label="{ App Entry Point | {<handles_menu> Handles: UI.GameEndDialog.ReturnToMenuClicked} | {<handles_hs> Handles: UI.MainMenu.HighscoresClicked} | {<emits_nav> Emits: System.Navigate} }"];
     HighscoreManager [shape="record", style="rounded,filled", fillcolor="#343a40", color="#ffc107", penwidth=2,
                       label="{ HighscoreManager | {<emits_feedback> Emits: System.ShowFeedback} | {<emits_loaded> Emits: Highscores.Loaded} | {<emits_failed> Emits: Highscores.Failed} }"]; // Specific emits
     UIManager [shape="record", style="rounded,filled", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
@@ -37,11 +37,11 @@ digraph GameEndFlow_Direct {
     HighscoreManager:emits_feedback -> ToastComponent:handles_feedback [label=" System.ShowFeedback (Save Success/Fail)"]; // Direct feedback
 
     // 3. User action from End Dialog -> App/Coordinator (Direct Event Flows)
-    GameEndDialog:emits_menu -> UnicornPoep:handles_menu [label=" UI.ReturnToMenu"];
-    GameEndDialog:emits_play -> GameCoordinator:handles_play [label=" UI.PlayAgain (Restarts)"];
+    GameEndDialog:emits_menu -> UnicornPoep:handles_menu [label=" UI.GameEndDialog.ReturnToMenuClicked"];
+    GameEndDialog:emits_play -> GameCoordinator:handles_play [label=" UI.GameEndDialog.PlayAgainClicked (Restarts)"];
 
     // 4. User requests highscores (Event + Direct Call + Event)
-    MainMenuComponent:emits_hs -> UnicornPoep:handles_hs [label=" UI.ShowHighscores (Trigger Load)"]; // Direct UI event
+    MainMenuComponent:emits_hs -> UnicornPoep:handles_hs [label=" UI.MainMenu.HighscoresClicked (Trigger Load)"]; // Direct UI event
     UnicornPoep -> HighscoreManager [label=" Calls loadScores()", style=dashed]; // Direct Call
     UnicornPoep:emits_nav -> UIManager:handles_nav [label=" System.Navigate (to Highscores)"]; // Direct Nav Event
 

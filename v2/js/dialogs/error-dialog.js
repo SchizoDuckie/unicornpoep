@@ -7,49 +7,35 @@ import BaseDialog from './base-dialog.js';
  * @extends BaseDialog
  */
 class ErrorDialog extends BaseDialog {
+    static SELECTOR = '#errorDialog';
+    static VIEW_NAME = 'ErrorDialog';
+
     /**
      * Creates an instance of ErrorDialog.
      */
     constructor() {
-        super('#errorDialog', 'ErrorDialog');
+        super(ErrorDialog.SELECTOR, ErrorDialog.VIEW_NAME);
 
-        // Find elements (rootElement guaranteed by super())
-        this.messageElement = this.rootElement.querySelector('#errorMessage');
-        this.okButton = this.rootElement.querySelector('#errorOkButton');
+        this.initialize();
+    }
 
-        if (!this.messageElement || !this.okButton) {
-            // Throw if essential elements are missing
-            throw new Error(`[${this.name}] Missing required child elements within #errorDialog: #errorMessage or #errorOkButton.`);
+    /** Initializes component elements. */
+    initialize() {
+        this.messageElement = this.rootElement.querySelector('.dialog-message'); // Generic message class
+        if (!this.messageElement) {
+            console.error(`[${this.name}] Missing required child element .dialog-message.`);
         }
-
-        this._bindMethods();
-        this._addEventListeners();
+        this.addCloseButtonListener(); // Add listener for default close button
+        console.log(`[${this.name}] Initialized.`);
     }
 
-    /** Binds component methods to the class instance. */
-    _bindMethods() {
-        this.handleOk = this.handleOk.bind(this);
+    /** Registers DOM listeners (handled by initialize/addCloseButtonListener). */
+    registerListeners() {
+        console.log(`[${this.name}] Registering DOM listeners (none needed here).`);
     }
-
-    /** Adds specific DOM event listeners for this dialog. */
-    _addEventListeners() {
-        this.okButton.addEventListener('click', this.handleOk);
-        // No specific close listener needed as BaseDialog handles ESC,
-        // and OK button click also closes it.
-    }
-
-    /** Removes specific DOM event listeners. */
-    _removeEventListeners() {
-        // Constructor throws if okButton is missing, so we can assume it exists here.
-        this.okButton.removeEventListener('click', this.handleOk);
-    }
-
-    /**
-     * Handles the OK button click. Simply closes the dialog.
-     */
-    handleOk() {
-        console.debug(`[${this.name}] OK button clicked.`);
-        this.hide();
+    /** Unregisters DOM listeners (handled by BaseDialog/BaseComponent). */
+    unregisterListeners() {
+        console.log(`[${this.name}] Unregistering DOM listeners (none needed here).`);
     }
 
     /**
@@ -68,7 +54,7 @@ class ErrorDialog extends BaseDialog {
      * Overrides base destroy method to remove specific DOM listeners.
      */
     destroy() {
-        this._removeEventListeners();
+        this.unregisterListeners();
         super.destroy();
     }
 }

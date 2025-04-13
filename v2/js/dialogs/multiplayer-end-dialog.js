@@ -10,117 +10,113 @@ import { getTextTemplate } from '../utils/miscUtils.js';
  * Displays the final results and rankings for a multiplayer game.
  */
 class MultiplayerEndDialog extends BaseDialog {
-    /**
-     * Creates an instance of MultiplayerEndDialog.
-     */
-    constructor() {
-        super('#multiplayerEndDialog', 'MultiplayerEndDialog');
+    static SELECTOR = '#multiplayerEndDialog';
+    static VIEW_NAME = 'MultiplayerEndDialog';
 
-        // Find result display elements
-        this.resultsListBody = this.rootElement.querySelector('#mpResultsList');
-        this.rowTemplate = this.rootElement.querySelector('#mp-results-row-template');
-        this.returnButton = this.rootElement.querySelector('#mpReturnToMenuButton');
+    /** Initializes component elements. */
+    initialize() {
+        this.titleDisplay = this.rootElement.querySelector('#multiplayerEndTitle');
+        this.playerListBody = this.rootElement.querySelector('#mpResultsList');
+        this.backToMenuButton = this.rootElement.querySelector('#mpReturnToMenuButton');
+        this.playerTemplate = document.getElementById('mp-results-row-template');
 
-        if (!this.resultsListBody || !this.rowTemplate || !this.returnButton) {
-            throw new Error(`[${this.name}] Missing required child elements (#mpResultsList, #mp-results-row-template, #mpReturnToMenuButton).`);
-        }
+        if (!this.titleDisplay) console.error(`[${this.name}] Missing #multiplayerEndTitle`);
+        if (!this.playerListBody) console.error(`[${this.name}] Missing #mpResultsList (tbody)`);
+        if (!this.backToMenuButton) console.error(`[${this.name}] Missing #mpReturnToMenuButton`);
+        if (!this.playerTemplate) console.error(`[${this.name}] Missing template #mp-results-row-template`);
 
         this._bindMethods();
-        this._addEventListeners();
-
-        // Listen for the game to finish
-        this.listen(Events.Game.Finished, this.handleGameFinished);
-
         console.log(`[${this.name}] Initialized.`);
     }
 
-    /** Binds component methods to the class instance. */
     _bindMethods() {
-        this.handleGameFinished = this.handleGameFinished.bind(this);
-        this.handleReturnClick = this.handleReturnClick.bind(this);
+        this._handleBackClick = this._handleBackClick.bind(this);
+        this.updateDisplay = this.updateDisplay.bind(this);
     }
 
-    /** Adds DOM event listeners. */
-    _addEventListeners() {
-        this.returnButton.addEventListener('click', this.handleReturnClick);
-    }
-
-    /** Removes DOM event listeners. */
-    _removeEventListeners() {
-        // Assuming element exists because constructor throws if it doesn't
-        this.returnButton.removeEventListener('click', this.handleReturnClick);
-    }
-
-    /**
-     * Handles the Game.Finished event.
-     * If the mode is 'multiplayer', displays the ranked results and shows the dialog.
-     * @param {object} payload - Event payload.
-     * @param {'single' | 'multiplayer' | 'practice'} payload.mode
-     * @param {object} payload.results - Game results.
-     * @param {Map<string, {name: string, score: number}>} [payload.results.playerScores] - Map of peerId -> {name, score}.
-     * @param {Array<object>} [payload.results.rankings] - Alternatively, pre-ranked array [{rank, name, score}].
-     * @private
-     */
-    handleGameFinished({ mode, results }) {
-        if (mode === 'multiplayer') {
-            console.log(`[${this.name}] Displaying multiplayer results:`, results);
-            
-            // Determine player results - use rankings if provided, otherwise calculate from scores
-            let rankedPlayers = [];
-            if (Array.isArray(results.rankings)) {
-                rankedPlayers = results.rankings;
-            } else if (results.playerScores instanceof Map) {
-                 // Convert Map to array and sort by score descending
-                 rankedPlayers = Array.from(results.playerScores.values())
-                    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-                    .map((player, index) => ({ 
-                        rank: index + 1, 
-                        name: player.name || getTextTemplate('mpEndDefaultPlayerName'), 
-                        score: player.score ?? 0 
-                    }));
-            } else {
-                 console.error(`[${this.name}] Invalid or missing player results data. Cannot display.`);
-                 this.resultsListBody.innerHTML = `<tr><td colspan="3">${getTextTemplate('mpEndLoadError')}</td></tr>`;
-                 this.show();
-                 return;
-            }
-
-            // Populate the table
-            this.resultsListBody.innerHTML = ''; // Clear previous entries
-
-            if (rankedPlayers.length === 0) {
-                 this.resultsListBody.innerHTML = `<tr><td colspan="3">${getTextTemplate('mpEndNoData')}</td></tr>`;
-            } else {
-                rankedPlayers.forEach(player => {
-                    const templateClone = this.rowTemplate.content.cloneNode(true);
-                    const rowElement = templateClone.querySelector('tr');
-                    
-                    rowElement.querySelector('.rank').textContent = player.rank;
-                    rowElement.querySelector('.name').textContent = player.name;
-                    rowElement.querySelector('.score').textContent = player.score;
-                    
-                    // Optional: Highlight local player?
-                    // if (player.peerId === webRTCManager.getMyPeerId()) { rowElement.classList.add('local-player'); }
-                    
-                    this.resultsListBody.appendChild(rowElement);
-                });
-            }
-            
-            this.show(); // Show the dialog
+    /** Registers DOM listeners. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering DOM listeners.`);
+        if (this.backToMenuButton) {
+             this.backToMenuButton.addEventListener('click', this._handleBackClick);
+        } else {
+             console.warn(`[${this.name}] Back button not found, cannot add listener.`);
         }
     }
 
-    /** Handles the return to menu button click. */
-    handleReturnClick() {
-        console.log(`[${this.name}] Return to menu clicked.`);
-        eventBus.emit(Events.UI.EndDialog.ReturnToMenuClicked);
-        this.hide(); // Close the dialog
+    /** Unregisters DOM listeners. */
+    unregisterListeners() {
+        console.log(`[${this.name}] Unregistering DOM listeners.`);
+        if (this.backToMenuButton) {
+             this.backToMenuButton.removeEventListener('click', this._handleBackClick);
+        }
     }
 
-    // Override destroy to ensure listeners are removed
+    /** Handles the back to menu button click */
+    _handleBackClick() {
+        console.log(`[${this.name}] Back to menu clicked.`);
+        eventBus.emit(Events.UI.EndDialog.ReturnToMenuClicked);
+        this.hide();
+    }
+    
+    /**
+     * Updates the dialog display with the final game results.
+     * @param {object} results - The results object from GameCoordinator/MultiplayerGame.
+     * @param {Array<object>} results.players - Sorted array of player objects { id, name, score }.
+     * @param {string|null} results.winnerId - ID of the winning player, or null for a draw.
+     */
+    updateDisplay(results) {
+        if (!results || !results.players) {
+            console.error(`[${this.name}] Invalid results data received.`, results);
+            if (this.titleDisplay) this.titleDisplay.textContent = 'Error displaying results.';
+            if (this.playerListBody) this.playerListBody.innerHTML = '';
+                 return;
+            }
+
+        let winnerText = getTextTemplate('mpEndDraw') || 'It\'s a draw!';
+        if (results.winnerId) {
+            const winner = results.players.find(p => p.id === results.winnerId);
+            if (winner) {
+                 const name = winner.name || getTextTemplate('mpEndDefaultPlayerName') || `Player ${winner.id.slice(-4)}`;
+                 winnerText = getTextTemplate('mpEndWinnerPrefix', { name: name }) || `${name} wint!`; 
+            }
+        }
+        if (this.titleDisplay) this.titleDisplay.textContent = winnerText;
+
+        if (this.playerListBody && this.playerTemplate) {
+            this.playerListBody.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            results.players.forEach((player, index) => {
+                const itemClone = this.playerTemplate.content.cloneNode(true);
+                const rankCell = itemClone.querySelector('.rank');
+                const nameCell = itemClone.querySelector('.name');
+                const scoreCell = itemClone.querySelector('.score');
+
+                if (nameCell) nameCell.textContent = player.name || getTextTemplate('mpEndDefaultPlayerName') || `Player ${player.id.slice(-4)}`;
+                if (scoreCell) scoreCell.textContent = player.score;
+                if (rankCell) rankCell.textContent = `#${index + 1}`;
+
+                fragment.appendChild(itemClone);
+            });
+            this.playerListBody.appendChild(fragment);
+        } else {
+             if (!this.playerListBody) console.error(`[${this.name}] Cannot populate results: List body (#mpResultsList) not found.`);
+             if (!this.playerTemplate) console.error(`[${this.name}] Cannot populate results: Template (#mp-results-row-template) not found.`);
+        }
+    }
+
+    /**
+     * Shows the dialog and updates its content.
+     * @param {object} results - Results data to display.
+     */
+    show(results) {
+        this.updateDisplay(results);
+        super.show();
+    }
+
     destroy() {
          console.log(`[${this.name}] Destroying...`);
-         this._removeEventListeners(); 
+        this.unregisterListeners();
          super.destroy();
     }
 }

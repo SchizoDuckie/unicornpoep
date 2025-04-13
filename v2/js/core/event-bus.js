@@ -23,6 +23,16 @@ class EventBus {
      * @param {Function} callback - The function to execute when the event is emitted.
      */
     on(eventName, callback) {
+        // --- ADD DEBUGGING --- 
+        if (eventName === Events.Multiplayer.Host.Initialized) {
+            console.log(`[EventBus DEBUG] Registering listener for ${eventName}. Callback:`, callback);
+            if (typeof callback !== 'function') {
+                console.error(`[EventBus DEBUG] ATTEMPTING TO REGISTER NON-FUNCTION LISTENER FOR ${eventName}`, callback);
+                // Optionally add a stack trace
+                console.trace('Stack trace for non-function registration:');
+            }
+        }
+        // --- END DEBUGGING ---
         if (!this.listeners[eventName]) {
             this.listeners[eventName] = [];
         }

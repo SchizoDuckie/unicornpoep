@@ -8,6 +8,9 @@ import Events from '../core/event-constants.js';
  * Manages navigation controls within the game area, primarily the 'Leave Game' button.
  */
 export default class GameNavigationComponent extends BaseComponent {
+    static SELECTOR = '#gameNavigation'; // Assuming this is the container ID
+    static VIEW_NAME = 'GameNavigation';
+
     /**
      * Creates an instance of GameNavigationComponent.
      * @param {string} elementSelector - CSS selector for the component's root element (e.g., '#gameNavigation').
@@ -30,7 +33,7 @@ export default class GameNavigationComponent extends BaseComponent {
              console.debug(`[${this.name}] Found #stopGame button globally.`);
         }
 
-        this._bindEvents();
+        this._bindMethods();
         this.hide(); // Start hidden, show when game starts
         console.log(`[${this.name}] Initialized`);
 
@@ -41,40 +44,32 @@ export default class GameNavigationComponent extends BaseComponent {
         this.listen(Events.Game.Aborted, this.hide); // Assuming Aborted event exists
     }
 
-    /** Binds DOM event listeners. @private */
-    _bindEvents() {
-        this.nextButton.addEventListener('click', () => {
-            if (!this.nextButton.disabled) {
-                console.log(`[${this.name}] Next button clicked.`);
-                eventBus.emit(Events.UI.GameArea.NextQuestionClicked);
-                this.nextButton.disabled = true; // Disable after click
-            }
-        });
+    _bindMethods() {
+        this.handleStopClick = this.handleStopClick.bind(this);
+    }
 
-        // Add listener to the globally found stop button
-        this.stopButton.addEventListener('click', () => {
+    /** Registers DOM listeners. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering DOM listeners.`);
+        if (this.stopButton) {
+            this.stopButton.addEventListener('click', this.handleStopClick);
+        }
+    }
+
+    /** Unregisters DOM listeners. */
+    unregisterListeners() {
+        console.log(`[${this.name}] Unregistering DOM listeners.`);
+        if (this.stopButton) {
+            this.stopButton.removeEventListener('click', this.handleStopClick);
+            }
+    }
+
+    /** Handles the stop button click */
+    handleStopClick() {
             console.log(`[${this.name}] Stop button clicked.`);
             // Removed confirm() wrapper - Directly emit the event.
             // If confirmation is needed, GameCoordinator should handle showing a custom dialog.
             eventBus.emit(Events.UI.GameArea.LeaveGameClicked);
-        });
-    }
-
-    /** Removes DOM event listeners. @private */
-    _unbindEvents() {
-        this.nextButton.removeEventListener('click', () => {
-            if (!this.nextButton.disabled) {
-                console.log(`[${this.name}] Next button clicked.`);
-                eventBus.emit(Events.UI.GameArea.NextQuestionClicked);
-                this.nextButton.disabled = true; // Disable after click
-            }
-        });
-
-        this.stopButton.removeEventListener('click', () => {
-            console.log(`[${this.name}] Stop button clicked.`);
-            // Removed confirm() wrapper - Corresponding removal in unbind
-            eventBus.emit(Events.UI.GameArea.LeaveGameClicked);
-        });
     }
 
     // Removed enable/disable next button logic
@@ -84,7 +79,7 @@ export default class GameNavigationComponent extends BaseComponent {
     // Override destroy to clean up listeners
     destroy() {
         console.log(`[${this.name}] Destroying...`);
-        this._unbindEvents();
+        this.unregisterListeners();
         super.destroy();
     }
 } 

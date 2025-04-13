@@ -4,274 +4,402 @@ import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
 import webRTCManager from '../services/WebRTCManager.js';
 import { getTextTemplate } from '../utils/miscUtils.js'; // Import the utility
+import uiManager from '../ui/UIManager.js'; // Import UIManager
 // Potentially import PlayerListComponent if it's managed directly here
 
 /**
  * @class HostLobbyComponent
  * @extends BaseComponent
- * Manages the host's view while waiting for players to join.
- * Displays connection info, player list, and the start game button.
- * Assumes it controls the `#connectionCode` div within the `#connectionStatus` dialog/view.
+ * Manages the host's view (#connectionCode) within the #connectionStatus dialog 
+ * while waiting for players to join. Assumes UIManager handles dialog visibility.
+ * @typedef {import('../services/WebRTCManager.js').PlayerData} PlayerData - Define PlayerData type
  */
 class HostLobbyComponent extends BaseComponent {
-    /**
-     * Creates an instance of HostLobbyComponent.
-     * @param {string} elementSelector - CSS selector for the component's root element (e.g., '#connectionCode').
-     */
-    constructor() {
-        super('#connectionCode', Views.HostLobby);
+    static SELECTOR = '#connectionStatus';
+    static VIEW_NAME = 'HostLobbyComponent';
 
-        // Element references within the host lobby view
-        this.hostCodeDisplay = this.rootElement.querySelector('#hostCodeDisplay');
-        this.copyCodeButton = this.rootElement.querySelector('#copyCodeButton');
-        this.hostJoinLinkDisplay = this.rootElement.querySelector('#hostJoinLinkDisplay');
-        this.copyLinkButton = this.rootElement.querySelector('#copyJoinLinkButton');
-        this.whatsappButton = this.rootElement.querySelector('#whatsappShareButton');
-        this.waitingTextContainer = this.rootElement.querySelector('#hostWaitingText'); // Renamed variable
-        this.statusInitializing = this.waitingTextContainer.querySelector('#host-status-initializing');
+    /** 
+     * Initializes component elements and binds methods/listeners.
+     * Called by BaseComponent constructor.
+     */
+    initialize() {
+        // NOTE: This component targets elements *within* its rootElement (#connectionStatus)
+        // which is shared with JoinLobbyComponent. Ensure selectors are specific.
+        
+        this.hostCode = null; // Store the 6-digit code
+        this.hostPeerId = null; // Store the actual PeerJS ID of the host
+
+        // --- IMPORTANT: Find elements within the parent dialog (#connectionStatus) --- 
+        this.hostViewContainer = this.rootElement.querySelector('#connectionCode');
+
+        // --- Check for the essential container first ---
+        if (!this.hostViewContainer) {
+            throw new Error(`[${this.name}] Could not find host view container #connectionCode within ${this.selector}.`);
+        }
+
+        // --- NOW find elements WITHIN the hostViewContainer (#connectionCode) ---
+        this.hostCodeDisplay = this.hostViewContainer.querySelector('#hostCodeDisplay');
+        this.copyCodeButton = this.hostViewContainer.querySelector('#copyCodeButton');
+        this.joinLinkDisplay = this.hostViewContainer.querySelector('#hostJoinLinkDisplay'); 
+        this.copyLinkButton = this.hostViewContainer.querySelector('#copyJoinLinkButton'); 
+        this.whatsappButton = this.hostViewContainer.querySelector('#whatsappShareButton'); 
+        this.startGameButton = this.hostViewContainer.querySelector('#hostStartButton'); 
+        this.hostErrorDisplay = this.hostViewContainer.querySelector('#hostErrorDisplay');
+
+        // Player count/waiting text elements (replace playerListElement)
+        this.waitingTextContainer = this.hostViewContainer.querySelector('#hostWaitingText'); 
+        this.statusInitializing = this.waitingTextContainer.querySelector('[data-translation-key="host-status-initializing"]');
         this.statusWaiting = this.waitingTextContainer.querySelector('#host-status-waiting');
-        this.playerCountSpan = this.statusWaiting.querySelector('.player-count');
-        this.playerLabelSingular = this.statusWaiting.querySelector('.player-label-singular');
-        this.playerLabelPlural = this.statusWaiting.querySelector('.player-label-plural');
-        this.startButton = this.rootElement.querySelector('#hostStartButton');
-        this.backButton = this.rootElement.closest('dialog, .view-container').querySelector('.backToMain'); // Find back button in parent
-        this.hostErrorDisplay = this.rootElement.querySelector('#hostErrorDisplay'); // Added error display element
-        // Assuming PlayerListComponent instance is managed elsewhere and updates via events
-        // this.playerListContainer = this.rootElement.querySelector('#playerListContainer'); // If list is inside this component
+        this.playerCountSpan = this.statusWaiting.querySelector('#playerCount');
+        this.playerLabelSingular = this.statusWaiting.querySelector('#playerLabelSingular');
+        this.playerLabelPlural = this.statusWaiting.querySelector('#playerLabelPlural');
 
-        this.hostId = null;
+        // Add player list elements
+        this.playerListContainer = this.rootElement.querySelector('#hostPlayerListContainer');
+        this.playerListUL = this.rootElement.querySelector('#hostPlayerList');
+        this.playerListPlaceholder = this.rootElement.querySelector('#hostPlayerListPlaceholder');
+        
+        // --- ADDED: Select the back button from the parent dialog ---
+        this.backButton = this.rootElement.querySelector('.backToMain');
 
-        this._bindEvents();
-        this.hide(); // Start hidden
-        console.log(`[${this.name}] Initialized`);
+        if (!this.playerListUL) console.error(`[${this.name}] Missing element: #hostPlayerList`);
+        // --- ADDED: Check for backButton too ---
+        if (!this.backButton) console.warn(`[${this.name}] Back button (.backToMain) not found in parent dialog.`);
 
-        // Listen for events relevant to the host lobby
-        this.listen(Events.Navigation.ShowView, this.handleShowView);
-        this.listen(Events.Multiplayer.Host.Initialized, this.handleHostInitialized);
-        this.listen(Events.Multiplayer.Host.ClientConnected, this.updatePlayerDisplay);
-        this.listen(Events.Multiplayer.Host.ClientDisconnected, this.updatePlayerDisplay);
-        this.listen(Events.Multiplayer.Host.ErrorOccurred, this._handleHostError); // Added listener for host errors
-        // Listen for PlayerListUpdated if using a separate PlayerListComponent
-        // this.listen(Events.Multiplayer.Common.PlayerListUpdated, this.handlePlayerListUpdate);
-
-        // Basic check if waiting text structure exists
-        if (!this.statusInitializing || !this.statusWaiting || !this.playerCountSpan || !this.playerLabelSingular || !this.playerLabelPlural) {
-             console.warn(`[${this.name}] Could not find all waiting text elements. Player count display might be broken.`);
+        // Check for essential elements after querying
+        if (!this.hostCodeDisplay || !this.copyCodeButton || !this.joinLinkDisplay || !this.copyLinkButton || !this.whatsappButton || !this.startGameButton || !this.waitingTextContainer || !this.statusWaiting || !this.playerCountSpan || !this.playerLabelSingular || !this.playerLabelPlural) {
+            console.error(`[${this.name}] Failed to find one or more essential elements within ${this.selector}. Check HTML structure.`);
+            // Optionally throw an error here to halt execution if component is unusable
+            // throw new Error(`[${this.name}] Missing essential elements.`);
         }
+
+        this._bindMethods();
+        this._setupInitialState();
+
+        // DOM event listeners are added in registerListeners
+        // eventBus listeners are added in registerListeners using bound methods
     }
 
-    /** Binds DOM event listeners. @private */
-    _bindEvents() {
-        this.copyCodeButton.addEventListener('click', this._handleCopyCode);
-        this.copyLinkButton.addEventListener('click', this._handleCopyLink);
-        this.startButton.addEventListener('click', this._handleStartClick);
-        this.backButton.addEventListener('click', this._handleBackClick); // Use back/cancel event
-        // Note: WhatsApp button uses href, no click listener needed unless modifying behavior
+    /** Bind component methods to ensure correct 'this' context */
+    _bindMethods() {
+        // Bind DOM event listener handlers
+        this.handleCopyCode = this.handleCopyCode.bind(this);
+        this.handleCopyLink = this.handleCopyLink.bind(this);
+        this.handleStartGame = this.handleStartGame.bind(this);
+
+        // Bind eventBus handlers
+        this.handleHostInitialized = this.handleHostInitialized.bind(this);
+        this._handleHostError = this._handleHostError.bind(this);
+        this._handlePlayerListUpdate = this._handlePlayerListUpdate.bind(this);
+        // --- ADDED: Bind back button handler ---
+        this._handleBackClick = this._handleBackClick.bind(this);
     }
 
-    /** Removes DOM event listeners. @private */
-    _unbindEvents() {
-        this.copyCodeButton.removeEventListener('click', this._handleCopyCode);
-        this.copyLinkButton.removeEventListener('click', this._handleCopyLink);
-        this.startButton.removeEventListener('click', this._handleStartClick);
-        this.backButton.removeEventListener('click', this._handleBackClick);
-    }
-
-    /**
-     * Handles the ShowView event.
-     * @param {object} payload
-     * @param {string} payload.viewName
-     * @param {object} [payload.data] - Optional data (playerName, settings) - might not be needed here
-     */
-    handleShowView({ viewName, data }) {
-        if (viewName === this.name) {
-            console.log(`[${this.name}] Showing view. Data:`, data);
-            this._resetLobbyState();
-            this.show();
-            // WebRTC init happens in GameCoordinator, we wait for Host.Initialized
+    /** Set up initial state of the lobby elements */
+    _setupInitialState() {
+        if (!this.rootElement) return; // Should not happen if constructor check works
+        
+        // Use templates for initial text
+        if(this.hostCodeDisplay) this.hostCodeDisplay.textContent = getTextTemplate('hostLoading') || 'Laden...'; // Use loading text
+        if(this.joinLinkDisplay) this.joinLinkDisplay.textContent = getTextTemplate('hostLoading') || 'Laden...';
+        if(this.startGameButton) this.startGameButton.classList.add('hidden'); // Start hidden, enable later
+        if(this.copyCodeButton) this.copyCodeButton.disabled = true;
+        if(this.copyLinkButton) this.copyLinkButton.disabled = true;
+        if(this.whatsappButton) this.whatsappButton.classList.add('hidden'); // Start hidden
+        if(this.hostErrorDisplay) {
+            this.hostErrorDisplay.classList.add('hidden'); 
+            this.hostErrorDisplay.replaceChildren(); 
         }
+
+        // Reset waiting text to initializing state
+        if (this.statusInitializing) this.statusInitializing.classList.remove('hidden');
+        if (this.statusWaiting) this.statusWaiting.classList.add('hidden');
+        if (this.playerCountSpan) this.playerCountSpan.textContent = '0';
+        if (this.playerLabelSingular) this.playerLabelSingular.classList.remove('hidden'); // Default to singular
+        if (this.playerLabelPlural) this.playerLabelPlural.classList.add('hidden');
+        if (this.playerListUL) this.playerListUL.replaceChildren(); // Clear player list
+        if (this.playerListPlaceholder) this.playerListPlaceholder.classList.remove('hidden'); // Show placeholder
+        
+        this.hostCode = null; // Clear host ID
+        this.hostPeerId = null; // Clear host PeerID
     }
 
-    /** Resets the lobby display elements. @private */
+    /** Register DOM and eventBus listeners */
+    registerListeners() {
+        // DOM listeners
+        if (this.copyCodeButton) this.copyCodeButton.addEventListener('click', this.handleCopyCode);
+        if (this.copyLinkButton) this.copyLinkButton.addEventListener('click', this.handleCopyLink);
+        if (this.startGameButton) this.startGameButton.addEventListener('click', this.handleStartGame);
+        // --- ADDED: Add back button listener ---
+        if (this.backButton) this.backButton.addEventListener('click', this._handleBackClick);
+
+        // eventBus listeners (using methods bound in _bindMethods)
+        eventBus.on(Events.Multiplayer.Host.Initialized, this.handleHostInitialized);
+        eventBus.on(Events.Multiplayer.Host.ErrorOccurred, this._handleHostError);
+        eventBus.on(Events.Multiplayer.Common.PlayerListUpdated, this._handlePlayerListUpdate);
+    }
+
+    /** Unregister DOM and eventBus listeners */
+    unregisterListeners() {
+        // DOM listeners
+        if (this.copyCodeButton) this.copyCodeButton.removeEventListener('click', this.handleCopyCode);
+        if (this.copyLinkButton) this.copyLinkButton.removeEventListener('click', this.handleCopyLink);
+        if (this.startGameButton) this.startGameButton.removeEventListener('click', this.handleStartGame);
+        // --- ADDED: Remove back button listener ---
+        if (this.backButton) this.backButton.removeEventListener('click', this._handleBackClick);
+
+        // eventBus listeners
+        eventBus.off(Events.Multiplayer.Host.Initialized, this.handleHostInitialized);
+        eventBus.off(Events.Multiplayer.Host.ErrorOccurred, this._handleHostError);
+        eventBus.off(Events.Multiplayer.Common.PlayerListUpdated, this._handlePlayerListUpdate);
+    }
+
+    /** Resets the lobby display elements. Called by show() or externally */
     _resetLobbyState() {
-        const loadingText = getTextTemplate('hostLoading'); // Get loading text
-        if (this.hostCodeDisplay) this.hostCodeDisplay.textContent = this.hostCodeDisplay.dataset.loadingText || loadingText;
-        if (this.hostJoinLinkDisplay) this.hostJoinLinkDisplay.textContent = this.hostJoinLinkDisplay.dataset.loadingText || loadingText;
-        if (this.whatsappButton) this.whatsappButton.href = '#';
-        this.startButton.classList.add('hidden');
-        this.startButton.removeAttribute('disabled'); // Re-enable start button
-        this.hostId = null;
-        this.hostErrorDisplay.classList.add('hidden'); // Hide error display on reset
-        this.hostErrorDisplay.replaceChildren(); // Clear any previous error messages
-        this.updatePlayerDisplay(); // Reset player count display
+         this._setupInitialState();
+         // Ensure host-specific part is hidden on reset
+         if (this.hostViewContainer) {
+             this.hostViewContainer.classList.add('hidden');
+         }
     }
 
     /**
      * Handles the Host.Initialized event from WebRTCManager.
+     * Makes the host view visible and updates its content.
      * @param {object} payload
-     * @param {string} payload.hostId - The assigned host PeerJS ID.
+     * @param {string} payload.hostId The 6-digit host ID.
+     * @param {string} payload.hostPeerId The host's actual PeerJS ID.
      */
-    handleHostInitialized({ hostId }) {
-        console.log(`[${this.name}] Host initialized with ID: ${hostId}`);
-        this.hostId = hostId;
-        if (this.hostCodeDisplay) this.hostCodeDisplay.textContent = hostId;
+    handleHostInitialized({ hostId, hostPeerId }) {
+        // Don't update if component isn't fully initialized
+        if (!this.hostViewContainer || !this.rootElement) return; 
         
-        // Construct join link
-        const joinUrl = `${window.location.origin}${window.location.pathname}?join=${hostId}`;
-        if (this.hostJoinLinkDisplay) this.hostJoinLinkDisplay.textContent = joinUrl;
-        if (this.whatsappButton) {
-            // Construct the text for WhatsApp share
-            // Use template for base text
-            const shareBaseText = this.whatsappButton.dataset.shareText || getTextTemplate('hostWhatsappShare');
-            const whatsappText = encodeURIComponent(`${shareBaseText} ${joinUrl}`);
-            this.whatsappButton.href = `https://api.whatsapp.com/send?text=${whatsappText}`;
-        }
+        console.log(`[${this.name}] Host Initialized. Code: ${hostId}, PeerID: ${hostPeerId}`);
+        this.hostCode = hostId;
+        this.hostPeerId = hostPeerId;
 
-        // Start button might still be hidden until at least one player joins?
-        // Or enable immediately if 1-player hosting is allowed?
-        // For now, enable when host is ready.
-        this.startButton.classList.remove('hidden'); 
-        this.updatePlayerDisplay(); // Update text now that host is ready
-    }
-
-    /** Updates the waiting text based on connected clients. */
-    updatePlayerDisplay() {
-        const playerList = webRTCManager.getPlayerList();
-        let clientCount = 0;
-        if (playerList) {
-            playerList.forEach(player => {
-                if (!player.isHost) {
-                    clientCount++;
-                }
-            });
-        }
-
-        if (this.hostId) {
-            // Host is ready, show waiting status
-            this.statusInitializing.classList.add('hidden');
-            this.statusWaiting.classList.remove('hidden');
-
-            if (this.playerCountSpan) {
-                 this.playerCountSpan.textContent = clientCount.toString();
-            }
-            if (this.playerLabelSingular && this.playerLabelPlural) {
-                 this.playerLabelSingular.classList.toggle('hidden', clientCount !== 1);
-                 this.playerLabelPlural.classList.toggle('hidden', clientCount === 1);
-            }
+        // --- Explicitly Hide Loading View ---
+        const loadingComponent = uiManager.getComponent('LoadingComponent'); // Use component name
+        if (loadingComponent) {
+            console.log(`[${this.name}] Hiding LoadingComponent.`);
+            loadingComponent.hide();
         } else {
-            // Host not ready yet, show initializing status
-            this.statusInitializing.classList.remove('hidden');
-            this.statusWaiting.classList.add('hidden');
+            console.warn(`[${this.name}] Could not find LoadingComponent to hide.`);
+        }
+        // --- End Hide Loading View ---
+
+        // --- Make Visible --- 
+        // Ensure parent dialog is shown (using BaseComponent's show which targets #connectionStatus)
+        super.show(); 
+        // Ensure host-specific view within the dialog is shown
+        this.hostViewContainer.classList.remove('hidden');
+        // --- End Make Visible ---
+
+        let joinUrl = '';
+
+        // Update code display (format with spaces)
+        if (hostId && this.hostCodeDisplay) {
+            this.hostCodeDisplay.textContent = `${hostId.substring(0, 3)} ${hostId.substring(3)}`;
+            if(this.copyCodeButton) this.copyCodeButton.disabled = false;
+        } else if (this.hostCodeDisplay) {
+            this.hostCodeDisplay.textContent = getTextTemplate('hostLobbyErrorCode') || 'Error!';
+            if(this.copyCodeButton) this.copyCodeButton.disabled = true;
         }
 
-        // Show/hide start button based on player count? (Optional)
-        // if (this.startButton) {
-        //     this.startButton.classList.toggle('hidden', clientCount < 1);
-        // }
-    }
-
-    /** Handles copying the host code. @private */
-    _handleCopyCode = async () => {
-        if (!this.hostId) return;
-        try {
-            await navigator.clipboard.writeText(this.hostId);
-            console.log(`[${this.name}] Host code copied: ${this.hostId}`);
-            // Use template for success message
-            const msg = this.copyCodeButton.dataset.successMsg || getTextTemplate('hostCopyCodeSuccess');
-            eventBus.emit(Events.System.ShowFeedback, { message: msg, level: 'success', duration: 1500 });
-        } catch (err) {
-            console.error(`[${this.name}] Failed to copy host code:`, err);
-            // Use template for error message
-            const msg = this.copyCodeButton.dataset.errorMsg || getTextTemplate('hostCopyCodeError');
-            eventBus.emit(Events.System.ShowFeedback, { message: msg, level: 'error' });
+        // Update join link using the 6-digit hostId
+        if (hostId && this.joinLinkDisplay) {
+            joinUrl = `${window.location.origin}${window.location.pathname}?join=${hostId}`;
+            this.joinLinkDisplay.textContent = joinUrl;
+            // this.joinLinkDisplay.href = joinUrl; // It's a span, not an anchor
+            if(this.copyLinkButton) this.copyLinkButton.disabled = false;
+        } else if (this.joinLinkDisplay) {
+            this.joinLinkDisplay.textContent = getTextTemplate('hostLobbyErrorLink') || 'Error generating link';
+            // this.joinLinkDisplay.removeAttribute('href');
+            if(this.copyLinkButton) this.copyLinkButton.disabled = true;
         }
-    }
-
-    /** Handles copying the join link. @private */
-    _handleCopyLink = async () => {
-        const link = this.hostJoinLinkDisplay.textContent;
-        // Use template for loading text comparison
-        const loadingText = this.hostJoinLinkDisplay.dataset.loadingText || getTextTemplate('hostLoading');
-        if (!link || link === loadingText) return;
-        try {
-            await navigator.clipboard.writeText(link);
-            console.log(`[${this.name}] Join link copied: ${link}`);
-            // Use template for success message
-            const msg = this.copyLinkButton.dataset.successMsg || getTextTemplate('hostCopyLinkSuccess');
-             eventBus.emit(Events.System.ShowFeedback, { message: msg, level: 'success', duration: 1500 });
-        } catch (err) {
-            console.error(`[${this.name}] Failed to copy join link:`, err);
-            // Use template for error message
-            const msg = this.copyLinkButton.dataset.errorMsg || getTextTemplate('hostCopyLinkError');
-            eventBus.emit(Events.System.ShowFeedback, { message: msg, level: 'error' });
+        
+        // Update WhatsApp link
+        if (hostId && this.whatsappButton && joinUrl) { // Ensure joinUrl is set
+            const shareBaseText = this.whatsappButton.dataset.shareText || getTextTemplate('hostWhatsappShare') || 'Join my UnicornPoep game!';
+            const whatsappText = encodeURIComponent(`${shareBaseText} ${joinUrl}`); 
+            this.whatsappButton.href = `https://api.whatsapp.com/send?text=${whatsappText}`;
+            this.whatsappButton.classList.remove('hidden'); // Show the button
+        } else if (this.whatsappButton) {
+            this.whatsappButton.href = '#'; // Reset href
+            this.whatsappButton.classList.add('hidden'); // Hide if no hostId
         }
-    }
 
-    /** Handles the start button click. @private */
-    _handleStartClick = () => {
-        console.log(`[${this.name}] Start Game button clicked.`);
-        // GameCoordinator listens for this and starts the MultiplayerGame host instance
-        eventBus.emit(Events.UI.HostLobby.StartGameClicked);
-        // Optionally disable start button after clicking
-         this.startButton.setAttribute('disabled', 'true');
-    }
-
-    /** Handles the back/cancel button click. @private */
-    _handleBackClick = () => {
-        console.log(`[${this.name}] Back/Cancel button clicked.`);
-        eventBus.emit(Events.UI.HostLobby.CancelClicked); // Specific cancel event
-        this.hide();
-        // GameCoordinator handles cleanup and navigation
+        // Fetch initial player list when host is initialized
+        const initialPlayers = webRTCManager.getPlayerList(); // Get current list
+        this._handlePlayerListUpdate({ players: initialPlayers }); // Update display with potentially existing players
     }
 
     /**
-     * Handles host-specific errors emitted by MultiplayerGame.
-     * Displays the error message in the designated area.
+     * Updates the waiting text and player list based on connected clients.
+     * Triggered by the PlayerListUpdated event.
      * @param {object} payload
-     * @param {string} payload.errorKey - The key for the error template.
-     * @param {string} [payload.originalMessage] - Additional message detail.
-     * @param {number} [payload.index] - Additional index detail.
+     * @param {Map<string, PlayerData>} payload.players - The full map of players.
      * @private
      */
-    _handleHostError = ({ errorKey, originalMessage, index }) => {
-        if (!this.hostErrorDisplay) return;
+     _handlePlayerListUpdate({ players }) {
+        if (!this.hostViewContainer || !this.waitingTextContainer || !players) return;
+        console.log(`[${this.name}] Received PlayerListUpdated. Updating display with ${players.size} players.`);
 
-        const errorTemplateSpan = this.hostErrorDisplay.querySelector(`span[data-key="${errorKey}"]`);
-        if (!errorTemplateSpan) {
-            console.error(`[${this.name}] Could not find error template span for key: ${errorKey}`);
-            // Fallback: Display the key itself or a generic message
-            this.hostErrorDisplay.textContent = `Host Error: ${errorKey}${originalMessage ? ` (${originalMessage})` : ''}`;
-            this.hostErrorDisplay.classList.remove('hidden');
-            return;
+        let clientCount = 0;
+
+        // Iterate over the map to count clients and build the list
+        if (this.playerListUL) {
+            this.playerListUL.replaceChildren(); // Clear previous list
         }
+        
+        players.forEach((playerData, peerId) => {
+            if (peerId !== this.hostPeerId) { // Use stored actual host PeerJS ID for comparison
+                clientCount++;
+                // Build list item using latest data
+                if (this.playerListUL) {
+                    const li = document.createElement('li');
+                    // Use the name directly from the map
+                    li.textContent = playerData.name || getTextTemplate('playerListUnnamed') || `Speler_${peerId.slice(-4)}`; 
+                    this.playerListUL.appendChild(li);
+                }
+            }
+        });
 
-        let errorMessage = errorTemplateSpan.textContent || 'Host error occurred.';
+        console.log(`[${this.name}] Display updated. Client count: ${clientCount}`);
 
-        // Append details if provided
-        if (originalMessage) {
-            errorMessage += originalMessage;
-        } else if (index !== undefined) {
-            errorMessage += index;
-        }
+        // Show/hide placeholder based on client count
+        if(this.playerListPlaceholder) this.playerListPlaceholder.classList.toggle('hidden', clientCount > 0);
 
-        // Display the constructed message
-        // Clear previous content and add the new message
-        this.hostErrorDisplay.textContent = errorMessage;
-        this.hostErrorDisplay.classList.remove('hidden');
+        if (this.hostCode) {
+            // Host is ready, show waiting status
+            if (this.statusInitializing) this.statusInitializing.classList.add('hidden');
+            if (this.statusWaiting) this.statusWaiting.classList.remove('hidden');
 
-        // Potentially disable start button or take other actions depending on the error
-        if (errorKey === 'mpHostErrorNoQuestions') {
-            this.startButton.setAttribute('disabled', 'true');
-            this.startButton.classList.add('hidden'); // Hide if no questions
+            if (this.playerCountSpan) this.playerCountSpan.textContent = clientCount.toString();
+            
+            // Toggle singular/plural labels based on count
+            if (this.playerLabelSingular) this.playerLabelSingular.classList.toggle('hidden', clientCount !== 1);
+            if (this.playerLabelPlural) this.playerLabelPlural.classList.toggle('hidden', clientCount === 1);
+
+            // Enable/disable start button based on whether clients are present
+            this.updateStartButtonState(clientCount);
+        } else {
+            // Host not initialized yet, show initializing
+            if (this.statusInitializing) this.statusInitializing.classList.remove('hidden');
+            if (this.statusWaiting) this.statusWaiting.classList.add('hidden');
+            if(this.startGameButton) this.startGameButton.classList.add('hidden'); // Ensure start button is hidden
         }
     }
 
-    // Override destroy
+    /** Copy the 6-digit host code to clipboard */
+    handleCopyCode() {
+        if (!this.hostCode) return;
+        navigator.clipboard.writeText(this.hostCode)
+            .then(() => {
+                console.log('Host code copied to clipboard');
+                eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('hostCopyCodeSuccess'), level: 'success' });
+            })
+            .catch(err => {
+                console.error('Failed to copy host code: ', err);
+                eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('hostCopyCodeError'), level: 'error' });
+            });
+    }
+
+    /** Copy the full join link to clipboard */
+    handleCopyLink() {
+        if (!this.joinLinkDisplay || !this.joinLinkDisplay.textContent || this.joinLinkDisplay.textContent.startsWith('Error') || this.joinLinkDisplay.textContent.startsWith('Laden')) return;
+        navigator.clipboard.writeText(this.joinLinkDisplay.textContent)
+            .then(() => eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('hostLobbyLinkCopied') || 'Link copied!', level: 'success' }))
+            .catch((err) => {
+                console.error(`[${this.name}] Failed to copy link:`, err);
+                eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('hostLobbyLinkCopyFailed') || 'Failed to copy link.', level: 'error' });
+            });
+    }
+
+    /** Handle the click on the start game button */
+    handleStartGame() {
+        console.log(`[${this.name}] Start Game button clicked.`);
+        // Optionally add validation here (e.g., minimum players) before emitting
+        eventBus.emit(Events.UI.HostLobby.StartGameClicked);
+    }
+
+    /**
+     * Updates the state of the start button (enabled/disabled, visible/hidden).
+     * @param {number} clientCount - The number of connected clients (excluding host).
+     * @private
+     */
+    updateStartButtonState(clientCount) {
+        if (!this.startGameButton) return;
+        // Enable start button only if there is at least one client connected
+        const canStart = clientCount > 0;
+        this.startGameButton.disabled = !canStart;
+        this.startGameButton.classList.toggle('hidden', !canStart);
+        console.log(`[${this.name}] Start button ${canStart ? 'enabled' : 'disabled'} and ${canStart ? 'visible' : 'hidden'}.`);
+    }
+
+    /** 
+     * Overrides base show to ensure initial state is reset.
+     * Note: This is usually called by UIManager, but we call it 
+     * directly in handleHostInitialized now.
+     */
+    show() {
+        this._resetLobbyState();
+        super.show(); // Make #connectionStatus visible
+        // Do NOT show hostViewContainer here, wait for handleHostInitialized
+    }
+
+    /** 
+     * Overrides base hide to ensure host-specific view is also hidden.
+     */
+    hide() {
+        if (this.hostViewContainer) {
+            this.hostViewContainer.classList.add('hidden');
+        }
+        super.hide(); // Hide #connectionStatus
+    }
+
+    /**
+     * Override destroy for any specific cleanup.
+     * BaseComponent destroy handles listeners.
+     */
     destroy() {
-        console.log(`[${this.name}] Destroying...`);
-        this._unbindEvents();
-        super.destroy();
+        // Any specific cleanup for HostLobbyComponent
+        super.destroy(); // Call BaseComponent destroy
+        console.log(`[${this.name}] Destroyed.`);
     }
+
+    /**
+     * Handles host errors from WebRTCManager or GameCoordinator.
+     * @param {object} payload
+     * @param {string} payload.errorKey - Translation key for the error message.
+     * @param {string} [payload.originalMessage] - Original error message, if any.
+     * @param {number} [payload.index] - Optional index related to the error.
+     */
+    _handleHostError({ errorKey, originalMessage, index }) {
+        console.error(`[${this.name}] Host Error Received: key=${errorKey}, msg=${originalMessage}, index=${index}`);
+        // Use template for error message
+        const displayMessage = getTextTemplate(errorKey) || originalMessage || getTextTemplate('hostLobbyGenericError') || 'An unknown error occurred.';
+        if (this.hostErrorDisplay) {
+            this.hostErrorDisplay.textContent = displayMessage;
+            this.hostErrorDisplay.classList.remove('hidden');
+        }
+        // Consider more specific actions based on errorKey if needed
+    }
+
+    // --- ADDED: Back Button Handler ---
+    /**
+     * Handles the click event for the back button.
+     * Navigates back to the Multiplayer Choice screen.
+     * @private
+     */
+    _handleBackClick() {
+        console.log(`[${this.name}] Back button clicked.`);
+        // TODO: Consider cleanup? Should MultiplayerHostManager be stopped here, or does GameCoordinator handle it on view change?
+        // For now, just navigate back.
+        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MultiplayerChoice });
+        this.hide(); // Hide this component's view/dialog
+    }
+    // --- END ADDED SECTION ---
 }
 
 export default HostLobbyComponent;

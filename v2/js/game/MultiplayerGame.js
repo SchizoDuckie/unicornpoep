@@ -1,548 +1,558 @@
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
-import QuizEngine from '../services/QuizEngine.js';
-import webRTCManager from '../services/WebRTCManager.js'; // Corrected Path & Case
+import BaseGameMode from './BaseGameMode.js';
+import QuizEngine from '../services/QuizEngine.js'; // Import the class
 import Timer from '../core/timer.js';
-import miscUtils from '../utils/miscUtils.js'; // Changed to default import
-import { getTextTemplate } from '../utils/miscUtils.js'; // Import the utility
+import miscUtils from '../utils/miscUtils.js';
+import { MSG_TYPE } from '../core/message-types.js';
 
-// Message types sent BY THE HOST
-const MSG_TYPE = {
-    GAME_START: 'game_start', // Host -> Clients: Signal game start
-    QUESTION_NEXT: 'question_new', // Host -> Clients: contains new question data (Renamed for consistency)
-    ANSWER_RESULT: 'answer_result', // Host -> Clients: contains correctness, correct answer, scores
-    GAME_OVER: 'game_over', // Host -> Clients: contains final results
-    PLAYER_UPDATE: 'player_update', // Host -> Clients: e.g., score updates mid-game
-    TIMER_TICK: 'timer_tick', // Host -> Clients: broadcast current time
-    TIMER_UP: 'timer_up', // Host -> Clients: signal time ran out
-    ERROR: 'error', // Host -> Clients: signal an error occurred
-    FEEDBACK: 'feedback', // Host -> Clients: request showing feedback
-    PLAYER_JOINED: 'player_joined', // Host -> Clients: new player notification
-    PLAYER_LEFT: 'player_left', // Host -> Clients: player departure notification
-    PLAYER_LIST_UPDATE: 'player_list_update', // Host -> Clients: full player list refresh
+// ADD: Define constant locally
+const DIFFICULTY_DURATIONS_MS = {
+    easy: 60000,
+    medium: 30000,
+    hard: 10000, // Match SinglePlayerGame definition
 };
 
 /**
- * Manages the state and logic for a multiplayer game session HOST.
- * Handles communication via WebRTCManager to clients.
+ * Manages the state and logic for a multiplayer game session.
+ * Extends BaseGameMode and handles host/client differences.
  */
-class MultiplayerGame {
+class MultiplayerGame extends BaseGameMode {
     /**
-     * Creates a multiplayer game host instance.
-     * @param {object} settings - Game settings (sheetIds, difficulty).
-     * @param {string} localPlayerName - Name of the local player (host).
+     * Creates an instance of MultiplayerGame.
+     * @param {boolean} isHost - True if this instance is the host, false for client.
+     * @param {string} localPlayerName - The name of the local player.
+     * @param {object} gameData - Game data (Host: { sheetIds }, Client: { questionsData, difficulty }).
+     * @param {string} difficulty - The game difficulty.
+     * @param {string} peerId - The ID of the peer (Host ID for client, own ID for host).
+     * @param {object} webRTCManagerInstance - Instance of WebRTCManager.
      */
-    constructor(settings, localPlayerName) {
-        // Note: Removed isHost parameter, this class now assumes host role.
-        console.log(`[MultiplayerGame Host] Initializing.`, { settings, localPlayerName });
-        this.settings = settings;
-        this.localPlayerName = localPlayerName;
-        this.quizEngine = QuizEngine;
-        this.timer = new Timer(30000); // Host controls timer (using ms now)
-        this.playerScores = new Map(); // Map<peerId, number>
-        this.playerFinished = new Map(); // Map<peerId, boolean> - Tracks players who answered current question
-        this.playerAnswers = new Map(); // Map<peerId, any> - Stores submitted answers for the current question
-        this.isGameOver = false;
-        this._questionStartTime = null; // Timestamp when the current question was sent
+    constructor(isHost, localPlayerName, gameData, difficulty, peerId, webRTCManagerInstance) {
+        let quizEngineInstance;
+        let settings;
+        let modeIdentifier;
 
-        // Get initial player list from WebRTCManager - ensure host is included
-        this._initializePlayerState(webRTCManager.getPlayerList());
+        if (isHost) {
+            // --- Host Initialization ---
+            modeIdentifier = 'multiplayer-host';
+            settings = { sheetIds: gameData.sheetIds, difficulty: difficulty }; // Host uses sheetIds
+            quizEngineInstance = QuizEngine.getInstance(); 
+            
+            super(modeIdentifier, settings, quizEngineInstance, localPlayerName);
+            
+            console.log(`[MultiplayerGame Host] Initializing. Settings:`, settings);
+            this.isHost = true;
+            this.settings = settings;
+            this.webRTCManager = webRTCManagerInstance;
+            this.difficulty = difficulty || 'normal';
+            this.hostPeerId = peerId;
+            this.clientsFinished = new Set(); // Tracks clients who sent FINISHED
+            this.clientScores = new Map(); // Stores final scores from clients
+            this.finishedClients = new Set(); // Host: Tracks peerIds of clients who sent CLIENT_FINISHED
+            this.hostFinished = false; // +++ Host: Track if host local game is done +++
+            this.isGameOverBroadcast = false; // +++ Host: Prevent multiple GAME_OVER broadcasts +++
 
-        this._registerListeners();
-    }
-
-    /** Initialize scores based on current player list. @private */
-    _initializePlayerState(players) {
-        this.playerScores.clear();
-        this.playerFinished.clear();
-        // Ensure host is in the list if not already added by WebRTCManager init
-        const hostId = webRTCManager.getMyPeerId();
-        if (hostId && !players.has(hostId)) {
-             console.warn("[MultiplayerGame Host] Host ID not found in initial player list from WebRTCManager. Adding.");
-             // Assuming WebRTCManager stores { name: string } in playerData
-             players.set(hostId, { name: this.localPlayerName });
-        }
-
-        players.forEach((playerData, peerId) => {
-            this.playerScores.set(peerId, 0);
-            this.playerFinished.set(peerId, false); // Reset finished status
-        });
-         console.log("[MultiplayerGame Host] Initial player state:", { scores: this.playerScores, finished: this.playerFinished });
-    }
-
-    /** Registers internal and external event listeners. @private */
-    _registerListeners() {
-        // Listen for WebRTC messages (filtered by game context)
-        this._boundHandleWebRTCMessage = this._handleWebRTCMessage.bind(this); // Store bound reference
-        eventBus.on(Events.WebRTC.MessageReceived, this._boundHandleWebRTCMessage);
-
-        // Listen for player disconnections
-        this._boundHandlePlayerLeft = this._handlePlayerLeft.bind(this); // Store bound reference
-        eventBus.on(Events.Multiplayer.Common.PlayerLeft, this._boundHandlePlayerLeft);
-
-        // Listen for players joining (if game setup allows joining mid-game, otherwise handled by lobby)
-        this._boundHandlePlayerJoined = this._handlePlayerJoined.bind(this); // Store bound reference
-        eventBus.on(Events.Multiplayer.Common.PlayerJoined, this._boundHandlePlayerJoined);
-
-        // Host listens to timer
-        this._boundHostHandleTimerTick = this._hostHandleTimerTick.bind(this); // Store bound reference
-        this.timer.on('tick', this._boundHostHandleTimerTick);
-        this._boundHostHandleTimeUp = this._hostHandleTimeUp.bind(this); // Store bound reference
-        this.timer.on('end', this._boundHostHandleTimeUp);
-
-        // Host listens for local UI answer submission (if host plays along)
-        // eventBus.on(Events.UI.GameArea.AnswerSubmitted, this._hostHandleSelfAnswerSubmitted.bind(this)); // Optional: if host can play
-        // Removed client listener
-    }
-
-    /** Starts the multiplayer game (Host only). */
-    async start() {
-        console.log("[MultiplayerGame Host] Starting game...");
-        try {
-            await this.quizEngine.loadQuestions(this.settings.sheetIds, this.settings.difficulty);
-            if (this.quizEngine.getQuestionCount() === 0) {
-                // Use specific host error event
-                console.error("[MultiplayerGame Host] Error starting game: No questions loaded.");
-                eventBus.emit(Events.Multiplayer.Host.ErrorOccurred, { errorKey: 'mpHostErrorNoQuestions' });
-                // Optionally broadcast generic error to clients?
-                webRTCManager.broadcastMessage(MSG_TYPE.ERROR, { message: 'Host error: Could not load questions.', context: 'game-start' });
-                this.finishGame(); // End game if no questions
-                return; // Stop further execution
-            }
-            this.isGameOver = false;
-
-            // Ensure initial state is set correctly before broadcasting start
-            // Re-initialize state based on the *current* list right before starting
-            this._initializePlayerState(webRTCManager.getPlayerList());
-
-            // Emit Game.Started locally for host UI
-            eventBus.emit(Events.Game.Started, { mode: 'multiplayer', settings: this.settings, role: 'host' });
-
-            // Broadcast GAME_START to all clients
-            webRTCManager.broadcastMessage(MSG_TYPE.GAME_START, {
-                settings: this.settings,
-                players: Object.fromEntries(webRTCManager.getPlayerList()) // Send initial player list
-            });
-
-            // Start the first question after a short delay
-            setTimeout(() => this._hostNextQuestion(), 1000);
-
-        } catch (error) {
-            console.error("[MultiplayerGame Host] Error starting game:", error);
-            // Use specific host error event, include original message if needed
-            const errorPayload = { errorKey: 'mpHostErrorStartPrefix', originalMessage: error.message };
-            eventBus.emit(Events.Multiplayer.Host.ErrorOccurred, errorPayload);
-
-            // Broadcast generic error to clients
-            // Consider using a more user-friendly message or the key itself if client handles it
-            webRTCManager.broadcastMessage(MSG_TYPE.ERROR, { message: `Host error starting game.`, context: 'game-start' });
-            this.finishGame(); // Attempt to cleanup/notify if possible
-            webRTCManager.closeAllConnections(); // Close connections on fatal start error
-        }
-    }
-
-    // --- Host Logic ---
-
-    /** [Host] Moves to the next question or ends the game. @private */
-    _hostNextQuestion() {
-        if (this.isGameOver) return;
-
-        this.timer.stop();
-        const nextIndex = this.quizEngine.currentQuestionIndex + 1;
-
-        if (this.quizEngine.isQuizComplete(nextIndex)) {
-            this.finishGame();
-            return;
-        }
-
-        // Clear previous answers before loading next question
-        this.playerAnswers.clear();
-        this.playerFinished.clear(); // Reset finished status for new question
-
-
-        const questionData = this.quizEngine.getCurrentQuestion(nextIndex); // Advances internal index
-        if (questionData) {
-             const currentQuestionIndex = this.quizEngine.currentQuestionIndex;
-             const totalQuestions = this.quizEngine.getQuestionCount();
-             const answers = this.quizEngine.getShuffledAnswers(currentQuestionIndex); // Use current index
-            console.log(`[MultiplayerGame Host] Presenting question ${currentQuestionIndex + 1}/${totalQuestions}`);
-
-            const payload = {
-                questionIndex: currentQuestionIndex,
-                totalQuestions: totalQuestions,
-                questionData: {
-                    question: questionData.question,
-                    answers: answers // Use shuffled answers
-                }
-            };
-
-            // Emit locally for host UI
-            eventBus.emit(Events.Game.QuestionNew, payload);
-            // Broadcast to clients
-            webRTCManager.broadcastMessage(MSG_TYPE.QUESTION_NEXT, payload);
-
-            // Record question start time for scoring
-            this._questionStartTime = Date.now();
-
-            // Reset local state for host (if playing)
-            // this._resetLocalSubmissionState(); // If host plays along
-
-            // Start timer (ensure using milliseconds)
-            this.timer.reset(); // Reset to initial duration (e.g., 30000ms)
-            this.timer.start();
-            // Broadcast initial tick immediately?
-            this._hostHandleTimerTick(this.timer.duration); // Send initial time
+            // +++ Initialize Timer for Host (needed for scoring _calculateScore) +++
+            const hostDurationMs = DIFFICULTY_DURATIONS_MS[this.difficulty] || DIFFICULTY_DURATIONS_MS.medium;
+            this.timer = new Timer(hostDurationMs);
+            // Host doesn't need gameplay timer listeners, only the object for score calc.
+            // --- End Host Timer Init ---
+        
+            // Initialize host score tracking IN THE MAP (used by _getFinalResults)
+            // this.clientScores.set(this.hostPeerId, 0); // Start host score at 0 in map
+            console.log("[MultiplayerGame Host] Initialized host player state.");
+            
+            this._registerHostListeners();
+            
         } else {
-            // Use specific host error event
-            const errorPayload = { errorKey: 'mpHostErrorNextQPrefix', index: this.quizEngine.currentQuestionIndex };
-            console.error(`[MultiplayerGame Host] Error getting next question:`, errorPayload);
-            eventBus.emit(Events.Multiplayer.Host.ErrorOccurred, errorPayload);
+            // --- Client Initialization ---
+            modeIdentifier = 'multiplayer-client';
+            settings = { difficulty: difficulty }; 
+            
+            if (!gameData || !gameData.questionsData) {
+                throw new Error("[MultiplayerGame Client] Missing required host game data for engine creation.");
+            }
+            const hostGameData = { questionsData: gameData.questionsData, difficulty: difficulty };
+            try {
+                 quizEngineInstance = QuizEngine.createInstance(hostGameData);
+            } catch (error) {   
+                 console.error("[MultiplayerGame Client] Failed to create QuizEngine instance:", error);
+                 throw new Error(`Failed to initialize client game engine: ${error.message}`); 
+            }
 
-             // Broadcast generic error?
-             webRTCManager.broadcastMessage(MSG_TYPE.ERROR, { message: `Host error preparing next question.`, context: 'next-question' });
-            this.finishGame();
+            super(modeIdentifier, settings, quizEngineInstance, localPlayerName);
+            
+            console.log(`[MultiplayerGame Client] Initializing with received data.`);
+            this.isHost = false;
+            this.settings = settings;
+            this.webRTCManager = webRTCManagerInstance;
+            this.difficulty = difficulty || 'normal';
+            this.hostPeerId = peerId;
+            
+            // Client needs a timer for gameplay flow
+            const clientDurationMs = DIFFICULTY_DURATIONS_MS[this.difficulty] || DIFFICULTY_DURATIONS_MS.medium;
+            this.timer = new Timer(clientDurationMs);
+            this._registerTimerListeners(); // Client registers listeners
         }
     }
 
-     /** [Host] Handles timer ticks - broadcasts remaining time. @private */
-    _hostHandleTimerTick(remainingTimeMs) {
-        const payload = { remainingTime: remainingTimeMs };
-        // Emit locally for host UI
-        eventBus.emit(Events.Game.TimeTick, payload);
-        // Broadcast to clients
-        webRTCManager.broadcastMessage(MSG_TYPE.TIMER_TICK, payload);
+    // --- Timer methods copied from SinglePlayerGame for Client ---
+    /** [Client Only] Registers timer-specific event listeners. @private */
+    _registerTimerListeners() {
+        if (this.isHost || !this.timer) return;
+        this._boundHandleTimerTick = this._handleTimerTick.bind(this);
+        this._boundHandleTimeUp = this._handleTimeUp.bind(this);
+        this.timer.on('tick', this._boundHandleTimerTick);
+        this.timer.on('end', this._boundHandleTimeUp);
+        console.log(`[MultiplayerGame Client] Registered timer listeners.`);
     }
-
-    /** [Host] Handles timer running out. Checks answers received so far. @private */
-    _hostHandleTimeUp() {
-        if (this.isGameOver) return;
-        const currentIndex = this.quizEngine.currentQuestionIndex;
-        console.log(`[MultiplayerGame Host] Time's up for question ${currentIndex + 1}`);
-
-        // Emit locally
+    /** [Client Only] Handles timer ticks, emitting the TimeTick event. @private */
+    _handleTimerTick(remainingTime) {
+        if (this.isHost || this.isFinished) return;
+        eventBus.emit(Events.Game.TimeTick, { remainingTimeMs: remainingTime });
+    }
+    /** [Client Only] Handles the timer running out. @private */
+    _handleTimeUp() {
+        if (this.isHost || this.isFinished || this.lastAnswerCorrect !== null) return; // Ignore if game over or question answered
+        
+        const currentIndex = this.currentQuestionIndex;
+        console.log(`[MultiplayerGame Client] Time's up for question ${currentIndex + 1}`);
         eventBus.emit(Events.Game.TimeUp);
-        // Broadcast to clients
-        webRTCManager.broadcastMessage(MSG_TYPE.TIMER_UP, {}); // Simple signal
+        
+        // Treat time up as incorrect - Use the injected QuizEngine instance
+        const correctAnswer = this.quizEngine.getCorrectAnswer(currentIndex); // Use instance
+        const checkResult = { isCorrect: false, correctAnswer: correctAnswer }; 
+        const scoreDelta = this._calculateScore(false); // Uses inherited method
 
-        // Process results for everyone (those who answered + those who didn't)
-        this._hostProcessRoundResults(true); // Indicate timedOut = true
+        // Set lastAnswerCorrect to prevent race condition with submit
+        this.lastAnswerCorrect = false; 
 
-        // Move to next question after a delay
-        setTimeout(() => this._hostNextQuestion(), 3000); // Longer delay after time out/results display
+        eventBus.emit(Events.Game.AnswerChecked, {
+            isCorrect: false,
+            scoreDelta: scoreDelta,
+            correctAnswer: checkResult.correctAnswer,
+            submittedAnswer: null // Indicate no answer was submitted
+        });
+        this._afterAnswerChecked(false, scoreDelta); // Update score via hook
+        
+        // Delay moving to the next question
+        setTimeout(() => { if (!this.isFinished) { this.nextQuestion(); } }, 1500);
+    }
+    // --- End Timer Methods ---
+
+    // --- REMOVED Client Helper Methods (_getClient* / _checkClientAnswer) ---
+    // --- REMOVED Overrides for getCorrectAnswer, getShuffledAnswers ---
+
+    // --- Host Specific Methods ---
+    /** [Host Only] Registers host-specific listeners. @private */
+    _registerHostListeners() {
+        if (!this.isHost) return;
+        this._boundHandleWebRTCMessage_Host = this._handleWebRTCMessage_Host.bind(this);
+        this._boundHandlePlayerLeft_Host = this._handlePlayerLeft_Host.bind(this);
+        this._boundHandlePlayerJoined_Host = this._handlePlayerJoined_Host.bind(this);
+        this._boundHandlePlayerListUpdate_Host = this._handlePlayerListUpdate_Host.bind(this);
+
+        eventBus.on(Events.WebRTC.MessageReceived, this._boundHandleWebRTCMessage_Host);
+        eventBus.on(Events.Multiplayer.Common.PlayerLeft, this._boundHandlePlayerLeft_Host);
+        eventBus.on(Events.Multiplayer.Common.PlayerJoined, this._boundHandlePlayerJoined_Host);
+        eventBus.on(Events.Multiplayer.Common.PlayerListUpdated, this._boundHandlePlayerListUpdate_Host);
+        console.log(`[MultiplayerGame Host] Registered host listeners.`);
+    }
+    /** [Host Only] Handles player list updates from WebRTCManager. @private */
+    _handlePlayerListUpdate_Host({ players }) {
+        if (!this.isHost) return;
+        console.log(`[MultiplayerGame Host] Received PlayerListUpdated event. Updating internal state.`);
+        this._initializePlayerState(players); // Use the existing state initializer
+    }
+    /** [Host Only] Initializes score map based on current player list. @private */
+    _initializePlayerState(players) {
+        if (!this.isHost) return;
+        this.clientScores.clear();
+        this.clientsFinished.clear();
+        players.forEach((playerData, peerId) => {
+            if (peerId !== this.hostPeerId) { 
+                this.clientScores.set(peerId, null);
+            }
+        });
+        console.log("[MultiplayerGame Host] Initial client state:", { scores: this.clientScores });
+    }
+     /** [Host Only] Handles messages received via WebRTC during the game phase. @private */
+     _handleWebRTCMessage_Host({ msg, sender }) {
+        if (!this.isHost || this.isGameOverBroadcast) return; // Only host processes during active game
+
+        const { type, payload } = msg;
+        // +++ DEBUG: Log received message type +++
+        console.log(`[MultiplayerGame Host DEBUG] Received message. Type: '${type}' (typeof: ${typeof type}), Payload:`, payload, "Expected CLIENT_FINISHED:", MSG_TYPE.CLIENT_FINISHED);
+        // --- END DEBUG ---
+        
+        // +++ MORE DEBUGGING: Check MSG_TYPE object just before switch +++
+        console.log("[MultiplayerGame Host DEBUG] MSG_TYPE object before switch:", MSG_TYPE);
+        console.log("[MultiplayerGame Host DEBUG] MSG_TYPE.CLIENT_FINISHED before switch:", MSG_TYPE?.CLIENT_FINISHED);
+        // --- END MORE DEBUGGING ---
+
+        switch (type) {
+            case MSG_TYPE.ANSWER_SUBMITTED:
+                // Handle client submitting an answer
+                console.log(`[MultiplayerGame Host] Received answer from ${sender}:`, payload);
+                // TODO: Store client answer/time? For now, we wait for CLIENT_FINISHED
+                break;
+
+            case MSG_TYPE.CLIENT_FINISHED:
+                // +++ DEBUG: Confirm this case is matched +++
+                console.log(`[MultiplayerGame Host DEBUG] Matched case for CLIENT_FINISHED. Type: '${type}', Expected: '${MSG_TYPE.CLIENT_FINISHED}'`);
+                // --- END DEBUG ---
+                // Handle client finishing their local quiz
+                this._hostHandleClientFinished({ sender, payload });
+                break;
+
+            // Ignore other message types during active game phase for now
+            default:
+                // +++ DEBUG: Log why default is hit +++
+                console.log(`[MultiplayerGame Host DEBUG] Hit DEFAULT case. Type: '${type}', Expected CLIENT_FINISHED: '${MSG_TYPE.CLIENT_FINISHED}'`);
+                // --- END DEBUG ---
+                console.log(`[MultiplayerGame Host] Ignoring non-game message type '${type}' from ${sender}`);
+        }
+    }
+    /** [Host Only] Handles a client signaling they have finished. @private */
+    _hostHandleClientFinished({ sender, payload }) {
+        const hasSender = this.clientScores?.has(sender); // Use optional chaining for safety
+        const isDuplicate = this.clientsFinished.has(sender);
+
+        if (!this.isHost || !hasSender || isDuplicate) {
+            // Log which condition failed
+            console.warn(`[MultiplayerGame Host] Received CLIENT_FINISHED from ${sender}, but ignoring.`);
+            if (!this.isHost) console.warn("  Reason: Instance is not host.");
+            if (!hasSender) console.warn(`  Reason: Sender ${sender} not found in clientScores map. Current keys: ${this.clientScores ? Array.from(this.clientScores.keys()).join(', ') : 'undefined'}`);
+            if (isDuplicate) console.warn(`  Reason: Sender ${sender} already in clientsFinished set.`);
+            return;
+        }
+        const score = payload?.score ?? 0; // Default score to 0 if missing
+        console.log(`[MultiplayerGame Host] Client ${sender} finished with score: ${score}`);
+        this.clientScores.set(sender, score);
+        this.clientsFinished.add(sender);
+        this._hostCheckCompletion(); // Check if all clients are done
+    }
+    /** [Host Only] Checks if all connected clients AND the host have finished. */
+    _hostCheckCompletion() {
+        if (!this.isHost || this.isGameOverBroadcast) return; // Exit if not host or already sent GAME_OVER
+
+        // Host marks itself as finished when its local finishGame is called
+        if (this.isFinished && !this.hostFinished) {
+            console.log("[MultiplayerGame Host Check] Host has marked itself as finished.");
+            this.hostFinished = true;
+        }
+
+        // Get currently connected clients (excluding host)
+        const connectedClients = this.webRTCManager.getConnectedPeerIds().filter(id => id !== this.hostPeerId);
+        // Check if ALL currently connected clients have sent CLIENT_FINISHED
+        const allClientsFinished = connectedClients.length > 0 && connectedClients.every(peerId => this.clientsFinished.has(peerId));
+
+        console.log("[MultiplayerGame Host] Check Completion: Host Finished?", this.hostFinished);
+        console.log("[MultiplayerGame Host] Check Completion: Finished Clients Set", this.clientsFinished);
+        console.log("[MultiplayerGame Host] Check Completion: Connected Clients", connectedClients);
+
+        // --- Trigger Game Over --- 
+        if (this.hostFinished && allClientsFinished) {
+            console.log("[MultiplayerGame Host] Host and all connected clients have finished! Calculating and broadcasting GAME_OVER.");
+            
+            this.isGameOverBroadcast = true; // Set flag to prevent re-entry
+
+            // Calculate final results (NOW is the time)
+            const finalResults = this._getFinalResults(); 
+            console.log(`[MultiplayerGame Host] Final Host Results:`, finalResults);
+            
+            // Broadcast GAME_OVER *with* the results payload
+            this.webRTCManager.broadcastMessage(MSG_TYPE.GAME_OVER, finalResults);
+            
+            // Now emit the local Game.Finished event for the host coordinator
+            eventBus.emit(Events.Game.Finished, { mode: 'multiplayer-host', results: finalResults });
+
+            // Host cleanup can happen via GameCoordinator reacting to Game.Finished
+            // this._cleanupListeners(); 
+        } else {
+            console.log("[MultiplayerGame Host] Check Completion: Waiting for host or more clients to finish.");
+        }
+    }
+    /** [Host Only] Handles a player joining mid-game (not fully supported). @private */
+    _handlePlayerJoined_Host({ peerId, playerData }) {
+        if (!this.isHost || this.isGameOver) return;
+        console.log(`[MultiplayerGame Host] Player ${playerData.name} (${peerId}) joined mid-game. Adding to score tracking.`);
+        if (peerId !== this.hostPeerId) {
+            this.clientScores.set(peerId, null); // Add to score tracking, score TBD
+            // Should the host send current game state? Complex.
+            // For now, they just get tracked for the end.
+        }
+    }
+    /** [Host Only] Handles a player leaving mid-game. @private */
+    _handlePlayerLeft_Host({ peerId }) {
+         if (!this.isHost || this.isGameOver) return;
+         console.log(`[MultiplayerGame Host] Player ${peerId} left mid-game.`);
+         if (this.clientScores.has(peerId)) {
+            // Mark as finished to potentially trigger game end if they were last
+            if (!this.clientsFinished.has(peerId)) {
+                console.log(`[MultiplayerGame Host] Marking leaving player ${peerId} as finished.`);
+                this.clientsFinished.add(peerId);
+                 // Score remains whatever it was (null if never finished)
+            }
+             this._hostCheckCompletion();
+         } else {
+            console.warn(`[MultiplayerGame Host] Left player ${peerId} was not in score map.`);
+         }
+    }
+     /** [Host Only] Cleans up host-specific listeners. @private */
+     _cleanupHostListeners() {
+        if (!this.isHost) return;
+        if (this._boundHandleWebRTCMessage_Host) {
+            eventBus.off(Events.WebRTC.MessageReceived, this._boundHandleWebRTCMessage_Host);
+            this._boundHandleWebRTCMessage_Host = null;
+        }
+        if (this._boundHandlePlayerLeft_Host) {
+            eventBus.off(Events.Multiplayer.Common.PlayerLeft, this._boundHandlePlayerLeft_Host);
+            this._boundHandlePlayerLeft_Host = null;
+        }
+         if (this._boundHandlePlayerJoined_Host) {
+            eventBus.off(Events.Multiplayer.Common.PlayerJoined, this._boundHandlePlayerJoined_Host);
+            this._boundHandlePlayerJoined_Host = null;
+        }
+        if (this._boundHandlePlayerListUpdate_Host) {
+            eventBus.off(Events.Multiplayer.Common.PlayerListUpdated, this._boundHandlePlayerListUpdate_Host);
+            this._boundHandlePlayerListUpdate_Host = null;
+        }
+        console.log("[MultiplayerGame Host] Cleaned up host listeners.");
+    }
+    // --- End Host Specific Methods ---
+
+    // --- REMOVED Overrides for nextQuestion, _handleAnswerSubmitted ---
+    // BaseGameMode methods will now work correctly using the injected this.quizEngine
+
+    /** Starts the multiplayer game. */
+    async start() {
+        if (this.gameStarted) return;
+        this.gameStarted = true;
+        
+        if (this.isHost) {
+            // --- Host Start ---
+            console.log("[MultiplayerGame Host] Starting game...");
+            this.isGameOver = false; 
+            // Initialize/reset player state based on current connections
+            // State is now primarily managed via PlayerListUpdated events
+            // this._initializePlayerState(this.webRTCManager.getPlayerList()); // REMOVED incorrect call
+            
+            try {
+                console.log(`[MultiplayerGame Host] Loading questions into singleton engine via Manager...`);
+                // Use the loadQuestionsFromManager method on the singleton instance
+                await this.quizEngine.loadQuestionsFromManager(this.settings.sheetIds, this.difficulty);
+                if (this.quizEngine.getQuestionCount() === 0) throw new Error("No questions loaded.");
+
+                // +++ FIX: Initialize player state at game start +++
+                console.log("[MultiplayerGame Host] Initializing player state based on current connections...");
+                this._initializePlayerState(this.webRTCManager.getPlayerList()); // Use WebRTCManager's current player list
+                // --- END FIX ---
+
+            } catch (error) { 
+                 console.error(`[MultiplayerGame Host] Error loading questions or initializing state:`, error);
+                 eventBus.emit(Events.System.ErrorOccurred, { message: `Host failed to load questions: ${error.message}`, error });
+                 this.webRTCManager.broadcastMessage(MSG_TYPE.ERROR, { message: 'Host failed to load questions.' });
+                 // Clean up? For now, just stop.
+                 this.finishGame(true); // Indicate error finish
+                 return; 
+             }
+
+            const gameSettings = { ...this.settings, totalQuestions: this.quizEngine.getQuestionCount() };
+            eventBus.emit(Events.Game.Started, { mode: 'multiplayer-host', settings: gameSettings, role: 'host' });
+            console.log("[MultiplayerGame Host] Broadcasting GAME_START.");
+            // --- DEBUG: Check webRTCManager instance before calling broadcast --- 
+            console.log("[MultiplayerGame Host DEBUG] Checking this.webRTCManager:", this.webRTCManager);
+            console.log("[MultiplayerGame Host DEBUG] Does it have broadcastMessage?", typeof this.webRTCManager?.broadcastMessage);
+            // --- END DEBUG ---
+            // Send GAME_START message to all clients
+            this.webRTCManager.broadcastMessage(MSG_TYPE.GAME_START, {});
+            
+            // Start the game flow locally using BaseGameMode's nextQuestion
+            this.nextQuestion(); 
+
+        } else {
+            // --- Client Start ---
+            console.log("[MultiplayerGame Client] Starting game locally...");
+            // QuizEngine instance was already created and populated in constructor
+            try {
+                if (this.quizEngine.getQuestionCount() === 0) {
+                    throw new Error("Client QuizEngine instance has no questions.");
+                }
+                 console.log(`[MultiplayerGame Client] Verified engine instance. Count: ${this.quizEngine.getQuestionCount()}`);
+                
+                // Reset BaseGameMode state (handled in Base constructor mostly)
+                this.isFinished = false;
+                this.lastAnswerCorrect = null;
+                this.currentQuestionIndex = -1;
+                this.score = 0; // Ensure score starts at 0
+
+                // Emit Game.Started locally for client UI transition
+                 const gameSettings = { ...this.settings, totalQuestions: this.quizEngine.getQuestionCount() };
+                eventBus.emit(Events.Game.Started, { 
+                    mode: 'multiplayer-client',
+                    settings: gameSettings, 
+                    role: 'client' 
+                });
+
+                // Start the quiz loop using BaseGameMode's nextQuestion
+                this.nextQuestion();
+
+            } catch (error) {
+                console.error("[MultiplayerGame Client] Error starting client game:", error);
+                eventBus.emit(Events.System.ShowFeedback, { message: error.message || miscUtils.getTextTemplate('mpClientErrorGameStartFail'), level: 'error' });
+                this.finishGame(true); // Finish locally on error
+            }
+        }
     }
 
     /**
-     * [Host] Processes and broadcasts results for the current round.
-     * Called either when time runs out or all players have answered.
-     * @param {boolean} timedOut - Whether the round ended due to timeout.
-     * @private
+     * Finishes the game. 
+     * HOST: Marks itself finished and checks if all clients are done.
+     * CLIENT: Emits LocalPlayerFinished.
+     * @param {boolean} isFinalDestroy - Internal flag, true if called from destroy().
      */
-    _hostProcessRoundResults(timedOut = false) {
-        const currentIndex = this.quizEngine.currentQuestionIndex;
-        if (currentIndex < 0) return; // No question active
+    finishGame(isFinalDestroy = false) {
+        if (this.isFinished) return;
+        console.log(`[MultiplayerGame ${this.isHost ? 'Host' : 'Client'}] Finishing game...`);
+        this.isFinished = true;
+        this._beforeFinish(); // Hook (e.g., stop client timer)
 
-        const correctAnswer = this.quizEngine.getCorrectAnswer(currentIndex);
-        const resultsPayload = {
-            questionIndex: currentIndex,
-            isCorrect: {}, // Map<peerId, boolean>
-            scoreDelta: {}, // Map<peerId, number>
-            totalScores: {}, // Map<peerId, number>
-            correctAnswer: correctAnswer,
-            timedOut: timedOut
-        };
-
-        // Iterate over all players known at the start of the round (or current connected?)
-        // Use webRTCManager.getPlayerList() to include anyone currently connected.
-        const currentPlayers = webRTCManager.getPlayerList();
-        currentPlayers.forEach((playerData, peerId) => {
-            const answerData = this.playerAnswers.get(peerId); // Get stored answer { answer: any, receivedTime: number }
-            let isCorrect = false;
-            let scoreDelta = 0;
-
-            if (answerData) {
-                // Player submitted an answer
-                isCorrect = (answerData.answer === correctAnswer);
-                if (isCorrect) {
-                    // Calculate elapsed time based on when host received answer
-                    const elapsedMs = answerData.receivedTime - this._questionStartTime;
-                    // Calculate score using base method with specific elapsed time
-                    scoreDelta = this._calculateScore(true, elapsedMs);
-                }
-            } else {
-                // Player did not submit an answer (timed out or disconnected before answering)
-                isCorrect = false;
-                scoreDelta = 0;
-            }
-
-            // Update player score (only add if correct)
-            const currentScore = this.playerScores.get(peerId) || 0;
-            const newTotalScore = currentScore + scoreDelta;
-            this.playerScores.set(peerId, newTotalScore);
-
-            // Store results for payload
-            resultsPayload.isCorrect[peerId] = isCorrect;
-            resultsPayload.scoreDelta[peerId] = scoreDelta;
-            resultsPayload.totalScores[peerId] = newTotalScore;
-        });
-
-        console.log("[MultiplayerGame Host] Broadcasting round results:", resultsPayload);
-
-        // Emit locally for Host UI update (showing all results)
-         const hostId = webRTCManager.getMyPeerId(); // Get current host ID
-         eventBus.emit(Events.Game.AnswerChecked, {
-             // Host's own result (if playing, need to handle - assuming not playing for now)
-             isCorrect: resultsPayload.isCorrect[hostId] ?? false, // Use nullish coalescing
-             scoreDelta: resultsPayload.scoreDelta[hostId] ?? 0,
-             correctAnswer: correctAnswer,
-             submittedAnswer: this.playerAnswers.get(hostId), // Host's submitted answer (will be undefined if host isn't playing/submitting)
-             timedOut: timedOut,
-             allResults: resultsPayload // Include results for all players
-         });
-
-        // Broadcast results to all clients
-        webRTCManager.broadcastMessage(MSG_TYPE.ANSWER_RESULT, resultsPayload);
-
-        // Reset answers for next round
-        // Moved clear to _hostNextQuestion start
-    }
-
-
-    /** [Host] Handles an answer submitted by a client. @private */
-    _hostHandleAnswerSubmitted(senderPeerId, submittedPayload) {
-        const currentIndex = this.quizEngine.currentQuestionIndex;
-        const submittedAnswer = submittedPayload.answer;
-        const questionIndexReceived = submittedPayload.questionIndex;
-
-        if (this.isGameOver || currentIndex < 0 || submittedAnswer === undefined || questionIndexReceived !== currentIndex) {
-            console.warn(`[MultiplayerGame Host] Ignoring invalid/stale answer from ${senderPeerId}`, { currentIndex, questionIndexReceived, submittedPayload });
-            return;
+        if (this.isHost) {
+            // Host marks ITSELF as finished and checks if all clients are also done.
+            // The actual end game logic (results calc, broadcast) happens in _hostCheckCompletion
+            console.log("[MultiplayerGame Host] Host finished local questions. Checking completion status...");
+            this._hostCheckCompletion(); 
+        } else {
+            // Client finishes its local quiz and notifies the coordinator
+            console.log("[MultiplayerGame Client] Local quiz finished.");
+            eventBus.emit(Events.Game.LocalPlayerFinished, { score: this.score });
+            return; // <<< PREVENT BaseGameMode from emitting Game.Finished for client
         }
 
-        // Check if player already submitted for this question
-        if (this.playerAnswers.has(senderPeerId)) {
-            console.warn(`[MultiplayerGame Host] Player ${senderPeerId} already submitted an answer for question ${currentIndex + 1}. Ignoring.`);
-            return;
-        }
-
-        console.log(`[MultiplayerGame Host] Received answer from ${senderPeerId} for Q${currentIndex + 1}:`, submittedAnswer);
-
-        // Store the answer temporarily
-        const receivedTime = Date.now();
-        this.playerAnswers.set(senderPeerId, { answer: submittedAnswer, receivedTime: receivedTime });
-        this.playerFinished.set(senderPeerId, true);
-
-        // Do NOT calculate/broadcast individual results here. Wait for time up or all players finished.
-
-        // Check if all connected players have answered
-        if (this._hostCheckAllPlayersAnswered()) {
-             console.log(`[MultiplayerGame Host] All players answered Q${currentIndex + 1}. Processing results early.`);
-             this.timer.stop(); // Stop the timer early
-             this._hostProcessRoundResults(false); // Process results, not timed out
-             // Move to next question after delay
-             setTimeout(() => this._hostNextQuestion(), 3000);
-        }
+        // Host logic continues in _hostCheckCompletion...
     }
 
-    /** [Host] Checks if all currently connected players have submitted an answer. @private */
-    _hostCheckAllPlayersAnswered() {
-        const currentPlayers = webRTCManager.getConnectedPeerIds(); // Get IDs of currently connected clients + host
-        if (currentPlayers.length === 0) return false; // No players connected, can't all have answered
-
-        // Check if every connected player ID is in the playerAnswers map for this round
-        return currentPlayers.every(peerId => this.playerAnswers.has(peerId));
-    }
-
-
-    /** [Host] Finishes the game and broadcasts results. */
-    finishGame() {
-        if (this.isGameOver) return;
-        console.log(`[MultiplayerGame Host] Finishing game...`);
-        this.isGameOver = true;
-        this.timer.stop();
-
-        // Ensure final scores are calculated if the last action wasn't _hostProcessRoundResults
-        // (e.g., game ended by command or error, not natural completion)
-        // For simplicity, assume scores are up-to-date or calculate final standings here if needed.
-
-        const finalResults = {
-            scores: Object.fromEntries(this.playerScores), // Convert Map to object for serialization
-            rankings: this._calculateRankings(),
-            settings: this.settings // Include game settings in results
-        };
-        console.log("[MultiplayerGame Host] Broadcasting GAME_OVER:", finalResults);
-        webRTCManager.broadcastMessage(MSG_TYPE.GAME_OVER, finalResults); // Broadcast results WITH settings
-            // Emit locally for host UI
-            eventBus.emit(Events.Game.Finished, { mode: 'multiplayer', results: finalResults, role: 'host' });
-        // Client logic removed
-
-        this._cleanupListeners();
-        // Consider closing connections after a delay? Or leave that to UI interaction.
-    }
-
-     /** [Host] Calculates final rankings based on scores. @private */
-     _calculateRankings() {
-         const playerList = webRTCManager.getPlayerList(); // Get names etc.
-         return Array.from(this.playerScores.entries())
-             .map(([peerId, score]) => ({
-                 peerId,
-                 name: playerList.get(peerId).name || peerId, // Get name from playerList
-                 score,
-             }))
-             .sort((a, b) => b.score - a.score); // Sort descending by score
+     /**
+     * Hook called before finishing the game. Stops timer for client.
+     * @protected
+     * @override BaseGameMode._beforeFinish
+     */
+     _beforeFinish() {
+         if (!this.isHost && this.timer) {
+             this.timer.stop();
+             console.log("[MultiplayerGame Client] Stopped timer before finish.");
+         }
      }
 
+    /**
+     * Hook to assemble final results. Uses the correct quizEngine instance.
+     * @returns {object} Final results structure.
+     * @protected
+     * @override BaseGameMode._getFinalResults
+     */
+    _getFinalResults() {
+        const results = {
+            winner: null,
+            players: [],
+            mode: 'multiplayer-host',
+            difficulty: this.difficulty,
+            gameName: this.settings?.sheetIds?.join(', ') || 'Multiplayer Game'
+        };
+        let highScore = -1;
+        let winnerId = null;
 
-    // --- Client Logic Removed ---
-    // _clientHandleGameStart removed
-    // _clientHandleQuestionNext removed
-    // _clientHandleAnswerSubmitted removed
-    // _clientHandleAnswerResult removed
-    // _clientHandleGameOver removed
-    // _clientHandlePlayerUpdate removed
-
-
-    // --- Common Logic & Cleanup ---
-
-    /** Handles WebRTC messages received via the event bus. @private */
-    _handleWebRTCMessage({ msg, sender }) { // Renamed parameters for clarity
-        // Ensure message has type and payload structure
-        const type = msg.type;
-        const payload = msg.payload;
-
-        console.debug(`[MultiplayerGame Host] Received message type ${type} from ${sender}`, payload);
-        if (this.isGameOver) return; // Ignore messages after game over (except maybe specific ones?)
-
-        // Host handles messages from clients
-        switch (type) {
-            case 'answer_submitted': // This is the primary message type host expects from clients during game
-                // Ensure payload exists and contains necessary fields
-                if (payload && payload.answer !== undefined && payload.questionIndex !== undefined) {
-                    this._hostHandleAnswerSubmitted(sender, payload);
-                } else {
-                    console.warn(`[MultiplayerGame Host] Received malformed 'answer_submitted' from ${sender}`, payload);
-                }
-                break;
-            // Add cases for other client->host messages if needed (e.g., PLAYER_READY, PING?)
-            default:
-                console.log(`[MultiplayerGame Host] Received unhandled/unexpected message type: ${type} from ${sender}`);
+        // Include host score - Use this.score from BaseGameMode
+        results.players.push({
+            id: this.hostPeerId,
+            name: this.localPlayerName, 
+            score: this.score,
+            isHost: true 
+        });
+        if (this.score > highScore) {
+            highScore = this.score;
+            results.winner = this.localPlayerName;
+            winnerId = this.hostPeerId;
         }
-        // Client message handling logic removed
+
+        // Include client scores
+        this.clientScores.forEach((score, peerId) => {
+            const clientResult = {
+                id: peerId,
+                name: this.webRTCManager.players.get(peerId)?.name || `Player_${peerId.slice(-4)}`,
+                score: score,
+                isHost: false
+            };
+            results.players.push(clientResult);
+
+            if (score > highScore) {
+                highScore = score;
+                results.winner = clientResult.name;
+                winnerId = peerId;
+            }
+        });
+
+        // Sort players descending by score
+        results.players.sort((a, b) => b.score - a.score);
+        results.winnerId = winnerId;
+
+        console.log("[MultiplayerGame Host] Calculated final results:", results);
+        return results;
     }
 
-     /** [Host] Handles a player joining mid-game (if allowed). @private */
-    _handlePlayerJoined({ peerId, playerData }) {
-        if (this.isGameOver) return;
-        console.log(`[MultiplayerGame Host] Player ${playerData.name || 'Unknown'} (${peerId}) joined.`); // Safer access to name
-        // Add player to score tracking if not already present (e.g., joined late)
-        if (!this.playerScores.has(peerId)) {
-            this.playerScores.set(peerId, 0);
-            this.playerFinished.set(peerId, false); // Mark as not finished for current question
-            // Broadcast update? Potentially handled by PlayerListUpdated from WebRTCManager
-            this._broadcastPlayerListUpdate(); // Send updated list
-        } else {
-            // Player might be rejoining? Update their data? For now, just log.
-             console.log(`[MultiplayerGame Host] Player ${peerId} re-joined or already exists.`);
-             // Ensure player list is accurate
-             this._broadcastPlayerListUpdate();
-        }
-    }
-
-
-    /** Handles a player leaving mid-game. @private */
-    _handlePlayerLeft({ peerId }) {
-         console.log(`[MultiplayerGame Host] Handling PlayerLeft event for peer: ${peerId}`);
-         // Keep score for final results? Or remove completely? Let's keep for now.
-         // this.playerScores.delete(peerId);
-         this.playerFinished.delete(peerId); // Remove from current round tracking
-         this.playerAnswers.delete(peerId);
-
-         // Optional: Check if remaining players have all answered
-         // Ensure game isn't over and a question is active
-         if (!this.isGameOver && this.quizEngine.currentQuestionIndex >= 0) {
-            // Check if the leaver was the *only* one left who hadn't answered
-            const allAnsweredNow = this._hostCheckAllPlayersAnswered(); // Re-check after removing leaver's answer data
-             if (allAnsweredNow && webRTCManager.getConnectedPeerIds().length > 0) { // Check if anyone is left
-                 console.log(`[MultiplayerGame Host] Player left, remaining players have answered Q${this.quizEngine.currentQuestionIndex + 1}. Processing results early.`);
-                 this.timer.stop(); // Stop the timer
-                 this._hostProcessRoundResults(false);
-                 setTimeout(() => this._hostNextQuestion(), 3000);
-             } else if (!this.isGameOver) { // Check isGameOver again in case finishGame was called
-                 // Broadcast updated player list if game hasn't ended and results weren't just processed
-                 this._broadcastPlayerListUpdate();
-             }
-         } else if (!this.isGameOver) {
-            // Broadcast player list update if game not over (e.g., player left before first question)
-            this._broadcastPlayerListUpdate();
-         }
-         // Client UI update handled by PlayerListUpdated from WebRTCManager
-
-        const playerName = webRTCManager.getPlayerName(peerId);
-        if (!playerName) {
-            console.warn(`[MultiplayerGame Host] Player ${peerId} left, but name couldn't be retrieved from WebRTCManager.`);
-            playerName = `Player ${peerId.slice(-4)}`; // Fallback name
-        }
-        // Client UI update handled by PlayerListUpdated from WebRTCManager
-
-        console.log(`[MultiplayerGame Host] Player left: ${peerId}`);
-        // Broadcast to remaining clients that the player left
-        webRTCManager.broadcastMessage(MSG_TYPE.PLAYER_LEFT, { peerId: peerId, playerName: playerName }); // Use correct playerName
-        // Show feedback locally
-        // Use template, substitute name
-        eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('mpHostPlayerLeft', { '%PLAYER_NAME%': playerName }), level: 'info' }); // Use correct playerName
-
-        // Update local player state (remove score, etc.)
-        this.playerScores.delete(peerId);
-        this.playerFinished.delete(peerId);
-        this.playerAnswers.delete(peerId);
-    }
-
-    /** [Host] Broadcasts the current full player list. @private */
-    _broadcastPlayerListUpdate() {
-        const currentPlayers = webRTCManager.getPlayerList();
-        console.log("[MultiplayerGame Host] Broadcasting Player List Update:", currentPlayers);
-        webRTCManager.broadcastMessage(MSG_TYPE.PLAYER_LIST_UPDATE, {
-             players: Object.fromEntries(currentPlayers) // Send as object
-         });
-    }
-
-    // Removed _resetLocalSubmissionState as it was client-focused
-
-    /** Removes event listeners. @private */
+    /** Cleans up listeners based on role. @override BaseGameMode._cleanupListeners */
     _cleanupListeners() {
-         console.log("[MultiplayerGame Host] Cleaning up listeners.");
-         // Use stored bound references for removal
-         eventBus.off(Events.WebRTC.MessageReceived, this._boundHandleWebRTCMessage);
-         eventBus.off(Events.Multiplayer.Common.PlayerLeft, this._boundHandlePlayerLeft);
-         eventBus.off(Events.Multiplayer.Common.PlayerJoined, this._boundHandlePlayerJoined);
-
-         // Host listeners
-         this.timer.off('tick', this._boundHostHandleTimerTick);
-         this.timer.off('end', this._boundHostHandleTimeUp);
-         // eventBus.off(Events.UI.GameArea.AnswerSubmitted, this._hostHandleSelfAnswerSubmitted); // If host plays
-
-         // Nullify bound references after removing listeners
-         this._boundHandleWebRTCMessage = null;
-         this._boundHandlePlayerLeft = null;
-         this._boundHandlePlayerJoined = null;
-         this._boundHostHandleTimerTick = null;
-         this._boundHostHandleTimeUp = null;
-    }
-
-    /** Call this when the game instance is no longer needed. */
-    destroy() {
-        console.log("[MultiplayerGame Host] Destroying game instance.");
-        if (!this.isGameOver) {
-             this.finishGame(); // Ensure game ends gracefully if destroyed early
+        console.log(`[MultiplayerGame ${this.isHost ? 'Host' : 'Client'}] Cleaning up listeners...`);
+        if (this.isHost) {
+            this._cleanupHostListeners(); // Host cleans up its specific listeners
+        } else {
+            // Client cleans up only local game listeners (timer)
+            if (this.timer) {
+                if (this._boundHandleTimerTick) this.timer.off('tick', this._boundHandleTimerTick);
+                if (this._boundHandleTimeUp) this.timer.off('end', this._boundHandleTimeUp);
+                this._boundHandleTimerTick = null;
+                this._boundHandleTimeUp = null;
+            }
         }
-        this.timer.stop(); // Ensure timer is stopped
-        this._cleanupListeners();
-        // Release references
-        this.quizEngine = null;
-        this.timer = null;
-        this.playerScores = null;
-        this.playerFinished = null;
-        this.playerAnswers = null;
+        // BaseGameMode listeners are cleaned up by super.destroy()
     }
-}
 
-export default MultiplayerGame; 
+    /** Destroys the instance, cleaning up role-specific resources. @override BaseGameMode.destroy */
+    destroy() {
+        console.log(`[MultiplayerGame ${this.isHost ? 'Host' : 'Client'}] Destroying instance.`);
+        if (this.timer) this.timer.stop(); // Stop timer if exists
+
+        // --- Client: Notify host before disconnecting ---
+        if (!this.isHost && this.webRTCManager) { // Null check
+            try {
+                console.log("[MultiplayerGame Client] Sending CLIENT_LEFT message to host before destroying.");
+                this.webRTCManager.sendToHost(MSG_TYPE.CLIENT_LEFT, {});
+            } catch (error) {
+                console.warn("[MultiplayerGame Client] Error sending CLIENT_LEFT message:", error);
+            }
+        }
+        // --- End Client Notification ---
+
+        // Host-specific cleanup (like removing listeners, handled in _cleanupListeners)
+        // if (this.isHost) { ... }
+
+        // Close WebRTC connection
+        if (this.webRTCManager) { // Null check
+            this.webRTCManager.closeConnection();
+        }
+
+        // Nullify references
+        this.quizEngine = null;
+        this.webRTCManager = null;
+        this.settings = null;
+        this.clientScores = null;
+        this.clientsFinished = null; // Corrected name from clientFinalScores
+
+        console.log("[MultiplayerGame] Instance destroyed.");
+
+        // Ensure base class cleanup runs (handles eventBus listeners etc.)
+        super.destroy();
+    }
+} // End of MultiplayerGame class
+
+export default MultiplayerGame;

@@ -354,29 +354,6 @@ class HighscoreManager {
         }
     }
 
-    // Potential method to clear ALL V1 highscores (use with caution)
-    /*
-    clearAllV1Highscores() {
-        try {
-            const keys = Object.keys(localStorage);
-            let removedCount = 0;
-            for (const key of keys) {
-                if (key.startsWith(STORAGE_KEY_PREFIX)) {
-                    localStorage.removeItem(key);
-                    removedCount++;
-                }
-            }
-            console.log(`[HighscoreManager] Cleared ${removedCount} V1 highscore entries.`);
-            // Optionally refresh display if currently shown
-            if (document.getElementById('highscores')?.style.display !== 'none') { // Basic check if view might be active
-                 this._handleShowRequest();
-            }
-        } catch (error) {
-            console.error("[HighscoreManager] Error clearing V1 highscores:", error);
-            eventBus.emit(Events.System.ShowFeedback, { message: 'Error clearing highscores.', level: 'error' });
-        }
-    }
-    */
 }
 
 // Create and export a singleton instance

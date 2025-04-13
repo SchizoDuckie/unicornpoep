@@ -10,13 +10,21 @@ const HIDDEN_CLASS = 'hidden'; // Define standard hidden class
  */
 export default class BaseComponent {
     /**
-     * @param {string} elementSelector CSS selector for the component's root element.
-     * @param {string} [componentName] Optional identifier for the component, defaults to selector.
-     * @throws {Error} If the element specified by elementSelector is not found in the DOM.
+     * Base constructor. Subclasses should NOT override this.
+     * They MUST define static SELECTOR and static VIEW_NAME properties.
+     * @throws {Error} If static properties are missing or the element is not found.
      */
-    constructor(elementSelector, componentName) {
+    constructor() {
+        // Get selector and name from static properties of the subclass
+        const elementSelector = this.constructor.SELECTOR;
+        const componentName = this.constructor.VIEW_NAME; // Or this.constructor.NAME if preferred
+
+        if (!elementSelector || !componentName) {
+            throw new Error(`[BaseComponent] Component class '${this.constructor.name}' must define static SELECTOR and static VIEW_NAME properties.`);
+        }
+
         this.selector = elementSelector;
-        this.name = componentName || elementSelector; // Identifier for events
+        this.name = componentName;
         this.rootElement = document.querySelector(this.selector);
         this._listeners = []; // Stores { eventName, callback, handler } tuples
         this.isVisible = false;
@@ -29,7 +37,20 @@ export default class BaseComponent {
         // Assume components start hidden unless explicitly shown
         this.isVisible = !this.rootElement.classList.contains(HIDDEN_CLASS);
 
-        // Emit an initialized event after basic setup
+        // Call subclass initialization if it exists
+        if (typeof this.initialize === 'function') {
+            this.initialize();
+        } else {
+            // Optionally warn if initialize is missing, depending on strictness
+            // console.warn(`[BaseComponent] Component '${this.name}' does not have an initialize() method.`);
+        }
+
+        // Call listener registration if it exists (for listeners needed immediately)
+        if (typeof this.registerListeners === 'function') {
+            this.registerListeners();
+        } 
+
+        // Emit an initialized event after basic setup and subclass init
         eventBus.emit(Events.Component.Initialized, { component: this, componentName: this.name });
         console.debug(`[BaseComponent] Initialized: ${this.name}`);
     }
@@ -39,13 +60,20 @@ export default class BaseComponent {
      * Emits the Component.Shown event.
      * Does nothing if the element is already visible or doesn't exist.
      */
-    show() {
-        if (!this.isVisible) {
+    show(data = {}) {
+        if (this.rootElement && !this.isVisible) {
             this.rootElement.classList.remove(HIDDEN_CLASS);
             this.isVisible = true;
-            eventBus.emit(Events.Component.Shown, { component: this, componentName: this.name });
-            console.debug(`[BaseComponent] Shown: '${this.name}'`);
-        } 
+            
+            // Call registerListeners when shown, if it exists
+            // This handles cases where listeners might have been removed on hide
+            // if (typeof this.registerListeners === 'function') {
+            //     this.registerListeners(); 
+            // }
+            
+            eventBus.emit(Events.Component.Shown, { component: this, componentName: this.name, data: data });
+            console.debug(`[BaseComponent] Shown: ${this.name}`);
+        }
     }
 
     /**
@@ -54,11 +82,17 @@ export default class BaseComponent {
      * Does nothing if the element is already hidden or doesn't exist.
      */
     hide() {
-        if (this.isVisible) {
+        if (this.rootElement && this.isVisible) {
             this.rootElement.classList.add(HIDDEN_CLASS);
             this.isVisible = false;
+            
+            // Call unregisterListeners when hidden, if it exists
+            if (typeof this.unregisterListeners === 'function') {
+                this.unregisterListeners();
+            }
+            
             eventBus.emit(Events.Component.Hidden, { component: this, componentName: this.name });
-            console.debug(`[BaseComponent] Hidden: '${this.name}'`);
+            console.debug(`[BaseComponent] Hidden: ${this.name}`);
         }
     }
 
@@ -105,16 +139,17 @@ export default class BaseComponent {
      * to ensure proper cleanup.
      */
     destroy() {
-        console.debug(`[BaseComponent] Destroying: '${this.name}'`);
+        console.debug(`[BaseComponent] Destroying: ${this.name}`);
         // Emit destroyed event *before* removing listeners, in case others need to react
         eventBus.emit(Events.Component.Destroyed, { component: this, componentName: this.name });
-
-        this.cleanupListeners();
-
-        // Optional: Remove element from DOM or perform other specific cleanup
-        // if (this.rootElement && this.rootElement.parentNode) {
-        //     this.rootElement.parentNode.removeChild(this.rootElement);
-        // }
+        this.cleanupListeners(); // Cleans up GLOBAL event bus listeners added via this.listen()
+        
+        // Call unregisterListeners for DOM listeners just before nulling element
+         if (typeof this.unregisterListeners === 'function') {
+             this.unregisterListeners();
+         }
+         
+        // Optional: Remove element from DOM or perform other cleanup
         this.rootElement = null; // Help garbage collection by removing the reference
         console.info(`[BaseComponent] Destroyed: '${this.name}'`);
     }

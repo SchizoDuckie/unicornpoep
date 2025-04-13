@@ -4,19 +4,20 @@ import Events from './core/event-constants.js';
 import Views from './core/view-constants.js';
 import { getTextTemplate } from './utils/miscUtils.js';
 
-// Service Imports (Singleton instances)
-import uiManager from './ui/UIManager.js';
-import gameCoordinator from './services/GameCoordinator.js';
-import questionsManager from './services/QuestionsManager.js';
-import highscoreManager from './services/HighscoreManager.js';
-import webRTCManager from './services/WebRTCManager.js';
-import multiplayerClientManager from './services/MultiplayerClientManager.js';
+// Service Imports (Singleton instances OR Classes to be instantiated)
+import uiManager from './ui/UIManager.js'; // Singleton
+import questionsManager from './services/QuestionsManager.js'; // Singleton
+import highscoreManager from './services/HighscoreManager.js'; // Singleton
+import webRTCManager from './services/WebRTCManager.js'; // Singleton
+import multiplayerClientManager from './services/MultiplayerClientManager.js'; // Singleton
+import GameCoordinator from './services/GameCoordinator.js'; // <-- Import CLASS
 // Import other services as they are created
 
 /**
  * Main application class (or entry point script).
  * Responsibilities:
- * - Ensure all core services are imported/instantiated (handled by singleton pattern in modules).
+ * - Ensure all core services are imported/instantiated.
+ * - Instantiate coordinator classes and inject dependencies.
  * - Trigger the initial application state (e.g., show the main menu).
  * - Perform any other one-time setup.
  */
@@ -24,12 +25,21 @@ class UnicornPoepApp {
     constructor() {
         console.info("[UnicornPoepApp] Initializing application...");
 
-        // Services are already instantiated due to module imports & singleton pattern.
-        // We just need to ensure they are loaded here.
-        if (!eventBus || !uiManager || !gameCoordinator || !questionsManager || !highscoreManager || !webRTCManager || !multiplayerClientManager) {
-             console.error("[UnicornPoepApp] Critical service failed to load!");
-             // Handle this critical failure (e.g., display static error message)
-             this.showInitializationError();
+        // --- Instantiate Coordinator with Dependencies ---
+        // Ensure singleton services needed by coordinator are loaded first
+        if (!questionsManager || !multiplayerClientManager) {
+            console.error("[UnicornPoepApp] Cannot instantiate GameCoordinator: Required singleton services (QuestionsManager, MultiplayerClientManager) failed to load!");
+            this.showInitializationError("Missing core game services.");
+            return;
+        }
+        const gameCoordinatorInstance = new GameCoordinator(questionsManager, multiplayerClientManager);
+        console.log("[UnicornPoepApp] GameCoordinator instantiated.");
+        // --- End Coordinator Instantiation ---
+
+        // Check if other essential singletons loaded
+        if (!eventBus || !uiManager || !highscoreManager || !webRTCManager) {
+             console.error("[UnicornPoepApp] Critical singleton service failed to load (EventBus, UIManager, HighscoreManager, or WebRTCManager)!");
+             this.showInitializationError("Missing core UI or connection services.");
              return;
         }
 
@@ -37,7 +47,7 @@ class UnicornPoepApp {
         window.appServices = {
             eventBus,
             uiManager,
-            gameCoordinator,
+            gameCoordinator: gameCoordinatorInstance, // Add the instance
             questionsManager,
             highscoreManager,
             webRTCManager,
@@ -51,14 +61,27 @@ class UnicornPoepApp {
         // UIManager initializes its components on DOMContentLoaded.
         // Wait for UIManager to signal readiness or just proceed after DOMContentLoaded.
         document.addEventListener('DOMContentLoaded', () => {
-            console.log("[UnicornPoepApp] DOM Content Loaded. Setting up coordinators and triggering initial view...");
+            console.log("[UnicornPoepApp] DOM Content Loaded. Resetting WebRTC and setting up...");
+
+            // Force reset WebRTC state on initial load before anything else happens
+            webRTCManager.closeConnection();
 
             // Setup coordinators/listeners for UI actions
             this.setupCoordinators();
 
-            // Trigger the initial view - Main Menu
-            eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
-            console.info("[UnicornPoepApp] Application initialization flow complete. Initial view requested.");
+            // Check if UIManager handled initial navigation (e.g., via ?join=)
+            // UIManager.checkInitialHash emits ValidJoinCodeDetected if needed.
+            const initialNavigationHandled = uiManager.checkInitialHash(); 
+
+            // Trigger the initial view - Main Menu, ONLY if UIManager didn't handle initial nav.
+            if (!initialNavigationHandled) {
+                // Only show MainMenu if UIManager didn't handle anything
+                console.log("[UnicornPoepApp] Initial navigation not handled by UIManager, requesting MainMenu view.");
+                eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+                console.info("[UnicornPoepApp] Application initialization flow complete. Initial view requested: MainMenu.");
+            } else {
+                console.info("[UnicornPoepApp] Application initialization flow complete. Initial navigation handled by UIManager.");
+            }
         });
     }
 
@@ -81,12 +104,7 @@ class UnicornPoepApp {
         eventBus.on(Events.UI.MainMenu.AboutClicked, () => {
             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.About });
         });
-        eventBus.on(Events.UI.MainMenu.JoinMultiplayerClicked, () => {
-            eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MultiplayerChoice });
-        });
-        // REMOVED redundant listeners for Practice/SinglePlayer - GameCoordinator handles these.
-        // eventBus.on(Events.UI.MainMenu.StartPracticeClicked, () => { ... });
-        // eventBus.on(Events.UI.MainMenu.StartSinglePlayerClicked, () => { ... });
+        // GameCoordinator handles multiplayer, single-player, and practice navigation.
 
         // --- Question Management Coordination ---
         eventBus.on(Events.UI.CustomQuestions.SaveClicked, async ({ name, questionsText, sheetId }) => {
@@ -179,8 +197,7 @@ class UnicornPoepApp {
                 }
             } catch (error) {
                 console.error(`[Coordinator] Failed to handle edit request for custom sheet '${sheetId}':`, error);
-                // Emit specific failure event?
-                // eventBus.emit(Events.Menu.CustomQuestions.LoadForEditFailed, { sheetId: sheetId, message: error.message });
+                // Emit generic feedback
                 eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('coordEditLoadErrorFeedback'), level: 'error' });
             }
         });
@@ -194,14 +211,34 @@ class UnicornPoepApp {
      */
     setupGlobalErrorHandling() {
         window.addEventListener('error', (event) => {
-            console.error("[UnicornPoepApp] Unhandled global error:", event.error, event.message);
+            // --- Check for specific PeerJS flush error ---
+            const messageString = event.message;
+            const error = event.error;
+            const source = event.filename;
+
+            const isFlushError = (
+                (typeof messageString === 'string' && messageString.includes("Cannot read properties of undefined (reading 'flush')")) ||
+                (error instanceof TypeError && error.message.includes("Cannot read properties of undefined (reading 'flush')"))
+            );
+            const isPeerJsSource = source && source.includes('peerjs.min.js');
+
+            if (isFlushError && isPeerJsSource) {
+                console.warn(`[UnicornPoepApp] Suppressing known PeerJS TypeError: "${messageString || error.message}" in ${source}:${event.lineno}`);
+                // Prevent default handling for this specific error
+                event.preventDefault(); // Stop browser's default handling (like logging as uncaught)
+                return; // Still return to prevent our event bus emissions
+            }
+            // --- End check ---
+
+            // Default handling for all other errors
+            console.error("[UnicornPoepApp] Unhandled global error:", error, messageString);
             eventBus.emit(Events.System.ErrorOccurred, {
-                message: event.message || 'An unexpected error occurred.',
-                error: event.error,
+                message: messageString || 'An unexpected error occurred.',
+                error: error,
                 context: 'Global Error Handler'
             });
             // Optionally show feedback to the user
-            eventBus.emit(Events.System.ShowFeedback, { message: 'An unexpected error occurred. Please check console.', level: 'error' });
+            eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('errorUnexpectedConsole'), level: 'error' });
         });
 
         window.addEventListener('unhandledrejection', (event) => {
@@ -220,13 +257,13 @@ class UnicornPoepApp {
      * Displays a critical error message if core services fail to load.
      * @private
      */
-    showInitializationError() {
+    showInitializationError(message) {
         document.addEventListener('DOMContentLoaded', () => {
             const body = document.body;
             if (body) {
                 body.innerHTML = '<div style="padding: 20px; text-align: center; font-family: sans-serif; color: red;">' +
                                  `<h1>Application Initialization Failed</h1>` +
-                                 `<p>A critical error occurred while loading essential services. Please check the console for details.</p>` +
+                                 `<p>${message}</p>` +
                                  '</div>';
             }
         });

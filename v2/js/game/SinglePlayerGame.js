@@ -2,6 +2,7 @@ import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 
 import BaseGameMode from './BaseGameMode.js';
+import QuizEngine from '../services/QuizEngine.js';
 import Timer from '../core/timer.js';
 
 // Difficulty to Timer Duration mapping (in milliseconds)
@@ -17,33 +18,31 @@ const MAX_TIME_BONUS = 50;
 
 /**
  * Manages the state and logic for a single-player game session.
- * Extends BaseGameMode, adding timer and scoring functionality based on V1 logic.
+ * Extends BaseGameMode, adding timer and scoring functionality.
  */
 class SinglePlayerGame extends BaseGameMode {
     /**
      * Creates a single-player game instance.
      * @param {object} settings - Game settings.
-     * @param {string[]} settings.sheetIds - Array of sheet IDs to use.
-     * @param {'easy'|'medium'|'hard'|string} settings.difficulty - Difficulty level.
+     * @param {QuizEngine} quizEngineInstance - The QuizEngine instance to use.
      * @param {string} playerName - The name of the player.
      */
-    constructor(settings, playerName) {
-        // Call BaseGameMode constructor with 'single' identifier and player name
-        super('single', settings, playerName);
+    constructor(settings, quizEngineInstance, playerName) {
+        // Pass the QuizEngine instance to BaseGameMode constructor
+        super('single', settings, quizEngineInstance, playerName);
         console.log(`[SinglePlayerGame] Initialized for player: ${playerName}, difficulty: ${settings.difficulty}`);
 
         // Determine timer duration based on difficulty
-        this.difficulty = settings.difficulty || 'medium'; // Default to medium if undefined
+        this.difficulty = settings.difficulty || 'medium';
         const durationMs = DIFFICULTY_DURATIONS_MS[this.difficulty] || DIFFICULTY_DURATIONS_MS.medium;
-        const durationSeconds = durationMs / 1000; // Convert MS to Seconds for Timer constructor
-
-        // Pass duration in SECONDS to the Timer constructor
-        this.timer = new Timer(durationSeconds); 
-        this.score = 0;
+        
+        // Pass duration in MS to the Timer constructor (assuming Timer handles ms)
+        // If Timer expects seconds, keep durationMs / 1000
+        this.timer = new Timer(durationMs); 
+        this.score = 0; // Score managed by BaseGameMode now via _afterAnswerChecked hook
 
         // Register timer-specific listeners IN ADDITION to base listeners
         this._registerTimerListeners();
-        // Note: BaseGameMode constructor already called _registerBaseListeners
     }
 
     /** Registers timer-specific event listeners. @private */
@@ -67,12 +66,14 @@ class SinglePlayerGame extends BaseGameMode {
      */
     _handleTimeUp() {
         if (this.isFinished) return;
-        const currentIndex = this.quizEngine.currentQuestionIndex;
+        // Use the index tracked by the BaseGameMode instance
+        const currentIndex = this.currentQuestionIndex; 
         console.log(`[SinglePlayerGame] Time's up for question ${currentIndex + 1}`);
         eventBus.emit(Events.Game.TimeUp);
 
         // Treat time up as an incorrect answer
         this.lastAnswerCorrect = false; // Mark as answered (incorrectly)
+        // Get correct answer using the correct index
         const correctAnswer = this.quizEngine.getCorrectAnswer(currentIndex);
         const scoreDelta = this._calculateScore(false); // Score delta is 0
 

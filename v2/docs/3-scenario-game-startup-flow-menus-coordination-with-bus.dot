@@ -11,40 +11,40 @@ digraph GameStartup_WithBus {
 
     // Node Styles (Dark fill, specific border remains)
     MainMenuComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
-                       label="{ MainMenu UI | {<emits_sp> Emits: UI.StartSPGame} | {<emits_pr> Emits: UI.StartPractice} | {<emits_mp> Emits: UI.ShowMPChoice} | {<emits_hs> Emits: UI.ShowHighscores} | {<emits_cq> Emits: UI.ShowCustomQ} }"];
+                       label="{ MainMenu UI | {<emits_sp> Emits: UI.MainMenu.StartSinglePlayerClicked} | {<emits_pr> Emits: UI.MainMenu.StartPracticeClicked} | {<emits_mp> Emits: UI.MainMenu.JoinMultiplayerClicked} | {<emits_hs> Emits: UI.MainMenu.HighscoresClicked} | {<emits_cq> Emits: UI.MainMenu.CustomQuestionsClicked} | {<emits_about> Emits: UI.MainMenu.AboutClicked} }"];
     MultiplayerChoiceComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
-                                label="{ MP Choice UI | {<emits_host> Emits: UI.HostGameRequest} | {<emits_join> Emits: UI.JoinGameRequest} }"];
+                                label="{ MP Choice UI | {<emits_host> Emits: UI.MultiplayerChoice.HostClicked} | {<emits_join> Emits: UI.MultiplayerChoice.JoinClicked} | {<emits_back> Emits: UI.MultiplayerChoice.BackClicked} }"];
     HostLobbyComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
-                        label="{ Host Lobby UI | {<emits_start> Emits: UI.StartHostedGame} }"]; // Example
+                        label="{ Host Lobby UI | {<emits_start> Emits: UI.HostLobby.StartGameClicked} | {<emits_cancel> Emits: UI.HostLobby.CancelClicked} | {<emits_copy> Emits: UI.HostLobby.CopyLinkClicked} }"];
     JoinLobbyComponent [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
-                        label="{ Join Lobby UI | {<emits_ready> Emits: UI.PlayerReadyToggle} }"]; // Example
+                        label="{ Join Lobby UI | {<emits_submit> Emits: UI.JoinLobby.SubmitCodeClicked} | {<emits_confirm> Emits: UI.JoinLobby.ConfirmClicked} | {<emits_cancel> Emits: UI.JoinLobby.CancelClicked} }"];
     NamePromptDialog [shape="record", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
                       label="{ Name Prompt Dialog | {<emits_name> Emits: UI.NameSubmitted} }"];
     GameCoordinator [shape="record", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
-                     label="{ GameCoordinator | {<handles_ui> Handles: UI Events} | {<emits_nav> Emits: Navigation Events} }"]; // Handles the grouped UI Event
+                     label="{ GameCoordinator | {<handles_ui> Handles: UI Events} | {<emits_nav> Emits: System.Navigate} }"]; // Handles the grouped UI Event
     UIManager [shape="record", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
-               label="{ UIManager | {<handles_nav> Handles: Navigation Events} }"];
+               label="{ UIManager | {<handles_nav> Handles: System.Navigate} }"];
     WebRTCManager [label="WebRTCManager", fillcolor="#343a40", color="#ffc107", penwidth=2]; // Passive target
     QuestionsManager [label="QuestionsManager", fillcolor="#343a40", color="#ffc107", penwidth=2]; // Passive target
     GameModes [label="Game Modes", fillcolor="#343a40", color="#20c997", penwidth=2, shape=ellipse]; // Passive target
 
     // EventBus: Shows relevant UI and Navigation event groups
     EventBus [shape="record", fillcolor="#343a40", color="#aaaaaa", penwidth=2,
-              label="{ EventBus | {<evUI> UI Events} | {<evNav> Navigation Events} }"]; // evUI is the target for all specific UI emits
+              label="{ EventBus | {<evUI> UI Events} | {<evNav> System.Navigate} }"]; // evUI is the target for all specific UI emits
 
     // 1. User Actions -> Event Bus (Specific Events feeding into Grouped Port)
-    MainMenuComponent:emits_sp -> EventBus:evUI; MainMenuComponent:emits_pr -> EventBus:evUI; MainMenuComponent:emits_mp -> EventBus:evUI; MainMenuComponent:emits_hs -> EventBus:evUI; MainMenuComponent:emits_cq -> EventBus:evUI;
-    MultiplayerChoiceComponent:emits_host -> EventBus:evUI; MultiplayerChoiceComponent:emits_join -> EventBus:evUI;
+    MainMenuComponent:emits_sp -> EventBus:evUI; MainMenuComponent:emits_pr -> EventBus:evUI; MainMenuComponent:emits_mp -> EventBus:evUI; MainMenuComponent:emits_hs -> EventBus:evUI; MainMenuComponent:emits_cq -> EventBus:evUI; MainMenuComponent:emits_about -> EventBus:evUI;
+    MultiplayerChoiceComponent:emits_host -> EventBus:evUI; MultiplayerChoiceComponent:emits_join -> EventBus:evUI; MultiplayerChoiceComponent:emits_back -> EventBus:evUI;
     NamePromptDialog:emits_name -> EventBus:evUI;
-    HostLobbyComponent:emits_start -> EventBus:evUI;
-    JoinLobbyComponent:emits_ready -> EventBus:evUI;
+    HostLobbyComponent:emits_start -> EventBus:evUI; HostLobbyComponent:emits_cancel -> EventBus:evUI; HostLobbyComponent:emits_copy -> EventBus:evUI;
+    JoinLobbyComponent:emits_submit -> EventBus:evUI; JoinLobbyComponent:emits_confirm -> EventBus:evUI; JoinLobbyComponent:emits_cancel -> EventBus:evUI;
 
     // 2. Event Bus -> Game Coordinator (Handles Grouped Event)
     EventBus:evUI -> GameCoordinator:handles_ui;
 
     // 3. Game Coordinator Actions (Direct Calls)
-    GameCoordinator -> WebRTCManager [label=" Calls init/connect", style=dashed];
-    GameCoordinator -> QuestionsManager [label=" Calls loadSheets", style=dashed];
+    GameCoordinator -> WebRTCManager [label=" Calls startHost(...) / connectToHost(...)", style=dashed];
+    GameCoordinator -> QuestionsManager [label=" Calls getQuestionsForSheets() / ...", style=dashed];
     GameCoordinator -> GameModes [label=" Instantiates", style=dashed];
 
     // 4. Game Coordinator triggers navigation (Event)

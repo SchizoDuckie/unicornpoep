@@ -3,7 +3,9 @@ import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
 import { getTextTemplate } from '../utils/miscUtils.js';
+import miscUtils from '../utils/miscUtils.js'; // Ensure default import
 
+const PLAYER_NAME_STORAGE_KEY = 'unicornPoepPlayerName';
 
 /**
  * @class MultiplayerChoiceComponent
@@ -12,152 +14,147 @@ import { getTextTemplate } from '../utils/miscUtils.js';
  * after entering their name.
  */
 class MultiplayerChoiceComponent extends BaseComponent {
-    /**
-     * Creates an instance of MultiplayerChoiceComponent.
-     */
-    constructor() {
-        super('#multiplayerChoice', Views.MultiplayerChoice);
+    static SELECTOR = '#multiplayerChoice';
+    static VIEW_NAME = 'MultiplayerChoiceComponent';
 
-        // Element references
-        this.nameInput = this.rootElement.querySelector('#playerNameInput');
+    /** Initializes the component. */
+    constructor() {
+        super();
+        console.log("[MultiplayerChoiceComponent] Constructed (via BaseComponent).");
+    }
+
+    initialize() {
+        // Find elements
+        this.playerNameInput = this.rootElement.querySelector('#playerNameInput');
         this.hostButton = this.rootElement.querySelector('#hostGame');
         this.joinButton = this.rootElement.querySelector('#joinGame');
-        this.backButton = this.rootElement.querySelector('.backToMain'); // Assuming generic back button class
+        this.backButton = this.rootElement.querySelector('.backToMain');
         this.errorDisplay = this.rootElement.querySelector('#choiceError');
-        // Reference the difficulty radio buttons
         this.difficultyRadios = this.rootElement.querySelectorAll('input[name="mpDifficulty"]');
 
-        this._bindEvents();
-        this.hide(); // Start hidden
-        console.log(`[${this.name}] Initialized`);
+        if (!this.playerNameInput || !this.hostButton || !this.joinButton || !this.backButton || !this.errorDisplay) {
+             console.warn(`[${this.name}] Missing one or more required elements.`);
+        }
+        
+        // --- Bind Handlers Here --- 
+        this.handleShowView = this.handleShowView.bind(this);
+        this._handleHostClick = this._handleHostClick.bind(this);
+        this._handleJoinClick = this._handleJoinClick.bind(this);
+        this._handleBackClick = this._handleBackClick.bind(this);
+        this._clearError = this._clearError.bind(this); 
 
-        // Listen for when this view should be shown
-        this.listen(Events.Navigation.ShowView, this.handleShowView);
+        console.log(`[${this.name}] Initialized.`);
     }
 
-    /** Binds DOM event listeners. @private */
-    _bindEvents() {
-        this.hostButton.addEventListener('click', this._handleHostClick);
-        this.joinButton.addEventListener('click', this._handleJoinClick);
-        this.backButton.addEventListener('click', this._handleBackClick);
-        // Add input listener to clear error on typing?
-         this.nameInput.addEventListener('input', this._clearError);
+    /** Registers DOM and eventBus event listeners using pre-bound handlers. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering listeners.`);
+        
+        // DOM Listeners
+        if (this.hostButton) this.hostButton.addEventListener('click', this._handleHostClick);
+        if (this.joinButton) this.joinButton.addEventListener('click', this._handleJoinClick);
+        if (this.backButton) this.backButton.addEventListener('click', this._handleBackClick);
+        if (this.playerNameInput) this.playerNameInput.addEventListener('input', this._clearError);
+        
+        // eventBus Listeners
+        this.listen(Events.Navigation.ShowView, this.handleShowView); 
     }
 
-    /** Removes DOM event listeners. @private */
-    _unbindEvents() {
-        this.hostButton.removeEventListener('click', this._handleHostClick);
-        this.joinButton.removeEventListener('click', this._handleJoinClick);
-        this.backButton.removeEventListener('click', this._handleBackClick);
-        this.nameInput.removeEventListener('input', this._clearError);
-    }
-
-    /**
-     * Handles the ShowView event to potentially clear fields.
-     * @param {object} payload
-     * @param {string} payload.viewName
-     */
+    // --- Event Handlers (Regular Methods) ---
     handleShowView({ viewName }) {
         if (viewName === this.name) {
             console.log(`[${this.name}] Showing view.`);
-            this._clearForm();
+            const storedName = localStorage.getItem(PLAYER_NAME_STORAGE_KEY);
+            if (storedName) {
+                this.playerNameInput.value = storedName;
+            } else {
+                // Generate random name if needed (check V1)
+                this.playerNameInput.value = miscUtils.generateRandomPlayerName ? miscUtils.generateRandomPlayerName() : '';
+            }
+            this._clearError();
             this.show();
-            this.nameInput.focus(); // Focus name input when shown
+            this.playerNameInput.focus();
         }
     }
-
-    /** Clears the input field and error message. @private */
-    _clearForm() {
-        if (this.nameInput) this.nameInput.value = '';
-        this._clearError();
-    }
-
-     /** Clears the error message display. @private */
-     _clearError = () => { // Arrow function for listener context
+    
+    _clearError() {
         if (this.errorDisplay) {
             this.errorDisplay.textContent = '';
             this.errorDisplay.classList.add('hidden');
         }
     }
 
-    /** Displays an error message. @private */
     _showError(message) {
         if (this.errorDisplay) {
             this.errorDisplay.textContent = message;
             this.errorDisplay.classList.remove('hidden');
         }
     }
-
-    /** Validates the player name and returns it, or shows error. @private */
+    
     _validateAndGetName() {
-        const playerName = this.nameInput.value.trim();
+        const playerName = this.playerNameInput.value.trim();
         if (!playerName) {
-            this._showError(getTextTemplate('mpChoiceErrorEmptyName'));
-            this.nameInput.focus();
+            this._showError(getTextTemplate('joinErrorEmptyName')); // Using template keys from join dialog
+            this.playerNameInput.focus();
             return null;
         }
-         if (playerName.length > 20) { // Example length limit
-             this._showError(getTextTemplate('mpChoiceErrorNameTooLong'));
-             this.nameInput.focus();
+         if (playerName.length > 40) { 
+             this._showError(getTextTemplate('joinErrorNameTooLong'));
+             this.playerNameInput.focus();
              return null;
          }
         this._clearError();
         return playerName;
     }
 
-    /** Handles the Host button click. @private */
-    _handleHostClick = () => { // Use arrow function
+    _handleHostClick() {
+        console.log(`[${this.name}] _handleHostClick triggered!`);
         const playerName = this._validateAndGetName();
         if (!playerName) return;
+
+        localStorage.setItem(PLAYER_NAME_STORAGE_KEY, playerName); // Save validated name
 
         console.log(`[${this.name}] Host button clicked. Player: ${playerName}`);
 
-        // Get the selected difficulty
         let selectedDifficulty = 'medium'; // Default
-        this.difficultyRadios.forEach(radio => {
-            if (radio.checked) {
-                selectedDifficulty = radio.value;
-            }
-        });
+        if (this.difficultyRadios) {
+            this.difficultyRadios.forEach(radio => {
+                if (radio.checked) {
+                    selectedDifficulty = radio.value;
+                }
+            });
+        }
 
-        // TODO: Need to get settings for hosting (SHEET IDs specifically).
-        // Sheet selection should probably happen *before* this screen,
-        // or be presented to the host here.
-        const settings = {
-            sheetIds: ['default_basis'], // STILL USING DEFAULT SHEET
-            difficulty: selectedDifficulty // Use the selected difficulty
+        // Settings are now determined later in sheet selection, pass empty for now
+        const settings = { 
+            difficulty: selectedDifficulty 
+            // sheetIds handled later
         };
 
-        eventBus.emit(Events.UI.MultiplayerChoice.HostClicked, {
+        eventBus.emit(Events.UI.MultiplayerChoice.HostClicked, { 
             playerName: playerName,
-            settings: settings // Pass selected settings
+            settings: settings
         });
     }
 
-    /** Handles the Join button click. @private */
-    _handleJoinClick = () => { // Use arrow function
+    _handleJoinClick() {
         const playerName = this._validateAndGetName();
         if (!playerName) return;
 
+        localStorage.setItem(PLAYER_NAME_STORAGE_KEY, playerName); // Save validated name
+
         console.log(`[${this.name}] Join button clicked. Player: ${playerName}`);
-        eventBus.emit(Events.UI.MultiplayerChoice.JoinClicked, {
+        eventBus.emit(Events.UI.MultiplayerChoice.JoinClicked, { 
             playerName: playerName
         });
     }
 
-    /** Handles the back button click. @private */
-    _handleBackClick = () => {
+    _handleBackClick() {
         console.log(`[${this.name}] Back button clicked.`);
-        eventBus.emit(Events.UI.MultiplayerChoice.BackClicked); 
-        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu }); // Use imported constant
+        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
     }
-
-    // Override destroy to clean up listeners
-    destroy() {
-        console.log(`[${this.name}] Destroying...`);
-        this._unbindEvents();
-        super.destroy();
-    }
+    
+    // BaseComponent handles show/hide/destroy
 }
 
 export default MultiplayerChoiceComponent; 

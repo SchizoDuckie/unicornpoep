@@ -29,23 +29,15 @@ html {
 @keyframes jumpAndFlip {
     0% {
         transform: translateY(0) rotate(0deg);
-        /* Start and end in the original position */
     }
-
     45% {
         transform: translateY(-15px) rotate(0deg);
-        /* Start and end in the original position */
     }
-
-
     85% {
         transform: translateY(-15px) rotate(-360deg);
-        /* Full backflip */
     }
-
     100% {
         transform: translateY(0) rotate(-360deg);
-        /* Start and end in the original position */
     }
 }
 
@@ -53,38 +45,33 @@ html {
     padding: 50px;
     overflow: visible;
     overflow-x: hidden;
-
 }
 
 #loading img {
     animation: jumpAndFlip 1.0s infinite;
-    /* Adjust time as needed */
     animation-direction: normal;
     animation-fill-mode: forwards;
-
 }
 
+/* Combined Title and h1 bounce styling */
 #app>h1 {
     text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.25), 1px 1px 1px rgb(255 255 255);
     margin-bottom: 0.5em;
     position: fixed;
-    /* Changed from absolute to fixed if it should stay relative to viewport */
     top: 0;
     width: 80%;
-    /* Ensure it doesn't overflow #app */
     left: 10%;
-    /* Center it horizontally */
     right: 10%;
     text-align: center;
-    /* Ensure text inside is centered */
     z-index: 5;
-    /* Keep it above game container */
+    animation: bounceIn 1s ease-out forwards;
+    margin-top: 0;
+    font-size: 2.8rem; /* Added from separate h1 rule */
+    view-transition-name: page-title; /* Added for transitions */
 }
 
-
-
 /* Combined stopGame and backToMain shared styles */
-#stopGame,
+#stopGame, /* Renamed from #exitGame for consistency */
 .backToMain {
     background: #614ae2;
     padding: 0.5rem 1rem;
@@ -97,11 +84,40 @@ html {
     text-shadow: 1px 1px 2px #000000bf;
     box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
     user-select: none;
+    position: fixed;
+    z-index: 10; /* Ensure above gameHeader */
+}
+
+/* Specific positions */
+#stopGame { /* Combined from #exitGame rule */
+    top: 11%;
+    left: 11%;
+}
+.backToMain {
+    /* Default position, may be overridden */
     top: 10%;
     left: 10%;
-    z-index: 5;
-    position: fixed;
 }
+
+/* Specific backToMain positioning */
+#endOfGameDialog .backToMain {
+    position: absolute; /* Position relative to dialog */
+    top: 15px;
+    left: 15px;
+}
+#highscores .backToMain {
+    margin-top: 20px;
+    position: relative; /* Reset fixed positioning */
+    top: auto;
+    left: auto;
+}
+#connectionStatus .backToMain { /* Kept from lobby styles */
+    position: fixed;
+    top: 11%;
+    left: 11%;
+    z-index: 10; /* Keep above lobby content */
+}
+
 
 .backToMain:hover {
     background-color: #4A90E2;
@@ -119,36 +135,25 @@ h1,
 h2,
 h3 {
     font-family: 'Fredoka One', cursive;
-    /* A playful yet neat font */
     color: #614ae2;
     text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.25);
-    /* Subtle shadow for depth */
     margin-bottom: 0.5em;
     user-select: none;
-    /* Prevent text selection */
 }
 
-
-#about p {
-    font-family: 'Fredoka One', cursive;
-    /* A playful yet neat font */
-    font-weight: normal;
-    font-size: 1.5rem;
-}
-
-h1 {
-    font-size: 2.8rem;
-    margin-top:0;
-}
-
+/* Combined h1 size was moved into #app > h1 */
 h2 {
     font-size: 2.5rem;
 }
-
 h3 {
     font-size: 2rem;
 }
 
+#about p {
+    font-family: 'Fredoka One', cursive;
+    font-weight: normal;
+    font-size: 1.5rem;
+}
 
 h1 small {
     display: block;
@@ -158,74 +163,108 @@ h1 small {
     font-weight: normal;
 }
 
-/* Keyframes for a gentle bounce effect */
 @keyframes bounceIn {
     0% {
         transform: scale(0.8);
         opacity: 0.5;
     }
-
     70% {
         transform: scale(1.2);
         opacity: 1;
     }
-
     100% {
         transform: scale(1);
     }
 }
 
-/* Apply the bounceIn animation to the h1 tag within #app */
-#app>h1 {
-    /* Make selector more specific if needed */
-    animation: bounceIn 1s ease-out forwards;
-}
-
-
+/* --- View Containers --- */
 #gameContainer {
     width: 100%;
     max-width: 1200px;
-    /* Constrain max width */
     height: 100%;
-    /* Take full height of #app */
     margin: auto;
     padding: 20px;
     box-sizing: border-box;
     overflow-y: auto;
-    /* Allow scrolling if content overflows */
     display: flex;
-    /* Use flex to center its direct child (like mainMenu or gameArea) */
     flex-direction: column;
-    /* Stack children vertically */
     align-items: center;
-    /* Center children horizontally */
     justify-content: center;
-    /* Center children vertically */
     padding-top: 50px;
-    /* Add padding to avoid overlap with fixed h1 */
-    view-transition-name: game-content; /* Give the container a transition name */
 }
 
-
-/* --- MODIFICATION START --- */
-/* Apply common styles ONLY to containers that SHOULD be flex rows */
+/* Common styles for section containers */
 #sheetSelection,
 #difficultySelection,
 #highscores,
 #endOfGameDialog,
-#customQuestionsManager #customSheetSelection {
+#customQuestionsManager #customSheetSelection, /* Keep specific nested rule */
+#about,
+#multiplayerChoice { /* Added from later rule */
     margin-top: 20px;
     padding: 20px;
     border-radius: 10px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     background-color: rgb(154 147 147 / 40%);
-    display: grid;
     position: relative;
-    width: 100%;
+    width: 90%; /* Changed from 100% to match #about/#multiplayer */
     box-sizing: border-box;
+    max-height: 80%; /* Added from #highscores/#about */
+    overflow-y: auto; /* Added from #highscores/#about */
+    display: grid; /* Default display, overridden below if needed */
+    text-align: center; /* Added from #highscores */
 }
 
-/* Specific styles for #gameArea */
+/* Specific overrides */
+#sheetSelection {
+    grid-template-columns: 52% 38%;
+    justify-content: space-around;
+    align-items: start;
+    padding-top: 50px;
+    /* Inherits overflow-y: auto */
+}
+#difficultySelection {
+    width: 100%; /* Overrides width: 90% */
+    display: block; /* Remove grid */
+}
+#endOfGameDialog {
+    background-color: white;
+    font-family: 'Fredoka One', cursive;
+    justify-items: center;
+    text-align: center;
+}
+#about {
+    text-align: left; /* Overrides text-align: center */
+}
+#customQuestionsManager #customSheetSelection {
+    grid-template-columns: 60% 35%;
+    justify-content: space-between;
+    width: 100%; /* Overrides width: 90% */
+    padding: 20px 0;
+    background-color: transparent;
+    box-shadow: none;
+    margin-top: 0;
+    border-radius: 0;
+}
+#multiplayerChoice {
+    
+    width: 100%; /* Takes full width of parent */
+    max-width: none; /* Remove max-width constraint */
+    padding: 30px;
+    border-radius: 30px; /* Override */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Override */
+
+    /* Grid layout */
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two equal columns for inputs/buttons */
+    grid-template-rows: auto auto auto; /* Rows for title, inputs, buttons */
+    gap: 20px; /* Added */
+    margin: 0; /* Remove auto margin */
+    justify-items: stretch; /* Stretch items to fill column width */
+    align-items: start; /* Align items to top */
+}
+
+/* Game Area specific styling */
 #gameArea {
     margin-top: 20px;
     padding: 20px;
@@ -236,67 +275,37 @@ h1 small {
     position: relative;
     width: 90%;
     box-sizing: border-box;
-    padding-bottom: 120px;
+    padding-bottom: 120px; /* Space for gameNavigation */
     overflow: hidden;
-    height: calc(100% - 70px);
+    height: calc(100% - 70px); /* Space for fixed header */
+    view-transition-name: main-content; /* Added for transitions */
 }
 
-/* Added: Style #gameElements to be the main grid layout container */
 #gameElements {
     display: grid;
-    grid-template-columns: 1fr;             /* Single column */
-    /* REMOVE grid rows for score/timer/question */
-    /* grid-template-rows: auto auto 1fr; */ 
-    /* Define rows ONLY for question(auto height) and answers(fill rest) */
-    grid-template-rows: auto 1fr;           
-    gap: 15px;                              /* Space between rows */
-    height: calc(100% - 70px); /* Adjust height calculation if #gameHeader is variable */
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr; /* Question(auto) and Answers(fill) */
+    gap: 15px;
+    height: calc(100% - 70px); /* Match #gameArea height minus header */
     width: 100%;                           
     box-sizing: border-box;
-    padding-top: 65px; /* Add padding to prevent overlap with fixed header items */
-}
-
-/* --- MODIFICATION END --- */
-
-
-#endOfGameDialog {
-    background-color: white;
-    font-family: 'Fredoka One', cursive;
-    padding: 20px;
-    justify-items: center;
-    text-align: center;
-}
-
-#endOfGameDialog .backToMain {
-    position: absolute;
-    /* Position relative to dialog */
-    top: 15px;
-    left: 15px;
+    padding-top: 65px; /* Space for fixed gameHeader */
 }
 
 
-#sheetSelection {
-    grid-template-columns: 52% 38%;
-    justify-content: space-around;
-    align-items: start;
-    padding-top: 50px;
-    overflow-y: auto;
-}
-
+/* --- Sheet/Difficulty Selection Specific --- */
 #sheetsCol {
     flex-basis: 52%;
     box-sizing: border-box;
     padding: 0 10px;
+    view-transition-name: sheets-column; /* Added */
 }
 
 #difficultyCol {
     flex-basis: 38%;
     box-sizing: border-box;
     padding: 0 10px;
-}
-
-#difficultySelection {
-    width: 100%;
+    view-transition-name: difficulty-column; /* Added */
 }
 
 #difficultySelection label {
@@ -309,37 +318,38 @@ h1 small {
     white-space: normal;
 }
 
-/* Fixed bottom bar for sheet selection START button */
-#sheetNavigation {
+/* --- Bottom Navigation Bars --- */
+#sheetNavigation,
+#gameNavigation {
     position: fixed;
-    bottom: -100%;
-    left: 10%;
-    right: 10%;
-    width: 80%;
+    bottom: -100%; /* Start hidden */
+    left: 0%; /* Changed from 10% */
+    right: 0%; /* Changed from 10% */
+    width: 100%; /* Changed from 80% */
     padding: 15px 0;
     background-color: rgba(97, 74, 226, 0.85);
     box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
-    transition: bottom 0.4s ease-in-out;
+    transition: bottom 0.5s ease-in-out; /* Updated transition */
     z-index: 15;
     display: grid;
     place-items: center;
     border-bottom-left-radius: 30px;
     border-bottom-right-radius: 30px;
+    box-sizing: border-box; /* Added */
 }
 
-#sheetNavigation.active {
-        bottom: 0;
-        width: 100%;
-        left: 0;
-        padding: 20px;
+#sheetNavigation.active,
+#gameNavigation.active {
+    bottom: 0%;
+    /* padding: 20px; Removed redundant padding change */
 }
 
-#startGame {
+#startGame,
+#gameNavigation #nextButton { /* Combined similar buttons */
     width: 80%;
     padding: 1rem 2rem;
     font-size: 2rem;
     margin: 0;
-    /* Remove margin */
     background: #FFD700;
     color: white;
     border: 2px solid white;
@@ -350,44 +360,40 @@ h1 small {
     cursor: pointer;
     outline: none;
     user-select: none;
-    transition: transform 0.1s, box-shadow 0.1s;
+    transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s;
+    box-sizing: border-box;
+    text-align: center;
 }
 
-#startGame:disabled {
+#startGame:disabled,
+#gameNavigation #nextButton:disabled {
     background: #aaa;
     cursor: not-allowed;
     box-shadow: none;
+    transform: none; /* Added */
 }
 
 #startGame:not(:disabled):hover,
-#startGame:not(:disabled):focus {
+#startGame:not(:disabled):focus,
+#gameNavigation #nextButton:not(:disabled):hover,
+#gameNavigation #nextButton:not(:disabled):focus {
     transform: scale(1.05);
     box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
     background: linear-gradient(45deg, #FFC107, #FFEB3B);
 }
 
-#startGame:not(:disabled):active {
+#startGame:not(:disabled):active,
+#gameNavigation #nextButton:not(:disabled):active {
     transform: scale(0.95);
     box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-
-#playerName {
-    font-size: 3rem;
-    margin: 10px;
-    border-radius: 10px;
-    padding: 5px;
-    font-family: 'Fredoka One', cursive;
-    color: #614ae2;
-
-}
-
-
+/* --- Main Menu --- */
 #mainMenu {
     display: grid;
     place-items: center;
     width: 100%;
-    /* Take full width of gameContainer */
+    view-transition-name: main-content; /* Added for transitions */
 }
 
 #menuItems {
@@ -398,59 +404,38 @@ h1 small {
     margin: 0 auto;
 }
 
-button {
+/* --- General Button Styles --- */
+button { /* Base styles for menu buttons, etc. */
     background: #FFD700;
-    /* Golden color */
     color: white;
     border: 2px solid white;
-    /* Base white border */
     border-radius: 15px;
     padding: 1.2rem 2rem;
-    /* Adjusted padding */
     font-size: 2rem;
     font-weight: bold;
     text-shadow: 1px 1px 2px #000000bf;
-    /* Text shadow for depth */
     box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
-    /* Soft box shadow for 3D effect */
-    transition: transform 0.1s, box-shadow 0.1s;
+    transition: transform 0.1s, box-shadow 0.1s, background 0.2s; /* Added background transition */
     margin: 0.75rem;
-    /* Adjusted spacing */
     cursor: pointer;
     outline: none;
-    /* Remove default focus outline */
     user-select: none;
     flex-grow: 0;
-    /* Prevent buttons from growing unevenly */
 }
-
 
 button:hover,
 button:focus {
     transform: scale(1.05);
-    /* Slightly increase size on hover/focus */
     box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
-    /* Larger shadow on hover/focus for lifting effect */
+    background: linear-gradient(45deg, #FFC107, #FFEB3B); /* Default hover */
 }
 
 button:active {
     transform: scale(0.95);
-    /* Slightly decrease size when clicked */
     box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
-    /* Smaller shadow when clicked */
 }
 
-/* Gradient background example for hover state */
-button:hover {
-    background: linear-gradient(45deg, #FFC107, #FFEB3B);
-}
-
-/* This rule was overriding the gradient, remove or adjust */
-/* button:hover {
-    background-color: #45a049;
-} */
-
-/* Container for the scrollable list of sheets */
+/* --- Checkboxes and Labels --- */
 #sheetsCheckboxes {
     display: grid;
     gap: 5px;
@@ -460,7 +445,6 @@ button:hover {
     width: 100%;
 }
 
-/* Custom style for the checkboxes */
 input[type="checkbox"] {
     -webkit-appearance: none;
     appearance: none;
@@ -473,30 +457,23 @@ input[type="checkbox"] {
     position: relative;
     cursor: pointer;
     flex-shrink: 0;
-    /* Prevent checkbox from shrinking */
     margin-right: 10px;
-    /* Add space between checkbox and label text */
 }
 
-/* Style for checkbox when checked */
 input[type="checkbox"]:checked {
     background: #614ae2;
-    border-radius: 5px;
+    border-radius: 5px; /* Redundant, but keep for clarity */
 }
 
-/* Custom checkmark style */
 input[type="checkbox"]:checked:after {
     content: '✓';
     position: absolute;
     top: 0px;
-    /* Adjust position */
     left: 5px;
-    /* Adjust position */
     font-size: 18px;
     color: white;
 }
 
-/* Style for labels */
 label {
     font-family: 'Fredoka One', cursive;
     display: grid;
@@ -514,14 +491,106 @@ label {
 
 label:hover {
     color: #4A90E2;
-    /* Lighter shade when hovering over label */
 }
 
-/* Remove ::before pseudo-element if not needed or used */
-/* label::before { ... } */
+/* --- Game Elements: Header --- */
+#gameHeader {
+    position: fixed;
+    top: 10%; /* Match #app */
+    left: 10%;
+    right: 10%;
+    width: 80%;
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) auto minmax(100px, 0.5fr);
+    align-items: center;
+    padding: 10px 15px 10px 120px; /* Increased left padding */
+    background-color: rgba(97, 74, 226, 0.2);
+    border-radius: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    z-index: 10; /* Above gameArea, below stopGame */
+    box-sizing: border-box;
+    gap: 10px;
+}
+
+#gameHeaderLeft {
+    grid-column: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: 15px;
+    text-align: left;
+}
+
+#scoreDisplay,
+#timerDisplay,
+#sheetTitleDisplay {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.8rem;
+    color: #614ae2;
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.7);
+    margin: 0;
+    padding: 0;
+    position: relative; /* Reset fixed positioning from old #score/#timer */
+    top: auto; right: auto;
+    z-index: auto;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+#sheetTitleDisplay {
+    font-size: 1.4rem;
+    font-weight: normal;
+    color: #4a3aab;
+}
+
+/* --- Game Elements: Progress Indicator (Shared between Single/Multiplayer) --- */
+#progressIndicator {
+    grid-column: 2; /* Centered in gameHeader */
+    margin: 0 auto;
+    width: auto;
+    position: relative;
+    top: auto; right: auto;
+    font-size: 1.2rem;
+    padding: 8px 15px;
+    background-color: rgba(97, 74, 226, 0.7);
+    color: white;
+    border-radius: 20px;
+    font-weight: bold;
+    font-family: 'Fredoka One', cursive;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+#progressIndicator progress {
+    height: 12px;
+    vertical-align: middle;
+    appearance: none;
+    border: 1px solid rgba(0,0,0,0.2);
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: rgba(255, 255, 255, 0.3);
+    width: 150px;
+}
+#progressIndicator progress::-webkit-progress-bar {
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+}
+#progressIndicator progress::-webkit-progress-value {
+    background-color: white;
+    border-radius: 10px;
+    transition: width 0.3s ease-out;
+}
+#progressIndicator progress::-moz-progress-bar { /* Firefox */
+     background-color: white;
+     border-radius: 10px;
+     transition: width 0.3s ease-out;
+}
 
 
-/* --- QUESTION STYLING (Inside #gameArea / #gameElements) --- */
+/* --- Game Elements: Question --- */
 #question {
     color: #000000;
     text-shadow: none;
@@ -531,36 +600,33 @@ label:hover {
     box-sizing: border-box;
     width: 100%;
     padding: 10px 0;
-    /* Position within the #gameElements grid */
     grid-row: 1;
     grid-column: 1;
     align-self: center;
 }
 
-/* --- ANSWERS STYLING (Inside #gameArea / #gameElements) --- */
-/* Ensure the intermediate answerGrid fills its parent grid cell */
+/* --- Game Elements: Answers --- */
 #answerGrid {
-    grid-row: 2;    /* Place in the 2nd row of #gameElements grid */
+    grid-row: 2;
     grid-column: 1;
-    height: 100%;   /* Fill the vertical space of its grid cell */
+    height: 100%;
     min-height: 0;
-    /* overflow: hidden; /* Removed */
+    /* Removed overflow: hidden */
 }
 
-#answers {
+#answers { /* Default 2x2 grid */
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     grid-auto-rows: 1fr;
-    gap: 15px;
+    gap: 40px;
     width: 100%;
     box-sizing: border-box;
-    height: 100%; /* Fill the now-stretching #answerGrid */
-    /* Position within the #gameElements grid */
-    grid-row: 2; /* Place in the SECOND row of the updated grid */
-    grid-column: 1;
+    height: 100%;
+    padding: 15px;
+    /* Removed grid-row/column as #answerGrid handles placement */
 }
 
-#answers button {
+#answers button { /* Specific styling for answer buttons */
     box-sizing: border-box;
     text-align: center;
     padding: 20px;
@@ -576,18 +642,17 @@ label:hover {
     cursor: pointer;
     outline: none;
     user-select: none;
-    margin: 0;
+    margin: 0; /* Override general button margin */
     width: 100%;
     height: 100%;
-    min-height: 0; /* Added: Prevent minimum size issues */
+    min-height: 0;
 }
 
 #answers button:not(:disabled):hover,
 #answers button:not(:disabled):focus {
     transform: scale(1.05);
     box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
-    /* Remove the background gradient here, as it will be overridden by correct/wrong states anyway */
-    /* background: linear-gradient(45deg, #FFC107, #FFEB3B); */
+    /* No background change on hover/focus for answers */
 }
 
 #answers button:not(:disabled):active {
@@ -604,55 +669,50 @@ label:hover {
     border-color: #999;
 }
 
-/* --- TIMER & SCORE STYLING --- */
-#timer,
-#score {
-    font-size: 2.5rem;
-    /* Slightly smaller */
-    margin: 10px 0;
-    /* Reduced margin */
-    position: fixed;
-    /* Keep fixed */
-    font-family: 'Fredoka One', cursive;
-    color: #614ae2;
-    text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.25);
-    right: 12%;
-    /* Adjusted position */
-    z-index: 10;
-    /* Above game area */
+@keyframes wiggle {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
 }
 
-#score {
-    top: 11%;
-    /* Adjusted position */
+#answers button.correct-answer,
+#answers button.correct-answer:hover,
+#answers button.correct-answer:focus,
+#answers button.correct-answer:active {
+    animation: wiggle 0.2s ease-in-out;
+    background: rgba(82, 226, 74, 0.85);
+    border-color: #3a8a35;
+    color: white;
+    transform: scale(1);
+    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
 }
 
-#timer {
-    top: 17%;
-    /* Adjusted position */
+#answers button.wrong-answer,
+#answers button.wrong-answer:hover,
+#answers button.wrong-answer:focus,
+#answers button.wrong-answer:active {
+    background: rgba(226, 74, 74, 0.85);
+    border-color: #a03232;
+    color: white;
+    transform: scale(1);
+    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
 }
 
-/* General Checkbox size override (if needed, check specificity) */
-/* input[type=checkbox] {
-    height: 2rem;
-    width: 2rem;
-    margin-right:1rem;
-} */
+/* --- Old Timer/Score (Removed, now in #gameHeader) --- */
+/* #timer, #score { ... } */
 
+/* --- Interaction Helpers --- */
 .disable-interaction {
     pointer-events: none;
 }
 
-@keyframes drop {
-    0% {
-        transform: translateY(-100%);
-        opacity: 1;
-    }
+.hidden {
+    display: none !important;
+}
 
-    100% {
-        transform: translateY(100vh);
-        opacity: 0;
-    }
+/* --- Emoji Fall --- */
+@keyframes drop {
+    0% { transform: translateY(-100%); opacity: 1; }
+    100% { transform: translateY(100vh); opacity: 0; }
 }
 
 .emoji-fall {
@@ -661,90 +721,59 @@ label:hover {
     left: 50%;
     font-size: 5rem;
     opacity: 0;
-    /* Start fully transparent */
     animation: drop 1.5s linear forwards;
-    /* Start the drop animation */
     pointer-events: none;
-    /* Ensure the emoji doesn't interfere with clicks */
     z-index: 20;
-    /* Ensure the emoji is visible above other content */
 }
 
-#exitGame {
-    position: fixed;
-    /* Keep fixed */
-    top: 11%;
-    left: 11%;
-    z-index: 10;
-    /* Ensure it's above game area */
-}
+/* --- High Scores --- */
+/* #highscores container styles merged into common section styles */
 
-
-#highscores {
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 20px;
-    padding: 20px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    text-align: center;
-    background-color: rgb(154 147 147 / 40%);
-    max-height: 80%;
-    overflow-y: auto;
-}
-
-#highscores h1 {
+#highscores h1 { /* Specific h1 inside highscores */
     color: #614ae2;
     margin-bottom: 1rem;
     font-size: 2rem;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-
-#highscores .score-container.top-score {
-    background: #ffd700;
-    font-weight: bold;
-}
-
-.score-name,
-.score-score,
-.score-timestamp {
-    flex: 1;
-    padding: 0 5px;
-}
-
 #highscores table {
     width: 100%;
     margin-top: 20px;
-    border-collapse: collapse; /* Ensure borders combine cleanly */
-    background-color: rgba(255, 255, 255, 0.7); /* Light background for table */
+    border-collapse: collapse;
+    background-color: rgba(255, 255, 255, 0.7);
     border-radius: 8px;
-    overflow: hidden; /* Clip content to rounded corners */
+    overflow: hidden;
+    /* Merged styles from generic table rule */
+    margin-bottom: 10px;
+    box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 #highscores th,
 #highscores td {
     padding: 12px 15px;
     text-align: left;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1); /* Light separator line */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 #highscores th {
-    background-color: #d6c8ff; /* Header background like V1 */
-    color: #333; /* Darker text for contrast */
+    background-color: #d6c8ff;
+    color: #333;
     font-weight: bold;
+    /* Merged text-align from generic th */
+    text-align: center;
+    padding: 10px; /* Merged padding from generic th */
 }
 
 #highscores tr:last-child td {
-    border-bottom: none; /* No border for the last row */
+    border-bottom: none;
 }
 
-/* Styling for rank medals */
 #highscores td.rank {
-    font-size: 1.5em; /* Make medals slightly larger */
+    font-size: 1.5em;
     text-align: center;
-    width: 60px; /* Fixed width for rank column */
+    width: 60px;
 }
 
-/* Styling for date/time */
 #highscores td.date {
     text-align: right;
     font-size: 0.9em;
@@ -752,148 +781,45 @@ label:hover {
     white-space: nowrap;
 }
 
-/* V1 Styling for top ranks */
+/* Top rank row styling */
 #highscores tr.rank-1,
 #highscores tr.rank-2,
 #highscores tr.rank-3 {
-    background-color: #fff799; /* Yellow background like V1 */
+    /* Merged .top-score */
+    background-color: #fff799; /* Base yellow */
     font-weight: bold;
 }
-
-/* Optional: Hover effect for rows */
-#highscores tbody tr:hover {
-    background-color: rgba(214, 200, 255, 0.5); /* Subtle purple hover */
-}
-
-/* Ensure back button is styled correctly */
-#highscores .backToMain {
-    margin-top: 20px;
-    /* Add any specific positioning or spacing if needed */
-}
-
-/* Additional styling for top scores */
-#highscores .top-score .score-name,
-#highscores .top-score .score-score,
-#highscores .top-score .score-timestamp {
+/* Specific top score text color */
+#highscores tr.rank-1 .score-name,
+#highscores tr.rank-1 .score-score,
+#highscores tr.rank-1 .score-timestamp,
+#highscores tr.rank-2 .score-name,
+#highscores tr.rank-2 .score-score,
+#highscores tr.rank-2 .score-timestamp,
+#highscores tr.rank-3 .score-name,
+#highscores tr.rank-3 .score-score,
+#highscores tr.rank-3 .score-timestamp {
     color: #604ae0;
-    /* White text for better contrast on gold background */
 }
 
-th.score-rank {
+/* Gradient overrides for top 3 */
+#highscores tr.rank-1 { background: #ffd700; }
+#highscores tr.rank-2 { background: linear-gradient(to right, #e6c300, #fff9e6); }
+#highscores tr.rank-3 { background: linear-gradient(to right, #cca700, #fff); }
+
+
+#highscores tbody tr:hover {
+    background-color: rgba(214, 200, 255, 0.5);
+}
+
+th.score-rank { /* Specific th styling */
     padding: 2px;
     font-size: 1.5rem;
 }
 
+/* Removed generic table, th, tr:nth-child(even), td rules */
 
-/* Gold background for the first place */
-#highscores tr.top-score:nth-child(1) {
-    background: #ffd700;
-    /* Solid gold color */
-}
-
-/* Gradient background for the second place */
-#highscores tr.top-score:nth-child(2) {
-    background: linear-gradient(to right, #e6c300, #fff9e6);
-    /* Adjusted gold */
-}
-
-/* Gradient background for the third place */
-#highscores tr.top-score:nth-child(3) {
-    background: linear-gradient(to right, #cca700, #fff);
-    /* Darker gold fade */
-}
-
-table {
-    margin: 20px 0;
-    /* max-height: 300px; /* Removed, rely on #highscores overflow */
-    background: #ececff;
-    /* overflow-y: auto; /* Removed, rely on #highscores overflow */
-    text-align: left;
-    border-collapse: collapse;
-    border-radius: 10px;
-    /* Rounded corners for table */
-    overflow: hidden;
-    /* Clip content to rounded corners */
-    width: 100%;
-    /* Ensure table takes width */
-
-    padding: 0;
-    /* Remove padding from table itself */
-    margin-bottom: 10px;
-    box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
-
-}
-
-th {
-    text-align: center;
-    padding: 10px;
-    background-color: #dcd6ff;
-    /* Header background */
-}
-
-#scoreList tr:nth-child(even) {
-    background-color: #f7f5ff;
-    /* Zebra striping */
-}
-
-#scoreList td {
-    padding: 8px 10px;
-    /* Adjust cell padding */
-}
-
-
-/* Back button is already styled above */
-
-@keyframes wiggle {
-
-    0%,
-    100% {
-        transform: rotate(-3deg);
-    }
-
-    50% {
-        transform: rotate(3deg);
-    }
-}
-
-/* Apply correct answer style regardless of hover/active state */
-#answers button.correct-answer,
-#answers button.correct-answer:hover,
-#answers button.correct-answer:focus,
-#answers button.correct-answer:active {
-    animation: wiggle 0.2s ease-in-out;
-    background: rgba(82, 226, 74, 0.85); /* Use the slightly darker hover shade consistently */
-    border-color: #3a8a35;
-    color: white;
-    /* Ensure transform/shadow don't revert completely on active */
-    transform: scale(1); 
-    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
-}
-
-/* Apply wrong answer style regardless of hover/active state */
-#answers button.wrong-answer,
-#answers button.wrong-answer:hover,
-#answers button.wrong-answer:focus,
-#answers button.wrong-answer:active {
-    background: rgba(226, 74, 74, 0.85); /* Use the slightly darker hover shade consistently */
-    border-color: #a03232;
-    color: white;
-    /* Ensure transform/shadow don't revert completely on active */
-    transform: scale(1); 
-    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
-}
-
-/* Remove the now redundant specific hover rules */
-/* 
-#answers button.correct-answer:hover {
-    background: rgba(82, 226, 74, 0.85);
-}
-
-#answers button.wrong-answer:hover {
-    background: rgba(226, 74, 74, 0.85);
-}
-*/
-
+/* --- WIP Placeholder --- */
 .wip {
     color: red;
     font-family: 'Fredoka One';
@@ -904,27 +830,15 @@ th {
     padding: 100px;
     border-radius: 100px;
     z-index: 100;
-    /* Ensure it's on top */
 }
 
-#about {
-    display: grid;
-    text-align: left;
-    width: 90%;
-    max-height: 80%;
-    overflow-y: auto;
-    background-color: rgb(154 147 147 / 40%);
-    padding: 30px;
-    border-radius: 20px;
-    box-sizing: border-box;
-}
+/* --- About Section --- */
+/* #about container styles merged into common section styles */
 
-#customQuestionsManager {
-    position: absolute;
-    top: 9%;
-    left: 10%;
-    right: 10%;
-    bottom: 10%;
+/* --- Custom Questions Manager --- */
+#customQuestionsManager { /* This is the main container */
+    /* Removed absolute positioning, assumed it's shown/hidden */
+    /* top: 9%; left: 10%; right: 10%; bottom: 10%; */
     border-radius: 30px;
     display: grid;
     justify-items: center;
@@ -934,36 +848,19 @@ th {
     background-color: rgb(154 147 147 / 40%);
     padding: 20px;
     box-sizing: border-box;
+    view-transition-name: main-content; /* Added for transitions */
 }
 
-#customQuestionsManager h2 {
-    /* Target h2 instead of h1 if h1 is fixed */
-    text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.25), 1px 1px 1px rgb(255 255 255);
-    margin-bottom: 1em;
-    /* Increased margin */
-    color: #614ae2;
-    font-size: 2.5rem;
-    /* Adjusted size */
-}
-
-#customQuestionsManager #customSheetSelection {
-    grid-template-columns: 60% 35%;
-    justify-content: space-between;
-    width: 100%;
-    padding: 20px 0;
-    box-sizing: border-box;
-    background-color: transparent;
-    box-shadow: none;
-    margin-top: 0;
-    border-radius: 0;
-}
+/* #customQuestionsManager #customSheetSelection merged into common rules */
 
 #customSheetsCol {
     width: 60%;
+    view-transition-name: sheets-column; /* Added */
 }
 
 #customDifficultyCol {
     width: 35%;
+    view-transition-name: difficulty-column; /* Added */
 }
 
 #customQuestionsInput {
@@ -996,86 +893,16 @@ th {
     width: 100%;
     margin-bottom: 10px;
     padding: 0.75rem 1rem;
-    /* Consistent padding */
     font-size: 1.2rem;
-    /* Consistent font size */
+    /* Uses general button styles */
 }
 
-/* Add the custom color for the delete button */
 #deleteCustomQuestionsButton {
-    background: linear-gradient(45deg, #ff4d4d, #ff6666);
+    background: linear-gradient(45deg, #ff4d4d, #ff6666); /* Specific delete color */
 }
 
-#connectionCodeInput {
-    margin-top: 20px;
-    display: grid;
-    justify-items: center;
-    gap: 10px;
-}
-
-#connectionCodeInput input {
-    font-size: 2rem;
-    padding: 10px;
-    width: 200px;
-    text-align: center;
-    text-transform: uppercase;
-    border: 2px solid #614ae2;
-    border-radius: 5px;
-}
-
-#connectionCodeInput button {
-    font-size: 1.5rem;
-    padding: 10px 20px;
-    background-color: #614ae2;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-#connectionCodeInput button:hover {
-    background-color: #4A90E2;
-}
-
-#connectionCode h3 {
-    font-size: 3rem;
-    color: #614ae2;
-    text-align: center;
-    margin: 20px 0;
-    font-family: 'Fredoka One', cursive;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-#waitingMessage {
-    font-size: 1.5rem;
-    color: #614ae2;
-    text-align: center;
-    margin: 20px 0;
-    font-family: 'Fredoka One', cursive;
-}
-
-#multiplayerChoice {
-    display: grid;
-    justify-items: center;
-    gap: 20px;
-    padding: 30px;
-    background-color: rgb(154 147 147 / 40%);
-    border-radius: 30px;
-    width: 90%;
-    max-width: 600px;
-    margin: 0 auto;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    box-sizing: border-box;
-}
-
-#multiplayerChoice h2 {
-    font-size: 3rem;
-    color: #614ae2;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
-}
-
+/* --- Multiplayer Name Input --- */
+/* Used in #multiplayerChoice and potentially elsewhere */
 .name-input-container {
     display: grid;
     justify-items: center;
@@ -1084,15 +911,16 @@ th {
 }
 
 .name-input-container label {
-    font-size: 2rem;
+    font-size: 2rem; /* Override default label */
     color: #614ae2;
     margin-left: 0;
     margin-bottom: 10px;
     display: block;
-    /* Ensure label is block */
     text-align: center;
-    /* Center label text */
+    grid-template-columns: none; /* Override default label grid */
+    padding: 0; /* Override default label padding */
 }
+.name-input-container label:hover { color: #614ae2; } /* Disable hover effect */
 
 .name-input-container input[type="text"] {
     width: 80%;
@@ -1104,55 +932,153 @@ th {
     text-align: center;
     font-family: 'Fredoka One', cursive;
     background-color: white;
-    /* Ensure white background */
 }
 
-#multiplayerChoice button.menuButton {
-    /* General button style applied earlier */
-    width: 80%;
-    background: linear-gradient(45deg, #FFC107, #FFEB3B);
-    border: 3px solid white;
-    color: white;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-    margin: 10px auto;
-    /* Use auto margin for centering if needed */
+#playerName { /* Specific input for host/join? */
+    font-size: 3rem;
+    margin: 10px;
+    border-radius: 10px;
+    padding: 5px;
+    font-family: 'Fredoka One', cursive;
+    color: #614ae2;
+    /* Assuming text input */
+    border: 3px solid #614ae2;
+    text-align: center;
+    background-color: white;
+}
+
+
+/* --- Multiplayer Choice Screen --- */
+/* #multiplayerChoice container styles merged into common section styles */
+#multiplayerChoice h2 {
+    grid-column: 1 / -1; /* Title spans both columns */
+    text-align: center; /* Ensure title text is centered */
+}
+
+#multiplayerChoice .name-input-container {
+    grid-column: 1 / 2; /* First column, second row */
+    grid-row: 2 / 3;
+    width: 100%; /* Fill the grid cell */
+    margin-bottom: 0; /* Rely on grid gap */
+    /* Styles inherited from general .name-input-container */
+    /* display: grid; justify-items: center; */
+}
+
+/* Placeholder for difficulty selection */
+#multiplayerChoice .difficulty-selection-container {
+    grid-column: 2 / 3; /* Second column, second row */
+    grid-row: 2 / 3;
+    width: 100%; /* Fill the grid cell */
+    /* Add specific styles for difficulty elements inside this */
+    display: grid; /* Example: Use grid */
+    justify-items: center;
+    align-content: center;
+}
+
+#multiplayerChoice button.menuButton { /* More specific than general button */
+    /* Inherit base button styles like background, border, color, etc. */
+    /* Override styles for this specific context: */
     padding: 20px;
     font-size: 1.8rem;
+    margin: 0; /* Ensure base margin is overridden */
+    justify-self: stretch; /* Make button fill grid cell width */
+    width: auto; /* Allow justify-self to control width */
 }
 
+/* Position buttons using :nth-of-type to avoid ID reliance */
+#multiplayerChoice button.menuButton:nth-of-type(1) { /* Assuming 'Join' is the first button */
+    grid-column: 1 / 2; /* First column, third row */
+    grid-row: 3 / 4;
+}
+
+#multiplayerChoice button.menuButton:nth-of-type(2) { /* Assuming 'Create' is the second button */
+    grid-column: 2 / 3; /* Second column, third row */
+    grid-row: 3 / 4;
+}
+
+/* --- Multiplayer Connection Status / Lobby --- */
+/* This is the <dialog> element, styled to fill its container */
 #connectionStatus {
     display: grid;
+    align-items: stretch;  
+    justify-items: stretch;
+    width: 100%;         
+    height: 100%;        
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent; 
+    max-width: none;
+    max-height: none;
+    overflow: hidden;      
+    box-sizing: border-box;
+    position: static;      
+    view-transition-name: main-content; /* Added for transitions */
+}
+#connectionStatus::backdrop {
+    display: none;
+}
+
+/* This is the main visible content area inside the dialog */
+#connectionStatus #connectionCode { /* Renamed from .host-lobby-content? No, used for both host/join */
+    width: 100%;        
+    height: 100%;       
+    box-sizing: border-box;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    position: static; 
+    display: grid; 
+    overflow-y: auto;   
+    grid-template-columns: 1fr 1fr;
     justify-items: center;
     gap: 20px;
     padding: 20px;
-    width: 90%;
-    max-width: 600px;
-    box-sizing: border-box;
 }
 
-.connectionBox {
+/* Host-specific layout and background for #connectionCode */
+#connectionStatus #connectionCode.host-view {
+    grid-template-columns: 1fr 1fr; /* Two columns for host */
+    gap: 25px;
+    align-items: stretch; 
+    justify-items: stretch; 
+    padding: 30px 40px 40px 40px; 
+    background: linear-gradient(45deg, #ff6b6b, #ff9f43, #feca57, #2ecc71); 
+}
+
+/* Shared Title Style */
+#connectionStatus h2 {
+     grid-column: 1 / -1; /* Span across columns if grid */
+     align-self: start; /* Grid alignment */
+     justify-self: center; /* Grid alignment */
+}
+
+/* Join View Specific Styles */
+#connectionStatus #joinView .connectionBox {
     background: rgba(255, 255, 255, 0.9);
     padding: 30px;
     border-radius: 15px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    /* Take full width of parent */
+    width: 90%; /* Constrain width */
+    max-width: 600px;
     margin: 0 auto;
     box-sizing: border-box;
 }
-
-.input-wrapper {
+#connectionStatus #joinView .input-wrapper {
     display: grid;
     gap: 15px;
     justify-items: center;
+    background-color: rgba(255, 255, 255, 0.8); /* Light background for contrast */
+    padding: 20px;
+    border-radius: 10px;
+    width: 100%;
+    box-sizing: border-box;
 }
-
-#connectionStatus #connectionCodeInput {
-    /* Target the specific input */
+#connectionStatus #joinView #connectionCodeInput { /* Input field */
     font-size: 2.5rem;
     padding: 15px;
     width: 90%;
-    /* Adjust width */
     text-align: center;
     text-transform: uppercase;
     border: 3px solid #614ae2;
@@ -1164,531 +1090,54 @@ th {
     display: block;
     box-sizing: border-box;
 }
-
-#connectionStatus #connectionCodeInput::placeholder {
+#connectionStatus #joinView #connectionCodeInput::placeholder {
     color: #614ae280;
     font-size: 1.8rem;
 }
-
-.help-text {
+.help-text, .panel-title, .host-status {
     color: #614ae2;
     font-family: 'Fredoka One', cursive;
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     margin-top: 20px;
     text-align: center;
+    text-shadow: none;
 }
-
-.waitingText {
-    color: #614ae2;
-    font-family: 'Fredoka One', cursive;
-    font-size: 2rem;
-    text-align: center;
-    margin-top: 20px;
-}
-
-.yellow-button {
-    /* Already styled by general button rules */
-    background: #FFD700;
+#connectionStatus #joinView .yellow-button { /* Connect button */
+    background: #FFD700; /* Uses general button styles */
     width: 80%;
     margin-top: 10px;
 }
 
-/* WebRTC Debug Styles */
-.debugBox {
-    background: rgba(0, 0, 0, 0.7);
-    color: #00ff00;
-    font-family: monospace;
-    padding: 15px;
-    border-radius: 5px;
-    margin-top: 20px;
-    width: 100%;
-    max-width: 600px;
-    text-align: left;
-    box-sizing: border-box;
-}
-
-.debugBox h3 {
-    color: #fff;
-    font-size: 1.2rem;
-    margin-bottom: 10px;
-    text-shadow: none;
-}
-
-.debugLog {
-    height: 150px;
-    overflow-y: auto;
-    background: rgba(0, 0, 0, 0.5);
-    padding: 10px;
-    border-radius: 3px;
-    font-size: 0.9rem;
-    line-height: 1.4;
-}
-
-.debugLog .error {
-    color: #ff4d4d;
-}
-
-.debugLog .success {
-    color: #4dff4d;
-}
-
-.debugLog .info {
-    color: #4dbbff;
-}
-
-/* Multiplayer Game Styles */
-#multiplayerGame #answers {
-    /* Target specific multiplayer answers */
-    display: grid;
-    gap: 15px;
+/* Host View Specific Styles */
+#connectionStatus #connectionCode.host-view h3 { /* Connection code text */
+    font-size: 3rem;
+    color: #614ae2; /* Keep original color? */
+    text-align: center;
     margin: 20px 0;
-    justify-items: center;
+    font-family: 'Fredoka One', cursive;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-#multiplayerGame #answers button {
-    flex: none;
-    /* Don't allow flex grow/shrink */
-    width: 80%;
-    /* Set a fixed width */
-    max-width: 400px;
-    /* Max width */
-    margin: 0 auto;
-    /* Center button */
-    padding: 20px;
-    font-size: 2rem;
-}
-
-/* Winner announcement styles */
-.unicorn-theme {
-    /* General dialog theme */
-    background: linear-gradient(45deg, #ff6b6b, #ff9f43, #feca57, #2ecc71);
-    border: 3px solid #ffffff;
-    border-radius: 20px;
-    text-align: center;
-    position: relative;
-    overflow: visible;
-    padding: 30px;
-    /* Add padding */
-    color: white;
-    /* Default text color */
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
-    /* Add subtle shadow */
-}
-
-.unicorn-theme h1,
-.unicorn-theme h2 {
-    color: white;
-    /* Ensure headers are white */
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-}
-
-.player-result {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
+.host-lobby-column { /* Used only in host view */
+    display: flex;
+    flex-direction: column;
     gap: 15px;
-    margin: 20px auto;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 15px;
-    color: #333;
-    text-shadow: none;
-    width: 90%;
-    max-width: 400px;
+    width: 100%; 
     box-sizing: border-box;
+    min-width: 0; 
 }
-
-.player-result.winner {
-    transform: scale(1.05);
-    background: #ffeaa7;
-    animation: glow 1s infinite alternate;
-    color: #614ae2;
-    font-weight: bold;
-}
-
-.player-emoji {
-    grid-column: 1;
-    font-size: 3em;
-}
-
-.player-name {
-    text-align: left;
-}
-
-.score-badge {
-    grid-column: 3;
-    display: inline-grid;
-    justify-items: center;
-    gap: 2px;
-    background: #2ecc71;
-    color: white;
-    padding: 8px 15px;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    text-shadow: none;
-}
-
-.score-badge .score-label {
-    font-size: 0.8em;
-    margin-bottom: 2px;
-}
-
-.score-badge .score-value {
-    font-size: 1.2em;
-    font-weight: bold;
-}
-
-@keyframes glow {
-    from {
-        box-shadow: 0 0 10px #ff9f43;
-    }
-
-    to {
-        box-shadow: 0 0 20px #ff9f43, 0 0 30px #ff9f43;
-    }
-}
-
-.winner::after {
-    content: "🎉";
-    font-size: 3em;
-    position: absolute;
-    top: -20px;
-    left: calc(50% - 0.5em);
-    animation: float 3s ease-in-out infinite;
-    z-index: -1;
-}
-
-@keyframes float {
-    0% {
-        transform: translateY(0) rotate(0deg);
-    }
-
-    50% {
-        transform: translateY(-20px) rotate(180deg);
-    }
-
-    100% {
-        transform: translateY(0) rotate(360deg);
-    }
-}
-
-
-/* Multiplayer Name Input was handled earlier */
-
-/* Question progress indicator */
-#playerScores {
-    grid-row: 1;
-    grid-column: 1;
+.host-lobby-section { /* Used only in host view */
     width: 100%;
-    display: grid;
-    grid-auto-flow: column;
-    justify-content: space-between;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 10px;
-    background-color: rgba(255, 255, 255, 0.3);
+    padding: 15px 20px;
+    background-color: rgba(255, 255, 255, 0.7);
     border-radius: 15px;
-    margin-bottom: 0;
-    box-sizing: border-box;
-}
-
-.player-score-display {
-    font-family: 'Fredoka One', cursive;
-    font-size: 1.2rem;
-    color: #614ae2;
-    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
-    padding: 5px 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     text-align: center;
-}
-
-#progressIndicator {
-    grid-column: 2; 
-    margin: 0 auto; 
-    width: auto; 
-    position: relative;
-    top: auto; right: auto; 
-    /* *** REVERT/ADJUST FONT & PADDING *** */
-    font-size: 1.2rem; /* Restore or adjust size */
-    padding: 8px 15px; /* Restore or adjust padding */
-    /* Keep existing styles for background, color, radius etc. */
-    background-color: rgba(97, 74, 226, 0.7);
-    color: white;
-    border-radius: 20px;
-    font-weight: bold;
-    font-family: 'Fredoka One', cursive;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-    display: inline-flex; /* Use flex to align text and bar */
-    align-items: center; /* Vertically center text and bar */
-    gap: 8px; /* Add gap between text and bar */
-}
-#progressIndicator progress { 
-    height: 12px; 
-    vertical-align: middle; 
-    appearance: none; 
-    border: 1px solid rgba(0,0,0,0.2); /* Add subtle border */
-    border-radius: 10px;
-    overflow: hidden;
-    background-color: rgba(255, 255, 255, 0.3); /* Ensure background color for track */
-    width: 150px; /* Give it a minimum width */
-}
-/* Styling for the progress bar value (track) */
-#progressIndicator progress::-webkit-progress-bar {
-    background-color: rgba(255, 255, 255, 0.3);
-    border-radius: 10px;
-}
-#progressIndicator progress::-webkit-progress-value {
-    background-color: white;
-    border-radius: 10px;
-     /* Add a subtle transition */
-    transition: width 0.3s ease-out;
-}
-#progressIndicator progress::-moz-progress-bar { /* Firefox */
-     background-color: white;
-     border-radius: 10px;
-     transition: width 0.3s ease-out; /* Add transition for FF */
-}
-
-/* Animation for opponent score updates */
-@keyframes scoreUpdate {
-    0% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.2);
-        background-color: #FFD700;
-        box-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
-        color: white;
-        border-radius: 10px;
-    }
-
-    100% {
-        transform: scale(1);
-    }
-}
-
-/* Class to apply the animation */
-.score-updated {
-    animation: scoreUpdate 0.6s ease-in-out;
-}
-
-
-.hidden {
-    display: none !important;
-    /* This class controls the visibility */
-}
-
-/* --- GAME NAVIGATION BAR (Fixed Bottom) --- */
-#gameNavigation {
-    position: fixed;
-    bottom: -100%;
-    left: 0%;
-    right: 0%;
-    width: 100%;
-    background-color: rgba(97, 74, 226, 0.85);
-    transition: bottom 0.5s ease-in-out;
-    z-index: 15;
-    display: grid;
-    place-items: center;
-    padding: 15px 0;
-    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
-    margin-top: 0;
-    border-bottom-left-radius: 30px;
-    border-bottom-right-radius: 30px;
-}
-
-#gameNavigation.active {
-    bottom: 0%;
-    /* Align with bottom of #app */
-}
-
-/* Style the #nextButton specifically for the bottom bar */
-#gameNavigation #nextButton {
-    width: 80%;
-    padding: 1rem 2rem;
-    font-size: 2rem;
-    margin: 0;
-    background: #FFD700;
-    color: white;
-    border: 2px solid white;
-    border-radius: 15px;
-    font-weight: bold;
-    text-shadow: 1px 1px 2px #000000bf;
-    box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
-    cursor: pointer;
-    outline: none;
-    user-select: none;
-    transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s;
     box-sizing: border-box;
-    text-align: center;
+    flex-shrink: 0; 
 }
 
-#gameNavigation #nextButton:disabled {
-    background: #aaa;
-    cursor: not-allowed;
-    box-shadow: none;
-    transform: none;
-}
-
-#gameNavigation #nextButton:not(:disabled):hover,
-#gameNavigation #nextButton:not(:disabled):focus {
-    transform: scale(1.05);
-    box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
-    background: linear-gradient(45deg, #FFC107, #FFEB3B);
-}
-
-#gameNavigation #nextButton:not(:disabled):active {
-    transform: scale(0.95);
-    box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    h1 {
-        font-size: 2.5rem;
-    }
-
-    h2 {
-        font-size: 2rem;
-    }
-
-    h3 {
-        font-size: 1.8rem;
-    }
-
-    button {
-        font-size: 1.5rem;
-        padding: 1rem 1.5rem;
-        margin: 0.5rem;
-    }
-
-    #answers button {
-        font-size: 1.8rem;
-        padding: 15px;
-        min-height: 80px;
-    }
-
-    #question {
-        font-size: 2rem;
-    }
-
-    #timer,
-    #score {
-        font-size: 1.8rem;
-    }
-
-    #gameNavigation #nextButton {
-        font-size: 1.5rem;
-        padding: 0.8rem 1.5rem;
-    }
-
-    #sheetNavigation #startGame {
-        font-size: 1.5rem;
-        padding: 0.8rem 1.5rem;
-    }
-
-    .backToMain,
-    #stopGame {
-        font-size: 1.2rem;
-        padding: 0.4rem 0.8rem;
-    }
-
-    #app {
-        top: 5%;
-        left: 5%;
-        right: 5%;
-        bottom: 5%;
-        border-radius: 20px;
-    }
-
-    #gameNavigation,
-    #sheetNavigation {
-        left: 5%;
-        right: 5%;
-        width: 90%;
-        bottom: 5%;
-        border-radius: 0;
-        border-bottom-left-radius: 20px;
-        border-bottom-right-radius: 20px;
-    }
-
-    #gameArea {
-        width: 100%;
-        padding: 15px;
-        padding-bottom: 100px;
-    }
-
-    /* Adjust padding */
-    #answers {
-        gap: 10px;
-
-    }
-
-    #playerScores {
-        flex-direction: column;
-        gap: 5px;
-    }
-
-    #progressIndicator {
-        order: -1;
-        /* Put progress on top on mobile */
-    }
-
-    .player-score-display {
-        font-size: 1rem;
-        padding: 3px 8px;
-    }
-}
-
-@media (max-width: 480px) {
-    h1 {
-        font-size: 2rem;
-    }
-
-    #app>h1 small {
-        font-size: 0.5em;
-    }
-
-    button {
-        font-size: 1.2rem;
-        padding: 0.8rem 1rem;
-    }
-
-    #answers button {
-        font-size: 1.5rem;
-        padding: 10px;
-        min-height: 60px;
-    }
-
-    #question {
-        font-size: 1.8rem;
-    }
-
-    label {
-        font-size: 1.2rem;
-    }
-
-    #timer,
-    #score {
-        font-size: 1.5rem;
-    }
-
-    #gameNavigation #nextButton,
-    #sheetNavigation #startGame {
-        font-size: 1.2rem;
-        padding: 0.6rem 1rem;
-    }
-
-    #answers button {
-        flex-basis: 100%;
-    }
-
-    /* Stack answers vertically */
-
-}
-
-/* Enhanced Host Code Display */
+/* Host: Connection Code Display */
 .host-code-wrapper {
     display: grid;
     grid-auto-flow: column;
@@ -1698,31 +1147,25 @@ th {
     margin-bottom: 20px;
     gap: 10px;
 }
-
 .host-code-text {
     font-family: 'Fredoka One', cursive;
-    font-size: 0.8rem; /* Reduced font size slightly */
+    font-size: 1.2rem; 
     font-weight: bold;
-    color: #614ae2; /* Use theme colors? Maybe keep specific for contrast */
-    letter-spacing: 1px; /* Reduced letter spacing */
-    background-color: rgba(255, 255, 255, 0.8); /* Lighter background inside dialog */
-    padding: 10px 15px; /* Adjusted padding */
+    color: #614ae2; 
+    letter-spacing: 1px; 
+    background-color: rgba(255, 255, 255, 0.8); 
+    padding: 10px 15px; 
     border-radius: 10px;
     border: 2px dashed #614ae2;
-    margin-right: 15px; /* Keep some space before buttons */
-    line-height: 1.4; /* Added line-height for wrapping */
-    text-align: left; /* Align text left for better readability when wrapped */
-    overflow-wrap: break-word; /* Allow breaking long words/URLs */
-    word-break: break-all; /* Force breaks if needed */
-    /* Remove fixed width if it was previously set */
+    margin-right: 15px; 
+    line-height: 1.4; 
+    text-align: left; 
+    overflow-wrap: break-word; 
+    word-break: break-all; 
 }
-
-/* Optional: Add specific style if only the link needs breaking */
 .join-link-text {
-    letter-spacing: normal; /* Reset letter spacing for better URL readability */
-    /* word-break: break-all; /* Already applied to host-code-text, but could be specific here */
+    letter-spacing: normal; 
 }
-
 .copy-button {
     background: #614ae2;
     border: none;
@@ -1734,24 +1177,20 @@ th {
     transition: background-color 0.2s ease, transform 0.1s ease;
     box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
 }
-
 .copy-button:hover {
     background-color: #4A90E2;
     transform: scale(1.1);
 }
-
 .copy-button:active {
     transform: scale(0.95);
     box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
 }
-
 .copy-button svg {
-    /* SVG styles are inline, but can override size here if needed */
     width: 24px;
     height: 24px;
 }
 
-/* General Share Button Style */
+/* Host: Share Buttons */
 .share-button {
     background: #614ae2;
     border: none;
@@ -1764,119 +1203,102 @@ th {
     box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
     text-decoration: none;
 }
-
 .share-button:hover {
     transform: scale(1.1);
 }
-
 .share-button:active {
     transform: scale(0.95);
     box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
 }
-
 .share-button svg {
     width: 24px;
     height: 24px;
-    fill: #FFFFFF; /* Ensure icon is white */
+    fill: #FFFFFF; 
 }
-
-/* WhatsApp Specific Style */
 .whatsapp-button {
-    background-color: #25D366; /* WhatsApp green */
+    background-color: #25D366; 
 }
-
 .whatsapp-button:hover {
-    background-color: #1DAE54; /* Darker WhatsApp green */
+    background-color: #1DAE54; 
 }
 
-/* Kirby Waiting Animation */
+/* Host: Player List */
+.player-list-section { /* Grows to fill column */
+    flex-grow: 1;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+}
+.player-list-section .waitingText { /* "Players (X/Y)" text */
+    color: #555;
+    text-shadow: none;
+    font-size: 1.2em;
+    margin-bottom: 8px;
+    font-family: 'Fredoka One', cursive;
+}
+.player-list-section .waitingText #playerCount {
+     color: #c6a100;
+     font-size: 1.2em;
+     text-shadow: 1px 1px 1px rgba(0,0,0,0.1);
+}
+.player-list-container { /* The scrollable list */
+    flex-grow: 1;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 10px;
+    padding: 10px 15px;
+    max-height: none;
+    overflow-y: auto;
+    text-align: left;
+    border: 1px solid rgba(97, 74, 226, 0.3);
+}
+/* #opponentList styles are separate, for in-game display */
+
+/* Start button uses general yellow button styles */
+#connectionStatus #startGameButton { /* Specific ID for host start */
+     width: 90%; /* More constrained than sheet selection start */
+     padding: 0.8rem 1.5rem; /* Slightly smaller */
+     font-size: 1.8rem;
+     /* Inherits yellow button styles */
+}
+
+
+/* --- Waiting States --- */
+.waitingText { /* Generic waiting text */
+    color: #614ae2;
+    font-family: 'Fredoka One', cursive;
+    font-size: 2rem;
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* Kirby Animation */
 .waiting-kirby {
-    display: block; /* Center it */
-    margin: 20px auto; /* Space around it */
-    width: 100px; /* Adjust size as needed */
+    display: block; 
+    margin: 20px auto; 
+    width: 100px; 
     height: auto;
-    /* Apply the jumpAndFlip animation from loading screen */
     animation: jumpAndFlip 1.0s infinite; 
     animation-direction: normal;
     animation-fill-mode: forwards;
 }
 
-/* Waiting Message Animation */
-#connectionCode .waitingText { /* Target waiting text specifically inside connectionCode box */
-    font-size: 1.5rem;
-    color: #614ae2;
-    text-align: center;
-    margin: 15px 0 10px 0; /* Adjust margin */
-    font-family: 'Fredoka One', cursive;
-}
-
+/* Blinking Dots Animation */
 @keyframes blink { 
     0% { opacity: 0; } 
     50% { opacity: 1; } 
     100% { opacity: 0; } 
 }
-
-#waitingMessage span[class^="dot"] { 
+.waitingText span[class^="dot"], /* More specific for lobby */
+#waitingMessage span[class^="dot"] { /* Old waiting message */
     animation: blink 1.4s infinite; 
     opacity: 0; 
 }
+.waitingText .dot1, #waitingMessage .dot1 { animation-delay: 0s; } 
+.waitingText .dot2, #waitingMessage .dot2 { animation-delay: 0.2s; } 
+.waitingText .dot3, #waitingMessage .dot3 { animation-delay: 0.4s; } 
 
-#waitingMessage .dot1 { animation-delay: 0s; } 
-#waitingMessage .dot2 { animation-delay: 0.2s; } 
-#waitingMessage .dot3 { animation-delay: 0.4s; } 
 
-
-/* Adjust h2 positioning for Dialog */
-#connectionStatus h2 {
-    margin-top: 10px; /* Reduce top margin */
-    margin-bottom: 20px;
-    color: #FFFFFF; /* White text for unicorn theme */
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); /* Consistent shadow */
-    font-size: 2.5rem;
-}
-
-/* Remove background/shadow from inner boxes when inside dialog */
-#connectionStatus .connectionBox {
-    background: transparent;
-    padding: 15px 0; /* Adjust padding */
-    box-shadow: none;
-    width: 90%; /* Adjust width as needed */
-    max-width: 500px; /* Optional max width */
-    margin: 0 auto;
-    box-sizing: border-box;
-    display: flex; /* Use flex for centering inner content */
-    flex-direction: column;
-    align-items: center;
-}
-
-/* Ensure input/button inside joinView still look ok */
-#connectionStatus #joinView .input-wrapper {
-    background-color: rgba(255, 255, 255, 0.8); /* Light background for contrast */
-    padding: 20px;
-    border-radius: 10px;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-#connectionStatus #joinView .input-wrapper input {
-    /* Styles likely ok, but ensure contrast */
-    background-color: white; 
-}
-
-#connectionStatus #joinView .input-wrapper .help-text {
-    color: #614ae2; /* Ensure readable color */
-    text-shadow: none;
-}
-
-/* Ensure help text inside host view is readable */
-#connectionStatus #connectionCode .help-text {
-    color: white; 
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4); 
-    font-size: 1.2rem;
-    margin-bottom: 10px;
-}
-
-/* --- Waiting UI (Inside #gameArea) --- */
+/* Waiting UI (Full screen overlay during transitions/loading?) */
 #waitingUi {
     display: grid;
     place-items: center;
@@ -1885,26 +1307,55 @@ th {
     width: 100%;
     height: 100%;
     box-sizing: border-box;
+    /* Assumed to be inside another container like #gameArea */
 }
-
-#waitingMessageText {
+#waitingMessageText { /* Text specific to #waitingUi */
     font-family: 'Fredoka One', cursive;
     font-size: 2rem;
     color: #614ae2;
     margin-bottom: 30px;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
 }
-
-/* Add styles for .waiting-kirby if you use it */
-.waiting-kirby {
-    width: 80px; /* Adjust size */
+#waitingUi .waiting-kirby { /* Kirby specific to #waitingUi */
+    width: 80px; 
     height: auto;
     margin-bottom: 20px;
-    animation: jumpAndFlip 1.0s infinite;
 }
 
+/* --- WebRTC Debug --- */
+.debugBox {
+    background: rgba(0, 0, 0, 0.7);
+    color: #00ff00;
+    font-family: monospace;
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 20px;
+    width: 100%;
+    max-width: 600px;
+    text-align: left;
+    box-sizing: border-box;
+}
+.debugBox h3 {
+    color: #fff;
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+    text-shadow: none;
+}
+.debugLog {
+    height: 150px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    border-radius: 3px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+.debugLog .error { color: #ff4d4d; }
+.debugLog .success { color: #4dff4d; }
+.debugLog .info { color: #4dbbff; }
 
-/* --- Opponent List Styling --- */
+/* --- Multiplayer Game Specific Styles --- */
+/* Opponent List (Sidebar during game) */
 #opponentList {
     position: fixed;
     top: 25%;
@@ -1916,11 +1367,10 @@ th {
     border-radius: 10px;
     padding: 10px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    z-index: 8;
+    z-index: 8; /* Below header/buttons */
     display: grid;
     gap: 8px;
 }
-
 .opponent-entry {
     display: grid;
     grid-template-columns: 1fr auto auto;
@@ -1933,13 +1383,11 @@ th {
     font-size: 1rem;
     color: #333;
 }
-
 .opponent-entry.local-player {
-    background-color: rgba(97, 74, 226, 0.3); /* Highlight self */
+    background-color: rgba(97, 74, 226, 0.3); 
     font-weight: bold;
     color: #614ae2;
 }
-
 .opponent-entry .opponent-name {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1954,8 +1402,6 @@ th {
     color: #555;
     font-style: italic;
 }
-
-/* Style for finished opponents */
 .opponent-entry.finished {
     opacity: 0.7;
     background-color: rgba(200, 200, 200, 0.5);
@@ -1966,8 +1412,62 @@ th {
     color: #666;
 }
 
+/* Multiplayer Answer Buttons (Different layout than single player) */
+#multiplayerGame #answers { /* Target specific multiplayer answers */
+    display: grid;
+    grid-template-columns: 1fr; /* Single column */
+    grid-auto-rows: auto; /* Rows based on content */
+    gap: 15px;
+    margin: 20px 0;
+    justify-items: center;
+    height: auto; /* Override fixed height */
+    padding: 15px; /* Keep padding */
+}
+#multiplayerGame #answers button {
+    flex: none; 
+    width: 80%; 
+    max-width: 400px; 
+    margin: 0 auto; 
+    padding: 20px; /* Keep padding */
+    font-size: 2rem; /* Reduce font size slightly */
+    height: auto; /* Override fixed height */
+    min-height: 60px; /* Ensure minimum clickable area */
+}
 
-/* --- Multiplayer End Dialog Styles --- */
+/* Player Score Display (Above Progress Indicator in Multiplayer) */
+#playerScores {
+    grid-row: 1; /* In #gameElements grid */
+    grid-column: 1;
+    width: 100%;
+    display: grid;
+    grid-auto-flow: column;
+    justify-content: space-between;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 15px;
+    margin-bottom: 0;
+    box-sizing: border-box;
+}
+.player-score-display {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.2rem;
+    color: #614ae2;
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+    padding: 5px 10px;
+    text-align: center;
+}
+@keyframes scoreUpdate {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); background-color: #FFD700; box-shadow: 0 0 15px rgba(255, 215, 0, 0.8); color: white; border-radius: 10px; }
+    100% { transform: scale(1); }
+}
+.score-updated { /* Apply to .player-score-display */
+    animation: scoreUpdate 0.6s ease-in-out;
+}
+
+/* --- Multiplayer End Game Dialog --- */
 #multiplayerEndDialog {
     border: 3px solid #ffffff;
     border-radius: 20px;
@@ -1976,33 +1476,24 @@ th {
     color: white;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
     width: 80%;
-    max-width: 700px; /* Adjust max width */
-    background: linear-gradient(135deg, #614ae2, #9b59b6, #f39c12); /* Example gradient */
+    max-width: 700px; 
+    
     box-sizing: border-box;
+    /* Uses default dialog show/hide */
 }
-
 #multiplayerEndDialog::backdrop {
     background-color: rgba(0, 0, 0, 0.6);
 }
 
-
-#multiplayerEndDialog h2 { /* Target the title */
-    color: white;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-    font-size: 2.8rem;
-    margin-bottom: 25px;
-}
-
 #multiplayerEndResults {
-    margin-bottom: 30px; /* Space above button */
-    max-height: 40vh; /* Limit height of results list */
-    overflow-y: auto; /* Allow scrolling if many players */
-    padding: 0 10px; /* Padding inside scroll area */
+    margin-bottom: 30px; 
+    max-height: 40vh; 
+    overflow-y: auto; 
+    padding: 0 10px; 
 }
-
-.player-result {
+.player-result { /* Reused class for winner display */
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr auto; /* rank | name | score */
     align-items: center;
     gap: 15px;
     margin: 20px auto;
@@ -2016,7 +1507,6 @@ th {
     font-family: 'Fredoka One', cursive;
     font-size: 1.3rem;
 }
-
 .player-result.winner {
     background: #ffd700;
     color: #614ae2;
@@ -2024,7 +1514,6 @@ th {
     transform: scale(1.05);
     box-shadow: 0 0 10px #ffc107;
 }
-
 .player-result .player-rank {
     grid-column: 1;
     font-weight: bold;
@@ -2033,7 +1522,6 @@ th {
 .player-result.winner .player-rank {
     color: #614ae2;
 }
-
 .player-result .player-name {
     grid-column: 2;
     text-align: left;
@@ -2041,61 +1529,127 @@ th {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-
 .player-result .player-final-score {
     grid-column: 3;
     font-weight: bold;
     color: #614ae2;
 }
 
+#hostPlayerList li {
+    color: #614ae2;
+}
+
+/* Winner announcement specific styles (Unicorn theme) */
+.unicorn-theme { /* Applied to dialog if needed */
+    background: linear-gradient(45deg, #ff6b6b, #ff9f43, #feca57, #2ecc71);
+    border: 3px solid #ffffff;
+    border-radius: 20px;
+    text-align: center;
+    position: relative;
+    overflow: visible;
+    padding: 30px;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* This .player-result is slightly different from the end dialog one */
+.unicorn-theme .player-result { 
+    grid-template-columns: auto 1fr auto; /* emoji | name | badge */
+    max-width: 400px;
+}
+.unicorn-theme .player-result.winner {
+    animation: glow 1s infinite alternate;
+}
+.unicorn-theme .player-emoji {
+    grid-column: 1;
+    font-size: 3em;
+}
+.unicorn-theme .player-result .player-name {
+    grid-column: 2; /* Ensure correct column */
+}
+.score-badge { /* Specific to unicorn theme */
+    grid-column: 3;
+    display: inline-grid;
+    justify-items: center;
+    gap: 2px;
+    background: #2ecc71;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    text-shadow: none;
+}
+.score-badge .score-label {
+    font-size: 0.8em;
+    margin-bottom: 2px;
+}
+.score-badge .score-value {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+@keyframes glow {
+    from { box-shadow: 0 0 10px #ff9f43; }
+    to { box-shadow: 0 0 20px #ff9f43, 0 0 30px #ff9f43; }
+}
+.unicorn-theme .winner::after {
+    content: "🎉";
+    font-size: 3em;
+    position: absolute;
+    top: -20px;
+    left: calc(50% - 0.5em);
+    animation: float 3s ease-in-out infinite;
+    z-index: -1;
+}
+@keyframes float {
+    0% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-20px) rotate(180deg); }
+    100% { transform: translateY(0) rotate(360deg); }
+}
+
+/* Button in End Dialog */
 #multiplayerEndDialog button {
-    background: #FFD700;
+    background: #FFD700; /* Use general yellow button styles */
     padding: 1rem 2rem;
     font-size: 1.5rem;
     margin-top: 20px;
 }
 
-/* View Transition Animations */
 
+/* --- View Transition Animations --- */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 0.5s; /* Adjust overall duration if needed */
-  animation-timing-function: ease-out; /* Smoother exit/entry */
+  animation: none; /* Disable root animation */
 }
 
-/* Define the keyframes for the animations (Keep these) */
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-@keyframes slideInFromTop {
-  from { transform: translateY(-100%); opacity: 0; }
-  to   { transform: translateY(0); opacity: 1; }
-}
-
-@keyframes slideOutToBottom {
-  from { transform: translateY(0); opacity: 1; }
-  to   { transform: translateY(100%); opacity: 0; }
-}
-
-/* NEW: Animations for 'back' navigation */
-@keyframes slideInFromLeft {
-  from { transform: translateX(-100%); opacity: 0; }
-  to   { transform: translateX(0); opacity: 1; }
-}
-
-@keyframes slideOutToRight {
-  from { transform: translateX(0); opacity: 1; }
-  to   { transform: translateX(100%); opacity: 0; }
-}
+/* Define the keyframes */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes slideInFromTop { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes slideOutToBottom { from { transform: translateY(0); opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
+@keyframes slideInFromLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideOutToRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
 
 /* Apply animations based on temporary CLASS on HTML element */
+/* Page Title (Fade) */
+::view-transition-old(page-title),
+::view-transition-new(page-title) {
+  animation-duration: 0.3s; 
+  animation-timing-function: ease-out;
+}
+::view-transition-old(page-title) { animation-name: fade-out; }
+::view-transition-new(page-title) { animation-name: fade-in; }
+
+/* Main Content Areas (Directional Slide) */
+::view-transition-old(main-content),
+::view-transition-new(main-content),
+::view-transition-old(sheets-column),
+::view-transition-new(sheets-column),
+::view-transition-old(difficulty-column),
+::view-transition-new(difficulty-column) {
+    animation-duration: 0.5s;
+    animation-timing-function: ease-out;
+}
+
 /* Forward */
 html.transitioning-forward::view-transition-old(main-content),
 html.transitioning-forward::view-transition-old(sheets-column),
@@ -2120,144 +1674,69 @@ html.transitioning-backward::view-transition-new(difficulty-column) {
   animation-name: slideInFromLeft;
 }
 
-/* Reset root animations to prevent interference (optional but safer) */
-::view-transition-old(root),
-::view-transition-new(root) {
-    animation: none;
-    animation-duration: 0s; /* Explicitly disable duration */
-}
 
-/* --- View Transition Definitions --- */
-
-/* 1. Page Title Transition (Fade) */
-::view-transition-old(page-title),
-::view-transition-new(page-title) {
-  animation-duration: 0.3s; /* Faster fade for title */
-  animation-name: fade-out; /* Use simple fade for both old and new */
-}
-::view-transition-new(page-title) {
-  animation-name: fade-in;
-}
-
-/* 2. Main Content Transition (Directional Slide) */
-
-/* Default/Forward Animation (Slide Up/Down) */
-html.transitioning-forward::view-transition-old(main-content),
-html.transitioning-forward::view-transition-old(sheets-column),
-html.transitioning-forward::view-transition-old(difficulty-column) {
-  animation-name: slideOutToBottom;
-}
-html.transitioning-forward::view-transition-new(main-content),
-html.transitioning-forward::view-transition-new(sheets-column),
-html.transitioning-forward::view-transition-new(difficulty-column) {
-  animation-name: slideInFromTop;
-}
-
-/* Backward Animation (Slide Left/Right) */
-html.transitioning-backward::view-transition-old(main-content),
-html.transitioning-backward::view-transition-old(sheets-column),
-html.transitioning-backward::view-transition-old(difficulty-column) {
-  animation-name: slideOutToRight;
-}
-html.transitioning-backward::view-transition-new(main-content),
-html.transitioning-backward::view-transition-new(sheets-column),
-html.transitioning-backward::view-transition-new(difficulty-column) {
-  animation-name: slideInFromLeft;
-}
-
-/* Ensure root transition doesn't interfere */
-::view-transition-old(root),
-::view-transition-new(root) {
-    animation: none;
-}
-
-/* --- Countdown Display Styling --- */
+/* --- Countdown Display --- */
 #countdownDisplay {
-    position: fixed; /* Position relative to the viewport */
+    position: fixed; 
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    display: grid; /* Use grid to center the number */
-    place-items: center; /* Center horizontally and vertically */
-    background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent black overlay */
+    display: grid; 
+    place-items: center; 
+    background-color: rgba(0, 0, 0, 0.6); 
     color: white;
     font-family: 'Fredoka One', cursive;
-    font-size: 20vw; /* Very large font size, relative to viewport width */
+    font-size: 20vw; 
     font-weight: bold;
     text-shadow: 4px 4px 10px rgba(0, 0, 0, 0.5);
-    z-index: 50; /* Ensure it's above game elements but below modals */
-    opacity: 1; /* Start visible */
-    pointer-events: none; /* Allow clicks through */
-    /* Add transition for smooth fade-out if desired */
+    z-index: 50; 
+    opacity: 1; 
+    pointer-events: none; 
     transition: opacity 0.5s ease-out;
 }
-
 #countdownDisplay.hidden {
     opacity: 0;
-    /* Fade out when hidden class is added */
     pointer-events: none;
-    display: grid !important; /* Override potential display:none from .hidden if we only want fade */
+    display: grid !important; /* Override .hidden display:none if using fade */
 }
-
-/* Optional: Animation for the number itself */
 @keyframes countdownPulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.2); }
 }
-
-#countdownDisplay.active { /* Apply pulse when class is added by JS */
+#countdownDisplay.active { 
     animation: countdownPulse 0.8s ease-in-out;
 }
 
 /* --- Custom Error Message Style --- */
 .text-error-purple {
-  color: #6a0dad !important; /* Vibrant purple */
+  color: #6a0dad !important; 
   font-weight: bold;
-  font-size: 1.4em; /* Increased size */
-  background-color: transparent; /* Ensure no background override */
+  font-size: 1.4em; 
+  background-color: transparent; 
   margin-top: 15px;
-  text-shadow: none; /* Removed text shadow */
+  text-shadow: none; 
 }
-
-/* Ensure it overrides styles within the dialog if necessary */
 #connectionStatus .text-error-purple {
-    color: #6a0dad !important; /* Reiterate color with more specificity */
+    color: #6a0dad !important; /* Specificity */
 }
 
-/* Game Feedback Effects */
+/* --- Game Feedback Effects --- */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
   20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
-
 @keyframes flash-bg {
   0%, 100% { background-color: transparent; }
-  50% { background-color: rgba(76, 175, 80, 0.3); } /* Light green flash */
+  50% { background-color: rgba(76, 175, 80, 0.3); } 
 }
-
 body.incorrect-answer-shake {
   animation: shake 0.5s ease-in-out;
 }
-
 body.correct-answer-flash {
   animation: flash-bg 0.5s ease-in-out;
 }
-
-/* --- End Game Feedback Effects --- */
-
-/* Player List Effects */
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-}
-
-#opponentList .player-item.score-updated .player-score {
-  animation: pulse 0.3s ease-in-out;
-  font-weight: bold; /* Optional: make score bold during pulse */
-}
-/* --- End Player List Effects --- */
 
 /* --- Toast Notification Styles --- */
 #toastNotification {
@@ -2271,160 +1750,319 @@ body.correct-answer-flash {
     color: white;
     font-family: sans-serif;
     font-size: 1rem;
-    z-index: 100; /* Ensure it's on top */
+    z-index: 100; 
     opacity: 0;
     transition: opacity 0.4s ease-in-out, bottom 0.4s ease-in-out;
-    pointer-events: none; /* Allow clicks through when hidden */
+    pointer-events: none; 
 }
-
 #toastNotification:not(.hidden) {
     opacity: 1;
-    bottom: 30px; /* Slide up slightly when visible */
-    pointer-events: auto; /* Allow interaction when visible */
+    bottom: 30px; 
+    pointer-events: auto; 
 }
+#toastNotification.info { background-color: #2196F3; }
+#toastNotification.success { background-color: #4CAF50; }
+#toastNotification.warn { background-color: #ff9800; }
+#toastNotification.error { background-color: #f44336; }
 
-#toastNotification.info {
-    background-color: #2196F3; /* Blue */
-}
-
-#toastNotification.success {
-    background-color: #4CAF50; /* Green */
-}
-
-#toastNotification.warn {
-    background-color: #ff9800; /* Orange */
-}
-
-#toastNotification.error {
-    background-color: #f44336; /* Red */
-}
-
-/* Optional: Add close button styles if implemented */
-/*
-#toastNotification .close-button {
-    position: absolute;
-    top: 5px;
-    right: 10px;
-    background: none;
-    border: none;
-    color: white;
-    font-size: 1.2rem;
-    cursor: pointer;
-}
-*/
-/* --- End Toast Notification Styles --- */
-
-/* --- MODIFICATION START: Style #gameHeader Content --- */
-#gameHeader {
-    position: fixed; 
-    top: 10%; 
-    left: 10%; 
-    right: 10%;
-    width: 80%; 
-    display: grid;
-    grid-template-columns: minmax(150px, 1fr) auto minmax(100px, 0.5fr); 
-    align-items: center;
-    /* *** ADD SUFFICIENT LEFT PADDING TO AVOID STOP BUTTON *** */
-    padding: 10px 15px 10px 120px; /* Increased left padding significantly */
-    background-color: rgba(97, 74, 226, 0.2); 
-    border-radius: 15px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    z-index: 10; 
-    box-sizing: border-box;
-    gap: 10px; 
-}
-
-#progressIndicator {
-    grid-column: 2; 
-    margin: 0 auto; 
-    width: auto; 
-    position: relative;
-    top: auto; right: auto; 
-    /* *** REVERT/ADJUST FONT & PADDING *** */
-    font-size: 1.2rem; /* Restore or adjust size */
-    padding: 8px 15px; /* Restore or adjust padding */
-    /* Keep existing styles for background, color, radius etc. */
-    background-color: rgba(97, 74, 226, 0.7);
-    color: white;
-    border-radius: 20px;
-    font-weight: bold;
-    font-family: 'Fredoka One', cursive;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-    display: inline-flex; /* Use flex to align text and bar */
-    align-items: center; /* Vertically center text and bar */
-    gap: 8px; /* Add gap between text and bar */
-}
-#progressIndicator progress { 
-    height: 12px; 
-    vertical-align: middle; 
-    appearance: none; 
-    border: 1px solid rgba(0,0,0,0.2); /* Add subtle border */
-    border-radius: 10px;
-    overflow: hidden;
-    background-color: rgba(255, 255, 255, 0.3); /* Ensure background color for track */
-    width: 150px; /* Give it a minimum width */
-}
-/* Styling for the progress bar value (track) */
-#progressIndicator progress::-webkit-progress-bar {
-    background-color: rgba(255, 255, 255, 0.3);
-    border-radius: 10px;
-}
-#progressIndicator progress::-webkit-progress-value {
-    background-color: white;
-    border-radius: 10px;
-     /* Add a subtle transition */
-    transition: width 0.3s ease-out;
-}
-#progressIndicator progress::-moz-progress-bar { /* Firefox */
-     background-color: white;
-     border-radius: 10px;
-     transition: width 0.3s ease-out; /* Add transition for FF */
-}
-
-
-#gameHeaderLeft {
-    grid-column: 1;
-    /* ** CHANGE: Use Flexbox for horizontal layout ** */
-    display: flex; 
-    flex-direction: row; /* Arrange items horizontally */
-    align-items: baseline; /* Align text baselines */
-    justify-content: flex-start; /* Align to the start (left) */
-    gap: 15px; /* Add space between items */
-    text-align: left; /* Keep text left-aligned */
-}
-
-#scoreDisplay,
-#timerDisplay,
-#sheetTitleDisplay { 
-    font-family: 'Fredoka One', cursive;
-    font-size: 1.8rem; 
-    color: #614ae2;
-    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.7);
-    margin: 0; 
-    padding: 0; 
-    position: relative; 
-    top: auto; right: auto; 
-    z-index: auto; 
-    line-height: 1; /* Adjust line height for flex alignment */
-    white-space: nowrap; /* Prevent wrapping */
-}
-
-#sheetTitleDisplay {
-    font-size: 1.4rem; 
-    font-weight: normal;
-    color: #4a3aab; 
-    /* Optional: Add some margin if needed with flex gap */
-    /* margin-left: 5px; */
-}
-/* --- MODIFICATION END --- */
-
-/* Add this rule to hide translation templates by default */
-span[data-key] {
-    display: none;
-}
-
-/* Hide translation data elements */
+/* --- Translation Placeholders --- */
+span[data-key],
 data[data-translation-key] {
     display: none;
 }
+
+
+/* --- Responsive adjustments --- */
+@media (max-width: 768px) {
+    #app>h1 { font-size: 2.5rem; } /* Adjusted from h1 */
+    h2 { font-size: 2rem; }
+    h3 { font-size: 1.8rem; }
+
+    button { /* General buttons */
+        font-size: 1.5rem;
+        padding: 1rem 1.5rem;
+        margin: 0.5rem;
+    }
+
+    #answers button {
+        font-size: 1.8rem;
+        padding: 15px;
+        min-height: 80px;
+    }
+    #multiplayerGame #answers button { /* Multiplayer answers */
+        font-size: 1.5rem; /* Smaller on mobile */
+        padding: 15px;
+        min-height: 60px;
+    }
+
+    #question { font-size: 2rem; }
+    label { font-size: 1.2rem; }
+
+    #scoreDisplay, #timerDisplay { font-size: 1.5rem; } /* Adjusted from #timer, #score */
+    #sheetTitleDisplay { font-size: 1.1rem; }
+    #gameHeader { padding: 8px 10px 8px 80px; gap: 5px;} /* Adjust header padding */
+    #gameHeaderLeft { gap: 10px; }
+
+    #gameNavigation #nextButton,
+    #sheetNavigation #startGame {
+        font-size: 1.5rem;
+        padding: 0.8rem 1.5rem;
+    }
+
+    .backToMain, #stopGame {
+        font-size: 1.2rem;
+        padding: 0.4rem 0.8rem;
+    }
+
+    #app {
+        top: 5%; left: 5%; right: 5%; bottom: 5%;
+        border-radius: 20px;
+    }
+
+    /* Remove nav bar adjustments, they are 100% width now */
+    /* #gameNavigation, #sheetNavigation { ... } */
+
+    #gameArea {
+        width: 100%; /* Make game area full width */
+        padding: 15px;
+        padding-bottom: 100px; /* Ensure space for nav */
+        box-sizing: border-box; /* Ensure padding included */
+    }
+
+    #answers { gap: 10px; }
+
+    #playerScores {
+    flex-direction: column;
+        gap: 5px;
+    }
+    #progressIndicator { order: -1; } /* Progress on top */
+    .player-score-display { font-size: 1rem; padding: 3px 8px; }
+
+    /* Host Lobby on mobile */
+    #connectionStatus #connectionCode.host-view {
+        grid-template-columns: 1fr; /* Stack columns */
+        padding: 20px; /* Reduce padding */
+    }
+    #connectionStatus h2 { font-size: 2rem; }
+}
+
+@media (max-width: 480px) {
+    #app>h1 { font-size: 2rem; }
+    #app>h1 small { font-size: 0.5em; }
+
+    button { /* General buttons */
+        font-size: 1.2rem;
+        padding: 0.8rem 1rem;
+    }
+
+    #answers button {
+        font-size: 1.5rem;
+        padding: 10px;
+        min-height: 60px;
+    }
+    #multiplayerGame #answers button {
+        font-size: 1.3rem; /* Smaller */
+        padding: 10px;
+    }
+
+    #question { font-size: 1.8rem; }
+    label { font-size: 1.2rem; }
+
+    #scoreDisplay, #timerDisplay { font-size: 1.2rem; }
+    #sheetTitleDisplay { font-size: 1rem; }
+    #gameHeader { padding: 5px 8px 5px 70px; }
+
+    #gameNavigation #nextButton,
+    #sheetNavigation #startGame {
+        font-size: 1.2rem;
+        padding: 0.6rem 1rem;
+    }
+
+    #answers {
+        grid-template-columns: 1fr; /* Stack answers */
+    gap: 15px; 
+    }
+    #answers button {
+         /* Removed flex-basis */
+         min-height: 50px; /* Adjust min height */
+    }
+}
+
+/* --- NEW STYLES for Join Confirm View --- */
+
+/* Apply host-like grid layout and background */
+#joinConfirmView {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two equal columns */
+    grid-template-rows: auto 1fr auto; /* Title, Content Panels, Buttons */
+    gap: 25px; /* Match host gap */
+    align-items: stretch;
+    justify-items: stretch;
+    padding: 30px 40px 40px 40px; /* Match host padding */
+    background: linear-gradient(45deg, #ff6b6b, #ff9f43, #feca57, #2ecc71); /* Match host background */
+    box-sizing: border-box;
+    width: 100%; /* Ensure it fills the dialog content area */
+    height: 100%;
+    border-radius: 0; /* Remove any default rounding if applied */
+    box-shadow: none; /* Remove any default shadow if applied */
+}
+
+/* Style the title like the host view title */
+#joinConfirmView .join-confirm-title {
+    grid-column: 1 / -1; /* Span both columns */
+    grid-row: 1 / 2;
+    margin-top: 10px;
+    margin-bottom: 20px;
+    color: #FFFFFF; /* White text */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); /* Match host shadow */
+    font-size: 2.5rem; /* Match host title size */
+    text-align: center;
+    align-self: start;
+    justify-self: center;
+}
+
+/* Position the left panel */
+#joinConfirmView .join-confirm-left-panel {
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
+    /* Inherits .host-lobby-section styles */
+}
+
+/* Position the right panel */
+#joinConfirmView .join-confirm-right-panel {
+    grid-column: 2 / 3;
+    grid-row: 2 / 3;
+    /* Inherits .host-lobby-section styles */
+}
+
+
+#joinConfirmView .host-lobby-section .game-info-display {
+    text-align: left; /* Align game details left */
+    color: #333; /* Darker color for readability */
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+#joinConfirmView .join-confirm-right-panel .name-input-container label.help-text {
+    margin-bottom: 5px; /* Reduce space below name label */
+}
+#joinConfirmView .join-confirm-right-panel input[type="text"] {
+    /* Reuse existing styles for name input */
+    width: 90%; /* Adjust width if needed */
+    font-size: 1.5rem;
+    padding: 10px 15px;
+    border: 3px solid #614ae2;
+    border-radius: 15px;
+    text-align: center;
+    font-family: 'Fredoka One', cursive;
+    background-color: white;
+    color: #614ae2;
+}
+
+
+/* Position the buttons row */
+#joinConfirmView .join-confirm-buttons {
+    grid-column: 1 / -1; /* Span both columns */
+    grid-row: 3 / 4;
+    display: flex; /* Use flex for button layout */
+    justify-content: center; /* Center buttons */
+    gap: 20px; /* Space between buttons */
+    margin-top: 15px;
+}
+
+/* Style the buttons (assuming they use existing button classes) */
+#joinConfirmView .dialog-buttons button {
+    padding: 1rem 2rem; /* Adjust padding if needed */
+    font-size: 1.5rem; /* Adjust size if needed */
+    /* Inherit general button styles */
+    margin: 0; /* Remove default button margin */
+}
+#joinConfirmView .green-button {
+    background: #2ecc71; /* Example green */
+}
+#joinConfirmView .red-button {
+    background: #e74c3c; /* Example red */
+}
+
+
+
+/* Host View specific container styling */
+.host-view#connectionCode {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Two equal columns */
+    grid-template-rows: auto auto 1fr auto; /* Rows for code, link, player list stretch, start button, error */
+    gap: 20px;
+    align-items: start; /* Align items to the start of their grid area */
+}
+
+/* Assign grid areas */
+.host-view .code-section {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+}
+
+.host-view .link-section {
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
+}
+
+.host-view .player-list-section {
+    grid-column: 2 / 3;
+    grid-row: 1 / 4; /* Span rows 1, 2, and 3 to take available space */
+    display: flex; /* Use flexbox for internal layout */
+    flex-direction: column; /* Stack elements vertically */
+}
+
+.host-view .start-section {
+    grid-column: 1 / 2; /* Move start button under Code/Link */
+    grid-row: 3 / 4;
+    display: flex; 
+    flex-direction: column;
+    align-items: center; /* Center button */
+    justify-content: center; /* Center button vertically */
+    padding-top: 10px;
+    padding-bottom: 10px;
+    background-color: transparent; /* Make background transparent */
+    box-shadow: none;
+}
+
+.host-view #hostErrorDisplay {
+    grid-column: 1 / -1; /* Span both columns */
+    grid-row: 5 / 6; /* Place in the last row */
+    margin-top: 10px;
+    background-color: transparent;
+    box-shadow: none;
+    padding: 5px;
+}
+
+
+.player-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.player-list li {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    color: #fff;
+}
+
+#hostPlayerListPlaceholder {
+    text-align: center;
+    padding: 20px;
+    color: #614ae2;
+}
+
+/* Waiting Text */
+.host-lobby-section .waitingText {
+    font-size: 1.1em;
+    margin-bottom: 15px;
+    color: #614ae2;
+}
+
+
+
+
+/* Add other V1 styles as needed (e.g., fonts, specific button looks) */

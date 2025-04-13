@@ -8,20 +8,25 @@ import Events from '../core/event-constants.js';
  * Assumes the root element is a <dialog>.
  */
 export default class BaseDialog extends BaseComponent {
-    /**
-     * @param {string} elementSelector CSS selector for the dialog element.
-     * @param {string} [componentName] Optional identifier for the component.
-     */
-    constructor(elementSelector, componentName) {
-        super(elementSelector, componentName);
 
+    /**
+     * Base constructor for dialogs. Subclasses should NOT override this.
+     * They MUST define static SELECTOR and static VIEW_NAME (or NAME) properties.
+     */
+    constructor() {
+        super(); // Call BaseComponent constructor (which now reads static props & calls initialize/registerListeners)
+
+        // Post-initialization check specific to dialogs
         if (this.rootElement && !(this.rootElement instanceof HTMLDialogElement)) {
-            console.warn(`[${this.name}] Root element ${elementSelector} is not a <dialog> element. showModal/close might fail.`);
+            console.warn(`[${this.name}] Root element ${this.selector} is not a <dialog> element. showModal/close might fail.`);
         }
         
-        // Automatically hide (close) the dialog on initialization
-        // This prevents it from being visible on page load if HTML doesn't have 'hidden'
-        this.hide(); 
+        // Initial state is handled by BaseComponent checking the 'hidden' class.
+        // Dialogs often start visible in HTML until explicitly hidden by JS.
+        // Ensure they are hidden (closed) after initialization if not already.
+        if (this.rootElement instanceof HTMLDialogElement && this.rootElement.open) {
+             this.hide();
+        }
     }
 
     /** 
@@ -92,4 +97,25 @@ export default class BaseDialog extends BaseComponent {
             console.debug(`[${this.name}] No close button found with selector: ${buttonSelector}`);
         }
     }
+
+    /**
+     * Placeholder for initializing dialog-specific elements or listeners.
+     * Called by BaseComponent constructor after super() and element finding.
+     * Subclasses should implement this instead of a constructor.
+     */
+    // initialize() {
+        // Example:
+        // this.titleElement = this.rootElement.querySelector('.title');
+        // this._bindMethods();
+        // this.addCloseButtonListener(); 
+    // }
+
+    /**
+     * Placeholder for registering dialog-specific DOM listeners needed immediately.
+     * Called by BaseComponent constructor after initialize().
+     * Subclasses should implement this if needed.
+     */
+    // registerListeners() {
+        // Example: Add listeners for form elements within the dialog
+    // }
 } 

@@ -4,49 +4,65 @@ import Events from '../core/event-constants.js';
 
 
 /**
- * Manages the display of the current question text.
- * Listens for new questions to update the display.
- * @extends BaseComponent
+ * Displays the current question text.
  */
 class QuestionDisplayComponent extends BaseComponent {
-    /**
-     * Creates an instance of QuestionDisplayComponent.
-     */
+    static SELECTOR = '#question';
+    static VIEW_NAME = 'QuestionDisplay';
+
+    /** Initializes component elements. */
     constructor() {
-        super('#question', 'QuestionDisplay'); // Hardcode the selector
-        // BaseComponent constructor throws if rootElement is null, no need to check here.
-
-        this._bindMethods();
-        this.listen(Events.Game.QuestionNew, this.handleNewQuestion);
-        // Listen for game start/finish to show/hide
-        this.listen(Events.Game.Started, this.show);
-        this.listen(Events.Game.Finished, this.hide);
-
-        // Initial state can be empty or hidden
-        // this.rootElement.textContent = '';
-        this.hide(); // Start hidden
+        super(); // Use BaseComponent constructor
+        console.log("[QuestionDisplay] Constructed (via BaseComponent).");
+    }
+    
+    initialize() {
+        // The root element itself will display the question text
+        this.questionTextElement = this.rootElement;
+        this.clearQuestion(); // Initial state
+        console.log(`[${this.name}] Initialized.`);
     }
 
-    /** Binds component methods to the class instance. */
-    _bindMethods() {
-        this.handleNewQuestion = this.handleNewQuestion.bind(this);
+    /** Registers DOM listeners (none needed) and eventBus listeners. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering listeners.`);
+        // Bind handlers
+        this._handleQuestionNew = this._handleQuestionNew.bind(this);
+        this._handleGameFinished = this._handleGameFinished.bind(this);
+        
+        // Listen for global game events
+        this.listen(Events.Game.QuestionNew, this._handleQuestionNew);
+        this.listen(Events.Game.Finished, this._handleGameFinished); // Clear on game end
     }
 
-    /**
-     * Updates the display with the new question text.
-     * @param {object} payload - The event payload.
-     * @param {object} payload.questionData - Data for the new question.
-     * @param {string} payload.questionData.question - The question text.
-     */
-    handleNewQuestion({ questionData }) {
+    // UnregisterListeners handled by BaseComponent
+
+    // Define handlers as regular methods
+    _handleQuestionNew({ questionData }) {
         console.debug(`[${this.name}] Displaying new question.`);
         // Use textContent for safety, assuming questions are plain text.
-        this.rootElement.textContent = questionData.question; 
-        // Ensure component is visible
-        this.show();
+        if (this.questionTextElement) {
+            this.questionTextElement.textContent = questionData.question;
+            // Ensure component is visible (BaseComponent show)
+            this.show(); 
+        } else {
+            console.error(`[${this.name}] Text element not found!`);
+        }
     }
 
-    // No specific DOM listeners to add/remove in this component
+    _handleGameFinished() {
+        console.debug(`[${this.name}] Game finished. Clearing question display.`);
+        this.hide(); // BaseComponent hide
+        this.clearQuestion();
+    }
+
+    clearQuestion() {
+        if (this.questionTextElement) {
+            this.questionTextElement.textContent = '';
+        }
+    }
+
+    // No specific destroy logic needed beyond BaseComponent.
 }
 
 export default QuestionDisplayComponent; 

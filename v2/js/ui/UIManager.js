@@ -36,6 +36,8 @@ import NamePromptDialog from '../dialogs/name-prompt-dialog.js';
 import DisconnectionDialog from '../dialogs/disconnection-dialog.js';
 import ErrorDialog from '../dialogs/error-dialog.js';
 import ConfirmationDialog from '../dialogs/confirmation-dialog.js'; // Import the new dialog
+import WaitingDialog from '../dialogs/waiting-dialog.js'; // <-- Add this import
+import MultiplayerLobbyDialog from '../dialogs/multiplayer-lobby-dialog.js'; // <-- ADDED
 import Views from '../core/view-constants.js'; // Ensure Views is imported
 
 // --- Import Services ---
@@ -58,7 +60,9 @@ class UIManager {
             console.log("[UIManager] DOM Content Loaded. Initializing components...");
             this.initializeComponents();
             this.registerListeners();
-             console.info("[UIManager] Initialization complete.");
+            // Check initial hash on load
+            this.checkInitialHash(); 
+            console.info("[UIManager] Initialization complete.");
         });
     }
 
@@ -105,6 +109,8 @@ class UIManager {
             this.registerComponent(new DisconnectionDialog());
             this.registerComponent(new ErrorDialog());
             this.registerComponent(new ConfirmationDialog()); // Register the new dialog
+            this.registerComponent(new WaitingDialog()); // <-- Add this registration
+            this.registerComponent(new MultiplayerLobbyDialog()); // <-- ADDED
             
             // Ensure all VIEW components are initially hidden (BaseComponent handles this partly)
             this.hideAllViews(true); // Pass flag to skip hiding Loading component initially
@@ -141,7 +147,7 @@ class UIManager {
     }
 
     /**
-     * Registers listeners for navigation events.
+     * Registers listeners for navigation events AND handles hash changes.
      * @private
      */
     registerListeners() {
@@ -155,9 +161,8 @@ class UIManager {
         });
 
         // --- Listen for Game State Changes ---
-        eventBus.on(Events.Game.Started, ({ mode }) => {
-            console.log(`[UIManager] Game Started (mode: ${mode}), showing GameArea.`);
-            // Automatically show the GameArea view when any game starts
+        eventBus.on(Events.Game.Started, () => {
+            console.log("[UIManager] Game.Started received, showing GameArea.");
             this.handleShowView({ viewName: Views.GameArea });
         });
 
@@ -200,99 +205,108 @@ class UIManager {
     }
 
     /**
+     * Checks the initial URL state (query parameters) on page load 
+     * and triggers the appropriate initial view or action.
+     * Priority: ?join= > default view
+     * @private
+     */
+    checkInitialHash() {
+        console.log(`[UIManager DEBUG] checkInitialHash running. URL: ${window.location.href}`);
+
+        // --- MINIMAL ADDITION V3: Check for ?join= parameter ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const joinCode = urlParams.get('join');
+
+        if (joinCode) {
+            if (/^[0-9]{6}$/.test(joinCode)) {
+                // Valid Join Code Found - Emit event and return true
+                console.log(`[UIManager] Initial URL has valid join code: ${joinCode}. Emitting event.`);
+                eventBus.emit(Events.System.ValidJoinCodeDetected, { joinCode: joinCode });
+                return true; // Indicate that initial navigation was handled
+            } else {
+                // Invalid Join Code Found - Warn, clean URL, and fall through to return false
+                console.warn(`[UIManager] Invalid join code format in URL parameter: ?join=${joinCode}. Ignoring join, proceeding with default.`);
+                const cleanUrl = window.location.pathname + window.location.search.replace(/[?&]join=[^&]+/, '').replace(/^&/, '?'); // Remove join param
+                window.history.replaceState({ path: cleanUrl }, '', cleanUrl); // Clean invalid param
+                // Let execution fall through to return false
+            }
+        }
+        // --- END MINIMAL ADDITION V3 ---
+
+        // --- No valid join code found or handled, return false --- 
+        return false;
+    }
+
+    /**
      * Handles the ShowView navigation event.
      * Hides the current view (if any) and shows the requested view.
-     * Does NOT handle Dialog components (they trigger themselves via events like Game.Finished).
      * @param {object} payload - Event payload.
      * @param {string} payload.viewName - The name of the VIEW component to show.
-     * @param {any} [payload.data] - Optional data to pass to the component's show or prepareToShow method.
+     * @param {any} [payload.data] - Optional data to pass to the component.
      * @private
      */
     handleShowView({ viewName, data }) {
         console.log(`[UIManager] Received ShowView event for: '${viewName}'`, data ? `with data:` : '', data || '');
 
+        // --- DEBUGGING --- 
+        // Check if we are trying to navigate back to MainMenu unexpectedly
+        // Let's assume a property like `this.isGameActive` is set by GameCoordinator or MultiplayerGame
+        // For now, let's use a simple check based on currently visible component
+        const gameAreaComp = this.getComponent('GameAreaComponent');
+        const isGameAreaVisible = gameAreaComp && gameAreaComp.isVisible;
+        
+        if (viewName === Views.MainMenu && isGameAreaVisible) {
+             console.warn(`[UIManager DEBUG] !!! Unexpected navigation to MainMenu while GameArea was visible!`);
+             console.trace("Navigation Trace"); // Log stack trace to see who called showView
+            // debugger; // Uncomment this line to pause execution here in browser DevTools
+        }
+        // --- END DEBUGGING ---
+
         const targetComponent = this.components.get(viewName);
 
-        // Ignore requests for dialog components - they trigger themselves
-         if (targetComponent instanceof BaseDialog) { 
-             console.warn(`[UIManager] Ignoring ShowView request for dialog component: ${viewName}. Dialogs are shown via game events or programmatic calls.`);
-             return;
-         }
-
         if (!targetComponent) {
-             console.error(`[UIManager] Cannot show view: Component '${viewName}' not found or not registered.`);
-             eventBus.emit(Events.System.ShowFeedback, { message: `UI Error: View '${viewName}' not found.`, level: 'error' }); 
-             return;
+            console.error(`[UIManager] UI Error: View component named '${viewName}' not found.`);
+            eventBus.emit(Events.System.ShowFeedback, {
+                message: `Error navigating: View '${viewName}' does not exist.`,
+                level: 'error'
+            });
+            // Optionally navigate to a default/error view or just log
+            return; 
         }
-         // Ensure target is a BaseComponent (not a dialog at this point)
-         if (!(targetComponent instanceof BaseComponent)) {
-            console.error(`[UIManager] Cannot show view: Component '${viewName}' is not a BaseComponent instance.`);
-            return;
-        }
-        
-        // --- Special handling for Lobby view switching --- (Kept from previous version)
-        const isTargetLobby = viewName === 'HostLobby' || viewName === 'JoinLobby';
-        const isCurrentLobby = this.activeViewName === 'HostLobby' || this.activeViewName === 'JoinLobby';
-        const currentComponent = this.components.get(this.activeViewName);
 
-        if (isTargetLobby && isCurrentLobby && viewName !== this.activeViewName) {
-             console.log(`[UIManager] Switching within lobby components: ${this.activeViewName} -> ${viewName}`);
-             // Hide the current lobby component (assuming they manage their internal views)
-             if (currentComponent instanceof BaseComponent) {
-                  currentComponent.hide(); 
-             }
-            // Prepare and show the target lobby component
-            if (data && typeof targetComponent.prepareToShow === 'function') {
-                targetComponent.prepareToShow(data);
+        // --- Ensure Loading component is hidden --- 
+        const loadingComponent = this.components.get(Views.Loading);
+        if (loadingComponent && viewName !== Views.Loading) {
+            loadingComponent.hide(); // Hide loading if showing any other view
+        }
+        // --- End Loading check ---
+
+        // Hide the previously active view if there was one
+        if (this.activeViewName && this.activeViewName !== viewName) {
+            const previousComponent = this.components.get(this.activeViewName);
+            if (previousComponent && typeof previousComponent.hide === 'function') {
+                previousComponent.hide();
             }
-            targetComponent.show();
-            const oldViewName = this.activeViewName;
+        }
+
+        // Show the target view
+        if (typeof targetComponent.show === 'function') {
+            targetComponent.show(data); // Pass data if the show method accepts it
             this.activeViewName = viewName;
-            eventBus.emit(Events.System.StateChange, { oldState: oldViewName, newState: viewName });
-            return; // Stop standard switching
+             // Emit state change event
+             eventBus.emit(Events.System.StateChange, { newState: viewName, oldState: this.activeViewName });
+
+            console.log(`[UIManager] Switched view to: '${viewName}'`);
+        } else {
+            console.error(`[UIManager] Target component '${viewName}' does not have a show() method.`);
         }
 
-        // --- Standard View Switching Logic --- 
-        if (viewName === this.activeViewName) {
-            console.warn(`[UIManager] View '${viewName}' is already active.`);
-            // Still allow data updates for the active view
-            if (data && typeof targetComponent.updateData === 'function') {
-                 console.log(`[UIManager] Updating data for active view '${viewName}'...`);
-                 targetComponent.updateData(data);
-            } else if (data && typeof targetComponent.prepareToShow === 'function') {
-                // Fallback: Use prepareToShow if updateData doesn't exist
-                 console.log(`[UIManager] Updating data using prepareToShow for active view '${viewName}'...`);
-                 targetComponent.prepareToShow(data);
-            }
-            return;
-        }
-
-        // Hide the currently active VIEW component (if it's a BaseComponent)
-        if (currentComponent instanceof BaseComponent) {
-             // Skip hiding Loading component unless explicitly targeted?
-             // Let's always hide the current view unless it IS the loading component
-            if (currentComponent.name !== 'Loading') {
-                currentComponent.hide();
-            }
-        }
-
-        // Prepare and show the target VIEW component
-        if (data && typeof targetComponent.prepareToShow === 'function') {
-            console.log(`[UIManager] Calling prepareToShow for '${viewName}'...`);
-            targetComponent.prepareToShow(data); // Call prepare before showing
-        }
-        targetComponent.show(); // Handles making the root element visible
-
-        // If the target isn't the loading component itself, hide the loading component
-        if (viewName !== 'Loading') {
-             const loadingComp = this.components.get('Loading');
-             if (loadingComp instanceof BaseComponent) loadingComp.hide();
-        }
-
-        const oldViewName = this.activeViewName;
-        this.activeViewName = viewName;
-        console.info(`[UIManager] Switched view from '${oldViewName || 'none'}' to '${viewName}'`);
-        eventBus.emit(Events.System.StateChange, { oldState: oldViewName, newState: viewName });
+        // Update hash for bookmarking/back button (simple approach)
+        // Avoid changing hash if it was triggered BY hashchange itself
+        // A more robust router would handle this better.
+        // if (window.location.hash !== `#${viewName}`) {
+        //     window.location.hash = `#${viewName}`;
+        // }
     }
 
     /**

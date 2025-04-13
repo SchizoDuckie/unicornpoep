@@ -1,7 +1,8 @@
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 
-import QuizEngine from '../services/QuizEngine.js';
+// REMOVED: Singleton import
+// import QuizEngine from '../services/QuizEngine.js'; 
 
 // --- Constants for scoring (moved from SinglePlayerGame) ---
 const BASE_SCORE = 10;
@@ -9,7 +10,7 @@ const MAX_TIME_BONUS = 50;
 
 /**
  * Provides the base structure and common logic for different game modes.
- * Handles interaction with QuizEngine, basic game flow (start, next question, finish),
+ * Handles interaction with an **injected QuizEngine instance**, basic game flow,
  * and common event emissions.
  * 
  * **Important:** This base class assumes subclasses (like SinglePlayerGame or MultiplayerGame)
@@ -25,20 +26,25 @@ const MAX_TIME_BONUS = 50;
  */
 class BaseGameMode {
     /**
-     * @param {string} modeIdentifier - A string identifying the mode (e.g., 'practice', 'single', 'multiplayer').
+     * @param {string} modeIdentifier - A string identifying the mode.
      * @param {object} settings - Game settings specific to the mode.
+     * @param {QuizEngine} quizEngineInstance - An initialized QuizEngine instance.
      * @param {string} [playerName] - Optional player name.
      */
-    constructor(modeIdentifier, settings, playerName = 'Player') {
+    constructor(modeIdentifier, settings, quizEngineInstance, playerName = 'Player') {
+        if (!quizEngineInstance) {
+             throw new Error("[BaseGameMode] Constructor requires a valid QuizEngine instance.");
+        }
         console.log(`[BaseGameMode:${modeIdentifier}] Initializing with settings:`, settings, `Player: ${playerName}`);
         this.mode = modeIdentifier;
         this.settings = settings;
-        this.playerName = playerName; // Store player name, useful for results
-        this.quizEngine = QuizEngine;
+        this.playerName = playerName;
+        this.quizEngine = quizEngineInstance; // Use the injected instance
         this.isFinished = false;
         this.lastAnswerCorrect = null; // Used for delaying next question after feedback
         this._boundHandleAnswerSubmitted = null; // Store bound listener
         this.currentQuestionIndex = -1; // Initialize index tracking
+        this.score = 0; // +++ Initialize score +++
 
         this._registerBaseListeners();
     }
@@ -57,20 +63,35 @@ class BaseGameMode {
     }
 
     /**
-     * Starts the game by loading questions and presenting the first one.
+     * Starts the game by loading questions (using the injected engine's method) 
+     * and presenting the first one.
      * Emits Game.Started on success or System.ErrorOccurred on failure.
      */
     async start() {
         console.log(`[BaseGameMode:${this.mode}] Starting game...`);
         try {
-            await this.quizEngine.loadQuestions(this.settings.sheetIds, this.settings.difficulty);
+            // Load questions using the INSTANCE's specific loading method
+            // Host will use loadQuestionsFromManager, Client instance is pre-loaded
+            // We might need a more abstract `initializeEngine` method here
+            // For now, assume the engine passed to constructor is ready
+            if (typeof this.quizEngine.loadQuestionsFromManager === 'function' && this.settings.sheetIds) {
+                 // If host-like settings and method exists, load via manager
+                 await this.quizEngine.loadQuestionsFromManager(this.settings.sheetIds, this.settings.difficulty);
+             }
+            // If it's a client instance from createInstance, questions are already loaded.
+            
             if (this.quizEngine.getQuestionCount() === 0) {
-                throw new Error("No questions loaded for the selected sheets/difficulty.");
+                throw new Error("Quiz engine has no questions loaded.");
             }
             this.isFinished = false;
             this.lastAnswerCorrect = null;
             // Emit game started event
-            eventBus.emit(Events.Game.Started, { mode: this.mode, settings: this.settings, role: 'player' });
+            // Add total questions to settings if not present
+            const gameSettings = { 
+                 ...this.settings,
+                 totalQuestions: this.quizEngine.getQuestionCount()
+             };
+            eventBus.emit(Events.Game.Started, { mode: this.mode, settings: gameSettings, role: 'player' });
             // Load the first question
             this.nextQuestion();
         } catch (error) {
@@ -86,39 +107,35 @@ class BaseGameMode {
 
     /**
      * Handles moving to the next question or finishing the game.
-     * Emits Game.QuestionNew or triggers finishGame.
+     * Uses the injected this.quizEngine instance.
      */
     nextQuestion() {
         if (this.isFinished) return;
-
-        this._beforeNextQuestion(); // Hook for subclasses (e.g., stop timer)
-
-        this.lastAnswerCorrect = null; // Reset correctness indicator for UI
-        // Calculate based on internal state
+        this._beforeNextQuestion();
+        this.lastAnswerCorrect = null;
         const nextIndex = this.currentQuestionIndex + 1;
 
+        // Use the INSTANCE
         if (this.quizEngine.isQuizComplete(nextIndex)) {
             this.finishGame();
         } else {
-            // Use the correct method: getQuestionData
+            // Use the INSTANCE
             const questionData = this.quizEngine.getQuestionData(nextIndex);
             if (questionData) {
-                // UPDATE internal index after successfully getting data
                 this.currentQuestionIndex = nextIndex;
+                // Use the INSTANCE
                 const totalQuestions = this.quizEngine.getQuestionCount();
-                // Use internal index for logging
                 console.log(`[BaseGameMode:${this.mode}] Presenting question ${this.currentQuestionIndex + 1}/${totalQuestions}`);
                 eventBus.emit(Events.Game.QuestionNew, {
-                    // Use internal index for event
                     questionIndex: this.currentQuestionIndex,
                     totalQuestions: totalQuestions,
                     questionData: {
                         question: questionData.question,
-                        // Use internal index for getting answers
+                        // Use the INSTANCE
                         answers: this.quizEngine.getShuffledAnswers(this.currentQuestionIndex)
                     }
                 });
-                this._afterQuestionPresented(); // Hook for subclasses (e.g., start timer)
+                this._afterQuestionPresented();
             } else {
                 console.error(`[BaseGameMode:${this.mode}] Could not retrieve question data for index ${nextIndex}`);
                 this.finishGame();
@@ -127,8 +144,9 @@ class BaseGameMode {
     }
 
     /**
-     * Handles the player submitting an answer. Checks the answer using QuizEngine,
-     * emits Game.AnswerChecked, and triggers the next question sequence.
+     * Handles the player submitting an answer. Checks the answer using the
+     * injected this.quizEngine instance.
+     * Emits Game.AnswerChecked, and triggers the next question sequence.
      * Subclasses can override _calculateScore and _afterAnswerChecked.
      * @param {object} payload
      * @param {any} payload.answer - The submitted answer.
@@ -139,13 +157,13 @@ class BaseGameMode {
             console.log(`[BaseGameMode:${this.mode}] Ignoring answer submission (finished or already answered).`);
             return; // Ignore if game is over or already processed
         }
-        // Use the internally tracked index
         const currentIndex = this.currentQuestionIndex;
         if (currentIndex < 0) return; // Ignore if no question active
 
         console.log(`[BaseGameMode:${this.mode}] Answer submitted for question ${currentIndex + 1}:`, answer);
-        this._beforeAnswerCheck(); // Hook for subclasses (e.g., stop timer)
+        this._beforeAnswerCheck();
 
+        // Use the INSTANCE
         const checkResult = this.quizEngine.checkAnswer(currentIndex, answer);
         this.lastAnswerCorrect = checkResult.isCorrect;
         const scoreDelta = this._calculateScore(checkResult.isCorrect);
@@ -157,7 +175,7 @@ class BaseGameMode {
             submittedAnswer: answer
         });
 
-        this._afterAnswerChecked(checkResult.isCorrect, scoreDelta); // Hook for subclasses (e.g., update total score)
+        this._afterAnswerChecked(checkResult.isCorrect, scoreDelta);
 
         // Delay moving to the next question to allow feedback display
         setTimeout(() => {
@@ -168,19 +186,28 @@ class BaseGameMode {
     }
 
     /**
-     * Finishes the game, calculates results, emits Game.Finished, and cleans up listeners.
+     * Finishes the game, calculates results using the injected this.quizEngine instance,
+     * emits Game.Finished, and cleans up listeners.
      */
     finishGame() {
         if (this.isFinished) return;
         console.log(`[BaseGameMode:${this.mode}] Finishing game...`);
         this.isFinished = true;
-        this._beforeFinish(); // Hook for subclasses (e.g., stop timer)
+        this._beforeFinish();
+
+        // Use the INSTANCE for counts
+        const score = this._getFinalResults({}).score ?? this.quizEngine.getCorrectCount() * BASE_SCORE;
+        const isEligible = score > 0;
 
         const baseResults = {
             playerName: this.playerName,
+            // Use the INSTANCE
             totalQuestions: this.quizEngine.getQuestionCount(),
+            // Use the INSTANCE
             correctAnswers: this.quizEngine.getCorrectCount(),
-            settings: this.settings
+            settings: this.settings,
+            score: score,
+            eligibleForHighscore: isEligible
         };
 
         const finalResults = this._getFinalResults(baseResults);
@@ -251,21 +278,18 @@ class BaseGameMode {
             return 0;
         }
 
-        // Determine elapsed time: Use provided value or get from local timer
         let timeToUseMs = elapsedMs;
         if (timeToUseMs === null && this.timer && typeof this.timer.getElapsedTime === 'function') {
             timeToUseMs = this.timer.getElapsedTime();
         } else if (timeToUseMs === null) {
-            // No elapsed time provided and no local timer/method found
             console.log(`[BaseGameMode:${this.mode}] Score Calc: Correct! No timer/elapsed time found. Awarding base score.`);
             return BASE_SCORE;
         }
 
-        // Check if a timer duration exists
-        if (this.timer && this.timer.initialDurationMs > 0) {
-            const durationMs = this.timer.initialDurationMs;
+        if (this.timer && this.timer.durationMs > 0) { 
+            const durationMs = this.timer.durationMs;
 
-            if (durationMs > 0 && timeToUseMs >= 0) { // elapsed can be 0
+            if (durationMs > 0 && timeToUseMs >= 0) {
                  const elapsedSec = timeToUseMs / 1000;
                  const durationSec = durationMs / 1000;
                  const timeFactor = Math.max(0, 1 - (elapsedSec / durationSec));
@@ -278,8 +302,7 @@ class BaseGameMode {
                  return BASE_SCORE;
             }
         } else {
-            // No timer duration found, award base score only
-            console.log(`[BaseGameMode:${this.mode}] Score Calc: Correct! No timer duration found. Awarding base score.`);
+            console.log(`[BaseGameMode:${this.mode}] Score Calc: Correct! No timer or timer duration (durationMs) found. Awarding base score.`); 
             return BASE_SCORE;
         }
     }
@@ -291,7 +314,16 @@ class BaseGameMode {
      * @protected
      */
     _afterAnswerChecked(isCorrect, scoreDelta) { 
-        // Example: Subclass could update total score and emit ScoreUpdated here
+        // Update the total score
+        if (scoreDelta > 0) {
+            this.score += scoreDelta;
+            console.log(`[BaseGameMode:${this.mode}] Score updated. New score: ${this.score} (Delta: ${scoreDelta})`);
+            // Emit event for UI update
+            eventBus.emit(Events.Game.ScoreUpdated, { 
+                newScore: this.score, 
+                delta: scoreDelta 
+            });
+        }
     }
 
     /** Hook called before the Game.Finished event is emitted. (e.g., stop timers) @protected */
@@ -306,6 +338,9 @@ class BaseGameMode {
     _getFinalResults(baseResults) {
         return baseResults; // Base implementation returns results as is
     }
+
+    /** Hook called after the game is finished and results are calculated/emitted. @protected */
+    _afterFinish(finalResults) { }
 }
 
 export default BaseGameMode; 

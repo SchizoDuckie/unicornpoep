@@ -49,6 +49,14 @@ const Events = {
          * @type {object} - Payload is typically empty.
          */
         LoadingEnd: 'system:loadingEnd',
+        /**
+         * Fired by UIManager when a valid 6-digit join code is detected in the URL parameters (?join=...).
+         * Listened for by components responsible for initiating the join flow (e.g., GameCoordinator).
+         * @event Events.System.ValidJoinCodeDetected
+         * @type {object}
+         * @property {string} code - The 6-digit join code detected.
+         */
+        ValidJoinCodeDetected: 'system:validJoinCodeDetected',
     },
     /**
      * Events related to application navigation and view management.
@@ -193,10 +201,10 @@ const Events = {
         /** @namespace Events.Multiplayer.Host */
         Host: {
             /**
-             * Fired by WebRTCManager when the host initializes the PeerJS connection.
+             * Fired when the host initializes the PeerJS connection and obtains its ID.
              * @event Events.Multiplayer.Host.Initialized
              * @type {object}
-             * @property {string} hostId - The unique ID assigned to the host's peer connection.
+             * @property {string} hostId - The 6-digit code used as the host's PeerJS ID.
              */
             Initialized: 'multiplayer:host:initialized',
             /**
@@ -467,11 +475,21 @@ const Events = {
              * @property {string} code - The submitted connection code.
              */
             SubmitCodeClicked: 'ui:joinLobby:submitCodeClicked',
-            /** Fired when the user confirms joining after seeing game info. Payload: None */
+            /** 
+             * Fired when the user confirms joining after seeing game info and entering their name.
+             * @event Events.UI.JoinLobby.ConfirmClicked
+             * @type {object}
+             * @property {string} playerName - The name entered by the user.
+             */
             ConfirmClicked: 'ui:joinLobby:confirmClicked',
-             /** Fired when the user cancels the joining process (any screen). Payload: None */
+             /** Fired when the user cancels the joining process (e.g., from confirm view). */
             CancelClicked: 'ui:joinLobby:cancelClicked',
         },
+         /** @namespace Events.UI.MultiplayerLobby */
+         MultiplayerLobby: {
+            /** Fired when the client clicks the "Leave Lobby" button. */
+            LeaveClicked: 'ui:mpLobby:leaveClicked',
+         },
          /** @namespace Events.UI.EndDialog */
         EndDialog: {
             /** Fired when user clicks Return to Menu in an end-game dialog. Payload: None */

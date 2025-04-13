@@ -5,248 +5,172 @@ import { getTextTemplate } from '../utils/miscUtils.js';
 
 
 /**
- * Dialog shown at the end of a single-player game.
+ * Dialog displayed at the end of a single player game.
  * Displays the final score and allows saving to highscores or restarting.
  * @extends BaseDialog
  */
 class SinglePlayerEndDialog extends BaseDialog {
-    /**
-     * Creates an instance of SinglePlayerEndDialog.
-     */
-    constructor() {
-        super('#endOfGameDialog', 'SinglePlayerEndDialog');
+    static SELECTOR = '#endOfGameDialog';
+    static VIEW_NAME = 'SinglePlayerEndDialog';
 
-        // Query essential elements
-        this.finalScoreElement = this.rootElement.querySelector('#finalScore');
-        this.playerNameInput = this.rootElement.querySelector('#playerName');
-        this.saveButton = this.rootElement.querySelector('#saveHighscore');
-        this.restartButton = this.rootElement.querySelector('#restartGame');
-        this.menuButton = this.rootElement.querySelector('#spEndMenuButton'); // Use the correct ID from HTML
+    /** Initializes component elements. */
+    initialize() {
+        // Elements specific to this dialog using corrected IDs from HTML
+        this.scoreDisplay = this.rootElement.querySelector('#finalScore'); // Corrected ID
+        // Find the div containing the name input indirectly
+        this.nameInputContainer = this.rootElement.querySelector('div:has(> #playerName)'); 
+        this.nameInput = this.rootElement.querySelector('#playerName'); // Corrected ID
+        this.saveButton = this.rootElement.querySelector('#saveHighscore'); // Corrected ID
+        // this.saveErrorDisplay is removed as the element doesn't exist in HTML
+        this.playAgainButton = this.rootElement.querySelector('#restartGame'); // Corrected ID
+        this.backToMenuButton = this.rootElement.querySelector('#spEndMenuButton'); // Corrected ID
 
-        // Verify essential elements exist
-        if (!this.finalScoreElement || !this.playerNameInput || !this.saveButton || !this.restartButton || !this.menuButton) {
-            const missing = [
-                !this.finalScoreElement && '#finalScore',
-                !this.playerNameInput && '#playerName',
-                !this.saveButton && '#saveHighscore',
-                !this.restartButton && '#restartGame',
-                !this.menuButton && '#spEndMenuButton'
-            ].filter(Boolean).join(', ');
-            console.error(`[${this.name}] Could not find all required child elements (${missing}) within ${this.selector}. Dialog cannot function.`);
-            throw new Error(`[${this.name}] Missing required child elements within ${this.selector}. Check HTML structure.`);
-        }
+        // Add checks - Updated IDs and removed saveErrorDisplay check
+        if (!this.scoreDisplay) console.error(`[${this.name}] Missing #finalScore`);
+        if (!this.nameInputContainer) console.error(`[${this.name}] Missing container for #playerName`);
+        if (!this.nameInput) console.error(`[${this.name}] Missing #playerName`);
+        if (!this.saveButton) console.error(`[${this.name}] Missing #saveHighscore`);
+        if (!this.playAgainButton) console.error(`[${this.name}] Missing #restartGame`);
+        if (!this.backToMenuButton) console.error(`[${this.name}] Missing #spEndMenuButton`);
+
+        // Store game results temporarily
+        this.currentGameResults = null;
+        this.gameName = 'default'; // Store game name for saving highscore
+        this.currentDifficulty = 'Unknown Difficulty'; // Store difficulty for saving
+        this.currentMode = 'single'; // Store game mode
 
         this._bindMethods();
-        this._boundHandleClose = this._handleDialogClose.bind(this);
-        this._addEventListeners();
-        this._addGameEventListeners(); // Add listener for game events
-
-        this.currentScore = 0; // Store the score passed via show()
-        this.currentGameName = 'Unknown Game';
-        this.currentDifficulty = 'Unknown Difficulty';
-        this.currentMode = 'single'; // Store game mode, default to single
+        // Listeners added by registerListeners
+        console.log(`[${this.name}] Initialized.`);
     }
 
-    /** Binds component methods to the class instance. */
     _bindMethods() {
-        this.handleSave = this.handleSave.bind(this);
-        this.handleRestart = this.handleRestart.bind(this);
-        this.handleMenu = this.handleMenu.bind(this);
-        this.handleGameFinished = this.handleGameFinished.bind(this); // Bind game event handler
-        this._handleNameInputKeyPress = this._handleNameInputKeyPress.bind(this);
+        this.handleSaveScore = this.handleSaveScore.bind(this);
+        this.handlePlayAgain = this.handlePlayAgain.bind(this);
+        this.handleBackToMenu = this.handleBackToMenu.bind(this);
+        // No need to bind _clearError if it only emits events now
     }
 
-    /** Adds specific DOM event listeners for this dialog. */
-    _addEventListeners() {
-        this.saveButton.addEventListener('click', this.handleSave);
-        this.restartButton.addEventListener('click', this.handleRestart);
-        this.menuButton.addEventListener('click', this.handleMenu);
-        this.rootElement.addEventListener('close', this._boundHandleClose);
-
-        // Add keypress listener for Enter key on name input
-        this.playerNameInput.addEventListener('keypress', this._handleNameInputKeyPress);
+    /** Registers DOM listeners. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering DOM listeners.`);
+        // Use updated element references
+        if (this.saveButton) this.saveButton.addEventListener('click', this.handleSaveScore);
+        if (this.playAgainButton) this.playAgainButton.addEventListener('click', this.handlePlayAgain);
+        if (this.backToMenuButton) this.backToMenuButton.addEventListener('click', this.handleBackToMenu);
+        // Optionally clear errors on input - maybe less relevant now? Keep for now.
+        // if (this.nameInput) this.nameInput.addEventListener('input', this._clearError); 
     }
 
-    /** Adds listeners for game-related events via eventBus. @private */
-    _addGameEventListeners() {
-        this.listen(Events.Game.Finished, this.handleGameFinished);
+    /** Unregisters DOM listeners. */
+    unregisterListeners() {
+        console.log(`[${this.name}] Unregistering DOM listeners.`);
+        // Use updated element references
+        if (this.saveButton) this.saveButton.removeEventListener('click', this.handleSaveScore);
+        if (this.playAgainButton) this.playAgainButton.removeEventListener('click', this.handlePlayAgain);
+        if (this.backToMenuButton) this.backToMenuButton.removeEventListener('click', this.handleBackToMenu);
+        // if (this.nameInput) this.nameInput.removeEventListener('input', this._clearError);
     }
 
-    /**
-     * Handles the Game.Finished event to show the dialog if it was a single-player game.
-     * @param {object} payload
-     * @param {string} payload.mode - The mode of the game that finished.
-     * @param {object} payload.results - The results object.
-     * @param {number} [payload.results.score] - The final score (specific to single player).
-     * @private
-     */
-    handleGameFinished({ mode, results }) {
-        if (mode === 'single') {
-            console.log(`[${this.name}] Game.Finished event received for single player. Results:`, results);
-            // Store game context along with the score
-            this.currentScore = results.score;
-            const settings = results.settings || {};
-            const sheetIds = settings.sheetIds || [];
-            // Store the raw derived game name, potentially including prefix
-            this.currentGameName = Array.isArray(sheetIds) ? sheetIds.join(', ') : (sheetIds || 'Unknown Game');
-            
-            this.currentDifficulty = settings.difficulty || 'Unknown Difficulty';
-            this.currentMode = mode; // Store the mode
-            
-            console.log(`[${this.name}] Stored Raw Game Name: ${this.currentGameName}, Difficulty: ${this.currentDifficulty}, Mode: ${this.currentMode}`);
-
-            this.show(this.currentScore);
-        } else {
-             console.debug(`[${this.name}] Ignoring Game.Finished event for mode: ${mode}`);
+    /** Handles the save score button click */
+    handleSaveScore() {
+        // Use updated element references
+        const playerName = this.nameInput.value.trim();
+        if (!playerName) {
+            this._showError(getTextTemplate('hsErrorNameEmpty'));
+            return;
         }
-    }
+        if (playerName.length > 40) { // Match validation from NamePrompt?
+             this._showError(getTextTemplate('hsErrorNameTooLong'));
+             return;
+         }
 
-    /**
-     * Handles the native 'close' event of the dialog element.
-     * Clears the input when dismissed (e.g., via ESC).
-     * @private
-     */
-    _handleDialogClose() {
-        this.playerNameInput.value = '';
-        console.debug(`[${this.name}] Dialog closed natively, player name input cleared.`);
-    }
-
-    /**
-     * Handles the save highscore button click.
-     * Validates the player name and emits an event to request saving the score.
-     */
-    handleSave() {
-        const playerName = this.playerNameInput.value.trim();
-        if (playerName && this.currentScore !== null) { // Check against null (set if score was invalid)
-            console.debug(`[${this.name}] Save highscore requested: Name='${playerName}', Score=${this.currentScore}, Game='${this.currentGameName}', Difficulty='${this.currentDifficulty}', Mode='${this.currentMode}'`);
-            
-            // Update last used name in localStorage
-            try {
-                localStorage.setItem('unicornPoepPlayerName', playerName);
-            } catch (e) {
-                console.warn(`[${this.name}] Failed to save player name to localStorage:`, e);
-            }
-
-            // Emit the specific event defined in the plan, including game context
+        if (this.currentGameResults && this.currentGameResults.score !== undefined) {
+            console.log(`[${this.name}] Save score clicked. Name: ${playerName}, Score: ${this.currentGameResults.score}`);
             eventBus.emit(Events.UI.EndDialog.SaveScoreClicked, { 
                 name: playerName, 
-                score: this.currentScore, 
-                gameName: this.currentGameName, 
-                mode: this.currentMode, // Add mode here
+                score: this.currentGameResults.score,
+                gameName: this.gameName, 
+                mode: this.currentMode,
                 difficulty: this.currentDifficulty 
             });
-            this.hide();
-        } else if (!playerName) {
-            console.warn(`[${this.name}] Save attempt failed: Player name is empty.`);
-            this.playerNameInput.focus();
-            // Use template for feedback message
-            eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('spEndErrorSaveName'), level: 'warn' });
+             // UIManager handles navigation after save attempt
         } else {
-             console.warn(`[${this.name}] Save attempt failed: Score is invalid (${this.currentScore}). Cannot save.`);
-             // Disable button maybe? Or just rely on the initial check in show().
+            console.error(`[${this.name}] Cannot save score, results data missing.`);
+            this._showError(getTextTemplate('hsErrorSaveFailed'));
         }
     }
 
-    /**
-     * Handles the restart game button click.
-     * Emits an event indicating the user wants to play again (same mode).
-     */
-    handleRestart() {
-        console.debug(`[${this.name}] Restart game clicked.`);
-        // Emit the specific event defined in the plan
-        eventBus.emit(Events.UI.EndDialog.PlayAgainClicked, { mode: 'single' }); // Specify the mode
+    /** Handles the play again button click */
+    handlePlayAgain() {
+        console.log("[SinglePlayerEndDialog] Play again clicked.");
+        // Emit PlayAgainClicked with mode context
+        eventBus.emit(Events.UI.EndDialog.PlayAgainClicked, { mode: this.currentMode }); 
         this.hide();
     }
 
-    /**
-     * Handles the return to menu button click.
-     * Emits an event indicating the user wants to go back to the main menu.
-     */
-    handleMenu() {
-        console.debug(`[${this.name}] Return to menu clicked.`);
-         // Emit the specific event defined in the plan
+    /** Handles the back to menu button click */
+    handleBackToMenu() {
+        console.log("[SinglePlayerEndDialog] Back to menu clicked.");
         eventBus.emit(Events.UI.EndDialog.ReturnToMenuClicked);
         this.hide();
     }
 
+    /** Clears the save error message - Now does nothing as element removed */
+    _clearError() {
+       // Element removed, maybe clear feedback elsewhere if needed?
+       // For now, this method can be empty or removed.
+       console.debug(`[${this.name}] _clearError called, but no specific error element exists.`);
+    }
+    
+    /** Shows a save error message - Now emits a feedback event */
+    _showError(message) {
+        console.warn(`[${this.name}] Showing error via feedback event: ${message}`);
+        eventBus.emit(Events.System.ShowFeedback, { message: message, level: 'warn', duration: 3000 });
+    }
+
     /**
-     * Shows the dialog, updates the displayed score, and prepares the input field.
-     * @param {number} score - The final score to display.
+     * Shows the dialog and displays the score.
+     * @param {object} results - The game results.
+     * @param {number} results.score - The final score.
+     * @param {string} results.gameName - Name of the game/sheets played.
+     * @param {string} results.difficulty - Game difficulty.
+     * @param {string} results.mode - Game mode ('single').
+     * @param {boolean} results.eligibleForHighscore - Whether the score qualifies.
      */
-    show(score) {
-        // Validate score input
-        if (typeof score !== 'number' || isNaN(score)) {
-            console.error(`[${this.name}] Invalid score provided to show():`, score);
-            // Use template for score error display
-            this.finalScoreElement.textContent = getTextTemplate('spEndErrorScore'); 
-            this.currentScore = null; // Indicate invalid score state
-            this.saveButton.disabled = true; // Disable saving invalid score
-            this.playerNameInput.disabled = true; // Disable input if score is invalid
-            this.playerNameInput.value = ''; // Clear input if score invalid
-        } else {
-            this.currentScore = score;
-            this.finalScoreElement.textContent = this.currentScore.toString(); // Display the score
-            this.saveButton.disabled = false; // Enable saving valid score
-            this.playerNameInput.disabled = false; // Enable name input
-            // Load default name from localStorage
-            try {
-                const defaultName = localStorage.getItem('unicornPoepPlayerName') || '';
-                this.playerNameInput.value = defaultName;
-            } catch (e) {
-                console.warn(`[${this.name}] Failed to load player name from localStorage:`, e);
-                this.playerNameInput.value = ''; // Fallback to empty
+    show(results) {
+        this.currentGameResults = results;
+        this.gameName = results.gameName || 'Unknown Game';
+        this.currentDifficulty = results.difficulty || 'Unknown';
+        this.currentMode = results.mode || 'single';
+
+        // Use updated element references
+        if (this.scoreDisplay) {
+             // Use textContent for security, assuming score is just a number
+             this.scoreDisplay.textContent = results.score !== undefined ? results.score : '?';
+        }
+
+        // Show/hide save score section using the indirectly found container
+        if (results.eligibleForHighscore) {
+            if (this.nameInputContainer) this.nameInputContainer.classList.remove('hidden');
+            if (this.nameInput) {
+                // Pre-fill with stored name?
+                 const storedName = localStorage.getItem('unicornPoepPlayerName');
+                 this.nameInput.value = storedName || '';
+                 // this._clearError(); // May not be necessary
             }
+        } else {
+            if (this.nameInputContainer) this.nameInputContainer.classList.add('hidden');
         }
-
-        // Clear previous name input - MOVED into conditional logic above
-        // this.playerNameInput.value = ''; 
-
-        super.show(); // Call BaseDialog showModal
-
-        // Focus the player name input after the dialog is shown
-        requestAnimationFrame(() => {
-            // Check dialog is still open before focusing
-             if (this.rootElement.open && !this.playerNameInput.disabled) {
-                this.playerNameInput.focus();
-                // Select text if default name was loaded
-                if (this.playerNameInput.value) {
-                    this.playerNameInput.select();
-                }
-             }
-        });
+        
+        super.show();
     }
 
-    /**
-     * Overrides base destroy method to remove specific DOM listeners.
-     */
+    // Override destroy to ensure listeners are removed
     destroy() {
-        console.debug(`[${this.name}] Destroying...`);
-        this._removeEventListeners();
-        // Note: BaseDialog/BaseComponent handles removing eventBus listeners added via this.listen()
-        this._boundHandleClose = null; // Clear bound reference
-        super.destroy(); // Call base class destroy
-    }
-
-    /** Removes specific DOM event listeners attached by this component. */
-    _removeEventListeners() {
-        // No need for defensive checks here, constructor guarantees elements exist
-        this.saveButton.removeEventListener('click', this.handleSave);
-        this.restartButton.removeEventListener('click', this.handleRestart);
-        this.menuButton.removeEventListener('click', this.handleMenu);
-        this.rootElement.removeEventListener('close', this._boundHandleClose);
-        // Remove keypress listener (important to avoid duplicates if dialog is reused)
-        this.playerNameInput.removeEventListener('keypress', this._handleNameInputKeyPress);
-    }
-
-    /**
-     * Handles keypress events on the player name input field.
-     * @param {KeyboardEvent} event - The keypress event.
-     */
-    _handleNameInputKeyPress(event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            this.handleSave();
-        }
+        console.log(`[${this.name}] Destroying...`);
+        this.unregisterListeners();
+        super.destroy();
     }
 }
 

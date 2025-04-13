@@ -111,7 +111,6 @@ Review and refactor the following files, moving UI strings to `v2/index.html` an
 *   `v2/js/game/PracticeGame.js`
 *   `v2/js/game/SinglePlayerGame.js`
 *   `v2/js/services/GameCoordinator.js` (Needs verification - assumed OK for now)
-*   `v2/js/ui/AnswerListComponent.js`
 *   `v2/js/utils/arrayUtils.js`
 *   `v2/js/utils/miscUtils.js`
 

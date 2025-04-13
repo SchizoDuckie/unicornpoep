@@ -9,13 +9,14 @@ const Views = Object.freeze({
     HostLobby:          'HostLobbyComponent',
     JoinLobby:          'JoinLobbyComponent',
     GameArea:           'GameAreaComponent', // Assuming this is registered name
-    Highscores:         'Highscores',
-    CustomQuestions:    'CustomQuestionsManager',
+    Highscores:         'HighscoresComponent',
+    CustomQuestions:    'CustomQuestionsComponent',
     About:              'AboutComponent',
     SheetSelection:     'SheetSelectionComponent',
     Loading:            'LoadingComponent',
     Countdown:          'CountdownComponent',
     PlayerList:         'PlayerListComponent',
+    MultiplayerLobby:   'MultiplayerLobbyDialog',
 });
 
 export default Views;

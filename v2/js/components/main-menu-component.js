@@ -10,82 +10,69 @@ import Views from '../core/view-constants.js';
  * Manages the main menu buttons and emits corresponding UI events when they are clicked.
  */
 class MainMenuComponent extends BaseComponent {
-    /**
-     * Creates an instance of MainMenuComponent.
-     * @param {string} elementSelector - CSS selector for the main menu container (e.g., '#mainMenu').
-     */
-    constructor(elementSelector = '#mainMenu') {
-        super(elementSelector, Views.MainMenu);
+    static SELECTOR = '#mainMenu';
+    static VIEW_NAME = 'MainMenuComponent';
 
-        // Find buttons within the main menu
+    /** Initializes the component. */
+    constructor() {
+        super();
+        console.log("[MainMenuComponent] Constructed (via BaseComponent).");
+    }
+
+    initialize() {
+        // Find buttons
         this.practiceButton = this.rootElement.querySelector('#practice');
-        this.singlePlayerButton = this.rootElement.querySelector('#takeTest'); // Assuming #takeTest is Single Player
+        this.singlePlayerButton = this.rootElement.querySelector('#takeTest');
         this.multiplayerButton = this.rootElement.querySelector('#multiplayer');
         this.customQuestionsButton = this.rootElement.querySelector('#myQuestions');
         this.highscoresButton = this.rootElement.querySelector('#viewHighscores');
-        this.aboutButton = this.rootElement.querySelector('#hoeDan'); // Assuming #hoeDan is About
-
-        this._bindEvents();
-        console.log(`[${this.name}] Initialized`);
-    }
-
-    /** Binds DOM event listeners to menu buttons. @private */
-    _bindEvents() {
-        this._addButtonListener(this.practiceButton, Events.UI.MainMenu.StartPracticeClicked);
-        this._addButtonListener(this.singlePlayerButton, Events.UI.MainMenu.StartSinglePlayerClicked);
-        this._addButtonListener(this.multiplayerButton, Events.UI.MainMenu.JoinMultiplayerClicked); // Changed from StartMultiplayerHostClicked based on refactor-plan
-        this._addButtonListener(this.customQuestionsButton, Events.UI.MainMenu.CustomQuestionsClicked);
-        this._addButtonListener(this.highscoresButton, Events.UI.MainMenu.HighscoresClicked);
-        this._addButtonListener(this.aboutButton, Events.UI.MainMenu.AboutClicked);
-    }
-
-    /** Removes DOM event listeners. @private */
-    _unbindEvents() {
-        this._removeButtonListener(this.practiceButton, Events.UI.MainMenu.StartPracticeClicked);
-        this._removeButtonListener(this.singlePlayerButton, Events.UI.MainMenu.StartSinglePlayerClicked);
-        this._removeButtonListener(this.multiplayerButton, Events.UI.MainMenu.JoinMultiplayerClicked);
-        this._removeButtonListener(this.customQuestionsButton, Events.UI.MainMenu.CustomQuestionsClicked);
-        this._removeButtonListener(this.highscoresButton, Events.UI.MainMenu.HighscoresClicked);
-        this._removeButtonListener(this.aboutButton, Events.UI.MainMenu.AboutClicked);
-    }
-
-    /**
-     * Helper to add a click listener to a button and emit an event.
-     * @param {HTMLElement | null} button - The button element.
-     * @param {string} eventToEmit - The event constant to emit on click.
-     * @private
-     */
-    _addButtonListener(button, eventToEmit) {
-        if (!button) {
-            console.warn(`[${this.name}] Button not found for event: ${eventToEmit}`);
-            return;
+        this.aboutButton = this.rootElement.querySelector('#hoeDan');
+        
+        // Check if buttons exist (optional, but good practice)
+        if (!this.practiceButton || !this.singlePlayerButton /* ... etc */) {
+            console.warn(`[${this.name}] One or more menu buttons not found.`);
         }
-        // Store the handler function to remove it later
-        button._clickHandler = () => {
+
+        // --- Bind Handlers Here --- 
+        this._handlePracticeClick = this._createClickHandler(Events.UI.MainMenu.StartPracticeClicked);
+        this._handleSinglePlayerClick = this._createClickHandler(Events.UI.MainMenu.StartSinglePlayerClicked);
+        this._handleMultiplayerClick = this._createClickHandler(Events.UI.MainMenu.JoinMultiplayerClicked);
+        this._handleCustomQuestionsClick = this._createClickHandler(Events.UI.MainMenu.CustomQuestionsClicked);
+        this._handleHighscoresClick = this._createClickHandler(Events.UI.MainMenu.HighscoresClicked);
+        this._handleAboutClick = this._createClickHandler(Events.UI.MainMenu.AboutClicked);
+        
+        console.log(`[${this.name}] Initialized.`);
+    }
+
+    /** Registers DOM event listeners using pre-bound handlers. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering listeners.`);
+        if (this.practiceButton) this.practiceButton.addEventListener('click', this._handlePracticeClick);
+        if (this.singlePlayerButton) this.singlePlayerButton.addEventListener('click', this._handleSinglePlayerClick);
+        if (this.multiplayerButton) this.multiplayerButton.addEventListener('click', this._handleMultiplayerClick);
+        if (this.customQuestionsButton) this.customQuestionsButton.addEventListener('click', this._handleCustomQuestionsClick);
+        if (this.highscoresButton) this.highscoresButton.addEventListener('click', this._handleHighscoresClick);
+        if (this.aboutButton) this.aboutButton.addEventListener('click', this._handleAboutClick);
+    }
+    
+    /** 
+     * Factory function to create a click handler that emits a specific event.
+     * @param {string} eventToEmit - The event constant to emit.
+     * @returns {Function} The event handler function.
+     * @private 
+     */
+    _createClickHandler(eventToEmit) {
+        // Return a function that closes over eventToEmit
+        // Using a regular function here to ensure `this` refers to the component when bound
+        return function() { 
             console.log(`[${this.name}] Button clicked, emitting: ${eventToEmit}`);
             eventBus.emit(eventToEmit);
-        };
-        button.addEventListener('click', button._clickHandler);
+        }.bind(this); // Bind the returned function to the component instance
     }
 
-    /**
-     * Helper to remove a click listener added by _addButtonListener.
-     * @param {HTMLElement | null} button - The button element.
-     * @param {string} eventToEmit - The event associated (used for logging).
-     * @private
-     */
-    _removeButtonListener(button, eventToEmit) {
-        if (button && button._clickHandler) {
-            button.removeEventListener('click', button._clickHandler);
-            console.log(`[${this.name}] Removed listener for: ${eventToEmit}`);
-            delete button._clickHandler; // Clean up the stored handler
-        }
-    }
-
-    // Override destroy to clean up listeners
     destroy() {
         console.log(`[${this.name}] Destroying...`);
-        this._unbindEvents();
+        // No need to manually remove listeners added in registerListeners
         super.destroy();
     }
 }

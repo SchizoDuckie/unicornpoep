@@ -68,7 +68,7 @@
                    <div id="difficultySelection">
                        <label><input type="radio" name="difficulty" value="easy"> Denk het niet (⏱ 60)</label>
                        <label><input type="radio" name="difficulty" value="medium" checked> Misschien (⏱ 30)</label>
-                       <label><input type="radio" name="difficulty" value="hard"> Zeker wel! (⏱ 10)</label>
+                       <label><input type="radio" name="difficulty" value="hard"> Zeker wel! (⏱ 5)</label>
                    </div>
                </div>
                <!-- Sheet Navigation NOW ONLY CONTAINS Start Button -->
@@ -87,7 +87,7 @@
                         <div id="scoreDisplay">Score: 0</div> 
                         <div id="timerDisplay">00:00</div>
                         <!-- Timer Display Template -->
-                        <data data-translation-key="timerDefault">⏳</data> 
+                        <data id="timerDefault">⏳</data> 
                         <!-- NEW: Placeholder for sheet title -->
                         <div id="sheetTitleDisplay">Laden...</div> 
                     </div>
@@ -102,19 +102,20 @@
                     
                     <div id="playerListContainer">
                         <!-- Template for Player List Item (Previously Missing) -->
-                        <template id="player-list-item-template">
-                            <div class="opponent-entry" data-peer-id="">
-                                <span class="opponent-name"></span>
-                                <span class="opponent-score"></span>
-                                <span class="opponent-status"></span>
-                            </div>
-                        </template>
-                        <!-- Player list items will be added here by JS -->
-                        <!-- Moved Player List Templates -->
-                        <data data-translation-key="playerListUnnamed">Naamloos</data>
-                        <data data-translation-key="playerListHostTag">(Host)</data>
-                        <data data-translation-key="playerListYouTag">(Jij)</data>
+                        
                     </div> 
+                    <template id="player-list-item-template">
+                        <div class="opponent-entry" data-peer-id="">
+                            <span class="opponent-name"></span>
+                            <span class="opponent-score"></span>
+                            <span class="opponent-status"></span>
+                        </div>
+                    </template>
+                    <!-- Player list items will be added here by JS -->
+                    <!-- Moved Player List Templates -->
+                    <data data-translation-key="playerListUnnamed">Naamloos</data>
+                    <data data-translation-key="playerListHostTag">(Host)</data>
+                    <data data-translation-key="playerListYouTag">(Jij)</data>
                 </div>
                 <!-- Moved Countdown Template -->
                 <data data-translation-key="countdownGo">Go!</data>
@@ -126,6 +127,18 @@
                     <button id="nextButton" disabled>Volgende</button>
                     <button id="stopGame" class="button danger">Stop</button>
                 </div>
+                <template id="player-list-item-template">
+                            <div class="opponent-entry" data-peer-id="">
+                                <span class="opponent-name"></span>
+                                <span class="opponent-score"></span>
+                                <span class="opponent-status"></span>
+                            </div>
+                        </template>
+                        <!-- Player list items will be added here by JS -->
+                        <!-- Moved Player List Templates -->
+                        <data data-translation-key="playerListUnnamed">Naamloos</data>
+                        <data data-translation-key="playerListHostTag">(Host)</data>
+                        <data data-translation-key="playerListYouTag">(Jij)</data>
                 <!-- Moved QuizEngine Templates -->
                 <data data-translation-key="qeLoading">Vragen laden...</data>
                 <data data-translation-key="qeLoadError">Kon vragen niet laden.</data>
@@ -135,12 +148,13 @@
             <div id="multiplayerChoice" class="unicorn-theme hidden" >
                 <button class="backToMain">Terug</button>
                 <h2>Samen spelen</h2>
-                <div class="name-input-container">
-                    <label for="playerNameInput">Jouw naam:</label>
-                    <input type="text" id="playerNameInput" placeholder="Typ je naam...">
-                     <p id="choiceError" style="color: red;"></p> <!-- Added error display -->
+                <!-- RESTORED Name Input Container -->
+                <div class="name-input-container mb-4">
+                    <label for="playerNameInput" class="block mb-1">Jouw naam:</label>
+                    <input type="text" id="playerNameInput" placeholder="Typ je naam..." class="w-full p-2 rounded bg-white bg-opacity-20 focus:outline-none focus:ring-2 focus:ring-pink-400">
+                     <p id="choiceError" class="text-red-400 text-sm mt-1 hidden"></p> <!-- Adjusted error display -->
                 </div>
-
+                
                 <!-- Difficulty Selection -->
                 <div class="difficulty-selection-mp">
                     <h3>Kies Moeilijkheidsgraad:</h3>
@@ -158,84 +172,96 @@
                     </label>
                 </div>
 
-                <div class="button-group">
-                    <button id="hostGame" class="button primary">Host Spel</button>
-                    <button id="joinGame" class="button secondary">Join Spel</button>
-                </div>
+                
+                <button id="hostGame" class="button primary">Maak een spel aan</button>
+                <button id="joinGame" class="button secondary">Doe mee met een spel</button>
+            
                 <!-- Multiplayer Choice Templates -->
                 <data data-translation-key="mpChoiceErrorEmptyName">Vul alsjeblieft een naam in.</data>
-                <data data-translation-key="mpChoiceErrorNameTooLong">Naam mag maximaal 20 tekens lang zijn.</data>
+                <data data-translation-key="mpChoiceErrorNameTooLong">Naam mag maximaal 40 tekens lang zijn.</data>
             </div>
 
             <!-- Multiplayer Connection Status Dialog -->
-            <dialog id="connectionStatus" class="unicorn-theme hidden">
+            <dialog id="connectionStatus" class="hidden">
                 <button class="backToMain">Terug</button>
                 <h2>Samen spelen</h2>
 
                 <!-- Host View -->
-                <div id="connectionCode" class="connectionBox hidden">
-                    <p class="help-text">Deel deze code met de andere speler:</p>
-                    <!-- Restored Original Code Display Wrapper -->
-                    <div class="host-code-wrapper">
-                        <span id="hostCodeDisplay" class="host-code-text">Laden...</span> <!-- Added initial text -->
-                        <!-- Restored Copy Code Button with SVG -->
-                        <button id="copyCodeButton" class="copy-button" title="Kopieer code">
-                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                        </button>
-                        <!-- Restored WhatsApp Share Button with SVG -->
-                        <a id="whatsappShareButton" class="share-button whatsapp-button" href="#" target="_blank" title="Deel via WhatsApp" data-whatsapp-url="">
-                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
-                        </a>
+                <div id="connectionCode" class="unicorn-theme hidden host-view"> <!-- Added host-view class for clarity -->
+                    <!-- Removed host-lobby-content wrapper -->
+                    <!-- Removed Left Column wrapper -->
+                    <div class="host-lobby-section code-section"> <!-- Removed inline style -->
+                        <p class="help-text">Deel deze code met de andere speler:</p>
+                        <div class="host-code-wrapper">
+                            <span id="hostCodeDisplay" class="host-code-text">Laden...</span>
+                            <button id="copyCodeButton" class="copy-button" title="Kopieer code">
+                                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                            </button>
+                            <a id="whatsappShareButton" class="share-button whatsapp-button" href="#" target="_blank" title="Deel via WhatsApp" data-whatsapp-url="" data-share-text="Doe mee met mijn Unicorn Poep spel! Klik hier:">
+                                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                            </a>
+                        </div>
                     </div>
 
-                    <!-- Adapted Join Link Section with original styling approach -->
-                    <p class="help-text" style="margin-top: 15px;">Of deel deze directe link:</p>
-                    <div class="host-code-wrapper"> <!-- Reuse wrapper class -->
-                        <span id="hostJoinLinkDisplay" class="host-code-text join-link-text">Laden...</span> <!-- Reuse text class, add specific class, added initial text -->
-                        <!-- New Copy Link Button using the same SVG -->
-                        <button id="copyJoinLinkButton" class="copy-button" title="Kopieer link">
-                             <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                        </button>
+                    <div class="host-lobby-section link-section"> <!-- Removed inline style -->
+                        <p class="help-text">Of deel deze directe link:</p>
+                        <div class="host-code-wrapper">
+                            <span id="hostJoinLinkDisplay" class="host-code-text join-link-text">Laden...</span>
+                            <button id="copyJoinLinkButton" class="copy-button" title="Kopieer link">
+                                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                            </button>
+                        </div>
                     </div>
-                    <!-- End Adapted Join Link Section -->
+                    
+                    <!-- Player List Section -->
+                    <div class="host-lobby-section player-list-section"> <!-- Removed inline style -->
+                        <p id="hostWaitingText" class="waitingText">
+                            <span id="host-status-initializing" class="host-status hidden" data-translation-key="host-status-initializing">Host initialiseren...</span>
+                            <span id="host-status-waiting" class="host-status hidden">
+                                <span id="playerCount" class="font-bold text-xl">0</span>
+                                <span id="playerLabelSingular"> andere speler</span><span id="playerLabelPlural" class="hidden"> andere spelers</span> verbonden.
+                            </span>
+                        </p>
+                        <!-- Player names list container -->
+                        <div id="hostPlayerListContainer" class="player-list-container">
+                            <ul id="hostPlayerList" class="player-list"></ul>
+                            <p id="hostPlayerListPlaceholder" class="italic text-gray-400">Nog geen andere spelers...</p> 
+                        </div>
+                    </div>
+                    
+                    <!-- Start Button Section -->
+                    <div class="host-lobby-section start-section"> <!-- Removed inline style -->
+                        <p class="help-text mb-2">Start het spel wanneer je klaar bent!</p>
+                        <button id="hostStartButton" class="menuButton yellow-button hidden">Start Spel!</button>
+                    </div>
 
-                    <!-- Waiting text structure for translation -->
-                    <p id="hostWaitingText" class="waitingText">
-                         <data data-translation-key="host-status-initializing">Host initialiseren...</data>
-                         <span id="host-status-waiting" class="hidden">
-                             <data data-translation-key="host-wait-label" class="wait-label">Wachten op spelers...</data>
-                             (<span class="player-count">0</span>
-                             <data data-translation-key="host-player-label-singular" class="player-label-singular">speler</data>
-                             <data data-translation-key="host-player-label-plural" class="player-label-plural hidden">spelers</data>
-                             <data data-translation-key="host-connected-label" class="connected-label">verbonden</data>)
-                         </span>
-                    </p>
-                    <!-- Added Host Error Display Area -->
-                    <div id="hostErrorDisplay" class="error-message hidden" style="color: var(--color-warning); margin-top: 10px;">
-                         <!-- Errors will be populated here by JS using keys below -->
-                        <data data-translation-key="mpHostErrorNoQuestions" class="hidden">Geen vragen geladen voor de geselecteerde lijsten/moeilijkheid.</data>
-                        <data data-translation-key="mpHostErrorStartPrefix" class="hidden">Host fout bij starten spel: </data> <!-- Note: The JS will append the specific error -->
-                        <data data-translation-key="mpHostErrorNextQPrefix" class="hidden">Host fout: Kon vraagdata niet ophalen voor index </data> <!-- Note: The JS will append the index -->
-                    </div>
-                    <button id="hostStartButton" class="menuButton yellow-button hidden">Start Spel!</button>
+                    <!-- Error Display -->
+                    <div id="hostErrorDisplay" class="error-message hidden"></div> <!-- Removed inline style -->
+
                     <!-- Host Lobby Templates (General) -->
                     <data data-translation-key="hostLoading">Laden...</data>
                     <data data-translation-key="hostWhatsappShare">Doe mee met mijn Unicorn Poep spel! Klik hier:</data>
+                     <data data-translation-key="hostLobbyErrorCode">Fout!</data>
+                     <data data-translation-key="hostLobbyErrorLink">Link fout!</data>
+                     <data data-translation-key="mpHostErrorNoQuestions">Geen vragen geladen voor de geselecteerde lijsten/moeilijkheid.</data>
+                     <data data-translation-key="mpHostErrorStartPrefix">Host fout bij starten spel: </data>
+                     <data data-translation-key="mpHostErrorNextQPrefix">Host fout: Kon vraagdata niet ophalen voor index </data>
+
                 </div>
 
                 <!-- Client Join View -->
-                <div id="joinView" class="connectionBox hidden">
-                    <p id="joinWelcomeMessage" class="help-text" style="font-size: 1.2em; margin-bottom: 20px;" data-welcome-text="Hoi! Iemand heeft je uitgenodigd om Unicorn Poep te spelen! Voer hieronder de code in die je hebt gekregen.">Hoi! Iemand heeft je uitgenodigd om Unicorn Poep te spelen! Voer hieronder de code in die je hebt gekregen.</p>
+                <div id="joinView" class="connectionBox unicorn-theme hidden">
+                    <p id="joinPlayerName" class="help-text" style="font-size: 1.2em; margin-bottom: 20px;" data-welcome-text="Hoi! Iemand heeft je uitgenodigd om Unicorn Poep te spelen! Voer hieronder de code in die je hebt gekregen.">Hoi! Iemand heeft je uitgenodigd om Unicorn Poep te spelen! Voer hieronder de code in die je hebt gekregen.</p>
                     <input type="number" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Voer 6-cijferige code in" id="connectionCodeInput" data-placeholder-text="Voer 6-cijferige code in">
                     <button id="submitCode" class="menuButton yellow-button" data-button-text="Verbinden">Verbinden</button>
                     <p class="help-text" data-help-text="Vraag de andere speler om de code">Vraag de andere speler om de code</p>
-                    <p id="connectionErrorMessage" class="hidden"></p>
+                    <p id="connectionErrorMessage" class="error-message hidden"></p>
                     <!-- Join Lobby Templates (Join View Specific & Errors) -->
                      <data data-translation-key="joinWelcome">Hoi %NAME%! Voer de code in die je van de host hebt gekregen.</data>
                      <data data-translation-key="joinErrorConnectPrefix">Kon niet verbinden: </data>
                      <data data-translation-key="joinErrorInvalidCode">Voer een geldige 6-cijferige code in.</data>
                      <data data-translation-key="joinErrorEmptyName">Vul alsjeblieft je naam in.</data>
-                     <data data-translation-key="joinErrorNameTooLong">Naam mag maximaal 20 tekens lang zijn.</data>
+                     <data data-translation-key="joinErrorNameTooLong">Naam mag maximaal 40 tekens lang zijn.</data>
                 </div>
 
                 <!-- Client Fetching Info View -->
@@ -245,21 +271,30 @@
                 </div>
 
                 <!-- Client Join Confirmation View -->
-                <div id="joinConfirmView" class="connectionBox hidden">
-                    <h2 data-confirm-title="Meedoen met spel?">Meedoen met spel?</h2>
-                    <div id="joinGameInfo">
-                        <!-- Game info populated by JS -->
+                <div id="joinConfirmView" class="connectionBox unicorn-theme hidden join-confirm-grid"> <!-- Added class for grid styling -->
+                    <h2 data-confirm-title="Meedoen met spel?" class="join-confirm-title">Meedoen met spel?</h2>
+                    
+                    <!-- Left Column with Panel -->
+                    <div class="host-lobby-section join-confirm-left-panel"> 
+                        <p class="help-text panel-title">Spel Details:</p> <!-- Added class -->
+                        <div id="joinGameInfo" class="game-info-display"> 
+                            <!-- Game info populated by JS -->
+                        </div>
                     </div>
-                    <!-- Added Player Name Input -->
-                    <div class="name-input-container">
-                        <label for="joinConfirmPlayerNameInput" data-name-label="Jouw Naam:">Jouw Naam:</label>
-                        <input type="text" id="joinConfirmPlayerNameInput" class="name-input" placeholder="Naam" data-name-placeholder="Naam" required>
+
+                    <!-- Right Column with Panel -->
+                    <div class="host-lobby-section join-confirm-right-panel"> 
+                        <div class="name-input-container"> 
+                            <label for="joinConfirmPlayerNameInput" data-name-label="Jouw Naam:" class="help-text">Jouw Naam:</label> 
+                            <input type="text" id="joinConfirmPlayerNameInput" placeholder="Naam" data-name-placeholder="Naam" required>
+                        </div>
                     </div>
-                    <!-- End Added Player Name Input -->
-                    <div class="button-group">
+                    
+                    <div class="dialog-buttons join-confirm-buttons"> 
                         <button id="confirmJoinButton" class="menuButton green-button" data-confirm-button="Ja, doe mee!">Ja, doe mee!</button>
                         <button id="cancelJoinButton" class="menuButton red-button" data-cancel-button="Annuleren">Annuleren</button>
                     </div>
+                    
                     <!-- Join Lobby Templates (Confirm View Specific & Fallbacks) -->
                     <data data-translation-key="joinDefaultPlayerName">Player</data>
                     <data data-translation-key="joinInfoUnknown">Unknown</data>
@@ -426,31 +461,25 @@
          </dialog>
 
          <dialog id="disconnectionDialog" class="unicorn-theme hidden">
-             <h2>Verbinding verbroken</h2>
-             <p id="disconnectionMessage">De andere speler heeft de verbinding verbroken.</p>
-             <div id="endGameButtons">
-                 <button id="backToMainMenu">Terug naar hoofdmenu</button>
-             </div>
-             <!-- Moved Disconnect Template -->
+             <h2>Verbinding Verbroken</h2>
+             <p class="dialog-message">Verbinding verbroken.</p>
+             <button id="disconnectionOkButton" class="button primary">OK</button>
+             <!-- Disconnection Dialog Templates -->
              <data data-translation-key="disconnectDefault">De andere speler heeft de verbinding verbroken.</data>
          </dialog>
 
          <!-- Corrected Name Prompt Dialog (Matching Multiplayer Input Pattern) -->
          <dialog id="namePromptDialog" class="unicorn-theme hidden">
-             <h2>Naam invoeren</h2>
-             <p>Voer je naam in om mee te spelen:</p>
-             <div class="name-input-container"> 
-                 <input type="text" id="namePromptInput" placeholder="Jouw naam" maxlength="20" autocomplete="off">
-             </div>
-             <div id="endGameButtons"> 
-                 <button id="namePromptConfirm">Ok</button>
-             </div>
+             <h2>Hoe heet je?</h2>
+             <input type="text" id="namePromptInput" placeholder="Naam...">
+             <p id="nameError" class="error-message hidden"></p>
+             <button id="namePromptConfirm">Ok</button>
          </dialog>
 
-         <dialog id="errorDialog" class="unicorn-theme hidden"> <!-- Assuming generic error dialog exists -->
-             <h2>Fout</h2>
-             <p id="errorMessage"></p>
-             <button id="errorOkButton">Ok</button>
+         <dialog id="errorDialog" class="unicorn-theme hidden">
+             <h2 class="dialog-title">Fout</h2>
+             <p class="dialog-message">Er is een onbekende fout opgetreden.</p>
+             <button class="dialog-close-button" data-dialog-close>OK</button>
          </dialog>
 
          <!-- New Multiplayer End Results Dialog -->
@@ -502,11 +531,11 @@
 
          <!-- New Confirmation Dialog -->
          <dialog id="confirmationDialog" class="unicorn-theme">
-             <h2 id="confirmationTitle">Bevestiging</h2>
-             <p id="confirmationMessage">Weet je het zeker?</p>
-             <div class="dialog-buttons buttons">
-                 <button id="confirmOkButton" class="button button-primary">Ok</button>
-                 <button id="confirmCancelButton" class="button button-secondary" autofocus>Annuleren</button> 
+             <h2 id="confirmationTitle">Bevestigen</h2>
+             <p class="dialog-message">Weet je het zeker?</p>
+             <div class="dialog-actions"> 
+                 <button id="cancelButton" class="button secondary">Nee</button>
+                 <button id="confirmButton" class="button primary">Ja</button>
              </div>
              <!-- Moved Confirmation Dialog Templates -->
              <data data-translation-key="confirmDefaultTitle">Bevestiging</data>
@@ -517,6 +546,60 @@
              <data data-translation-key="deleteSheetOk">Verwijder</data>
              <data data-translation-key="deleteSheetCancel">Annuleren</data>
          </dialog>
+
+         <!-- START Waiting Dialog -->
+         <dialog id="waitingDialog" class="dialog unicorn-theme">
+           <div class="dialog-content text-center"> <!-- Added text-center -->
+             <!-- Title using translation key -->
+             <h2 data-translation-key="waitingDialogTitle" class="text-2xl font-bold mb-4">Wachten op de Baas...</h2>
+
+             <!-- Message using translation key - CORRECTED CLASS -->
+             <p class="dialog-message" data-translation-key="waitingDialogDefaultMsg">Even geduld, de baas van het spel gaat zo beginnen!</p> <!-- Changed id="waitingMessage" class="mb-4" to class="dialog-message" -->
+
+             <!-- Cute animated unicorn/poop image -->
+             <img src="img/loading.gif" alt="Wachten..." class="mx-auto my-4 h-20 w-20"> <!-- Use your loading gif -->
+
+             <!-- Optional: Spinner (if the gif isn't animated) -->
+             <!-- <div class="spinner" style="margin: 1em auto; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--color-accent); border-radius: 50%; animation: spin 1s linear infinite;"></div> -->
+
+             <!-- Optional: Add a cancel button if needed later, with translation -->
+             <!--
+             <button id="cancelWaitingButton" class="button secondary mt-4" data-translation-key="waitingDialogCancel">Annuleren</button>
+             -->
+           </div>
+         </dialog>
+         <!-- END Waiting Dialog -->
+
+         <!-- START Multiplayer Lobby Dialog -->
+         <dialog id="multiplayerLobbyDialog" class="dialog unicorn-theme hidden">
+             <h2 class="dialog-title">Lobby</h2> <!-- Assuming title class -->
+             <p id="lobbyStatusText" class="dialog-status">Wachten...</p> <!-- Added status text -->
+             <ul id="lobbyPlayerList" class="player-list"></ul> <!-- Added player list UL -->
+             <div class="dialog-actions">
+                  <!-- Add the standard back button -->
+                  <button class="backToMain button">Terug</button> 
+                  <!-- <button id="lobbyLeaveButton" class="button danger">Verlaat Lobby</button> --> <!-- Removed leave button -->
+             </div>
+              <!-- Lobby Dialog Templates -->
+              <data data-translation-key="lobbyWaitingForHost">Wachten tot host spel start...</data>
+              <data data-translation-key="lobbyWaitingForPlayers">Wachten op spelers...</data>
+              <!-- Template for player item in lobby - CORRECTED ID -->
+              <template id="lobby-player-item-template"> <!-- Corrected ID -->
+                  <li class="lobby-player-item" data-peer-id="">
+                      <span class="lobby-player-name"></span>
+                      <span class="lobby-player-tags"></span>
+                  </li>
+              </template>
+         </dialog>
+         <!-- END Multiplayer Lobby Dialog -->
+
+         <!-- Add spinner CSS if you choose to use the div spinner -->
+         <style>
+         @keyframes spin {
+           0% { transform: rotate(0deg); }
+           100% { transform: rotate(360deg); }
+         }
+         </style>
 
          <!-- Toast Notification Area -->
          <div id="toastNotification" class="hidden">
@@ -556,16 +639,48 @@
 
     <div id="text-templates" style="display: none;">
         <!-- ... existing templates ... -->
+        
+        <data data-translation-key="timerDefault">⏳</data> 
+        <data data-translation-key="hostLoading">Laden...</data> 
+        <data data-translation-key="errorDialogHostUnavailable">Oeps! Kon het spelletje niet vinden. Misschien is de code niet goed, of is de ander al gestopt?</data>
+        <data data-translation-key="errorDialogNetwork">Oeps! Er is iets mis met het internet. Vraag papa of mama even om te kijken!</data>
+        <data data-translation-key="errorDialogGenericConnection">Oeps! Er ging iets mis met verbinden. Probeer het nog een keer!</data>
+        <data data-translation-key="genericInternalError">Er is een onverwachte fout opgetreden. Probeer het opnieuw.</data>
+        <data data-translation-key="gameWarnAlreadyActive">Je bent al in een spel!</data>
+        <data data-translation-key="gameErrorStartWhileActive">Kan geen nieuw spel starten, er is al een spel actief.</data>
+        <data data-translation-key="defaultPlayerName">Speler</data>
+        <data data-translation-key="gameErrorHostWhileActive">Kan geen host starten, er is al een spel bezig.</data>
+        <data data-translation-key="mpHostErrorInitFail">Kon multiplayer host niet starten.</data>
+        <data data-translation-key="mpClientErrorGameStartFail">Kon niet meedoen met spel.</data>
+        <data data-translation-key="qmFetchError">Fout bij ophalen vragenlijsten.</data>
+        <data data-translation-key="joinInfoUnknown">Onbekend</data>
+        <data data-translation-key="joinInfoDefaultHost">Host</data>
+        <data data-translation-key="joinInfoDefaultDifficulty">Normaal</data>
+        <data data-translation-key="joinInfoNoSheets">N.v.t.</data>
+        <data data-translation-key="joinInfoNoSheetsSelected">Geen lijsten geselecteerd</data>
+        <data data-translation-key="joinErrorConnectPrefix">Verbindingsfout: </data>
+        <data data-translation-key="joinErrorInvalidCode">Ongeldige code (6 cijfers aub).</data>
+        <data data-translation-key="joinErrorEmptyName">Naam mag niet leeg zijn.</data>
+        <data data-translation-key="joinErrorNameTooLong">Naam mag max 20 karakters.</data>
+        <data data-translation-key="joinErrorConnectFail">Kon niet verbinden met host.</data>
 
-        <!-- ADD THESE -->
-        <data id="genericInternalError" value="Er is een onverwachte fout opgetreden. Probeer het opnieuw."></data>
-        <data id="gameWarnAlreadyActive" value="Je bent al in een spel!"></data>
-        <data id="gameErrorStartWhileActive" value="Kan geen nieuw spel starten, er is al een spel bezig."></data>
-        <data id="defaultPlayerName" value="Speler"></data>
-        <data id="gameErrorHostWhileActive" value="Kan geen host starten, er is al een spel bezig."></data>
+        <!-- Waiting Dialog Translations -->
+        <data data-translation-key="waitingDialogTitle">Wachten op de Baas...</data>
+        <data data-translation-key="waitingDialogDefaultMsg">Even geduld, de baas van het spel gaat zo beginnen!</data>
+        <!-- <data data-translation-key="waitingDialogCancel">Annuleren</data> --> <!-- Uncomment if adding cancel button -->
 
-        <!-- ... other existing templates ... -->
+        <data data-translation-key="lobbyReadyTag">[IS ER KLAAR VOOR]</data>
+
     </div>
+
+    <!-- Add more template keys as needed -->
+    <data data-translation-key="namePromptTitle">Enter Your Name</data>
+    <data data-translation-key="namePromptButton">Join Game</data>
+    <data data-translation-key="hostLobbyLinkCopied">Join link copied to clipboard!</data>
+    <data data-translation-key="hostLobbyCodeCopied">Host code copied to clipboard!</data> <!-- Added just in case -->
+
+    <!-- General UI -->
+    <data data-translation-key="backButton">Back</data>
 
 </body>
 </html>

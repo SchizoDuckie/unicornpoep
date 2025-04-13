@@ -5,52 +5,58 @@ import Views from '../core/view-constants.js';
 import { getTextTemplate } from '../utils/miscUtils.js';
 
 /**
- * Component managing the global loading indicator (#loading).
+ * Manages the loading indicator display.
  */
 export default class LoadingComponent extends BaseComponent {
+    static SELECTOR = '#loading';
+    static VIEW_NAME = 'LoadingComponent';
+
     /**
      * Initializes the LoadingComponent.
      */
     constructor() {
-        super('#loading', Views.Loading);
-        
-        // Unlike other views, Loading might start visible in the HTML,
-        // BaseComponent constructor correctly detects initial state.
-
-        this.listenForEvents();
-        console.log("[LoadingComponent] Initialized. Initial visibility: ", this.isVisible);
+        super();
+        console.log("[LoadingComponent] Constructed (via BaseComponent).");
+    }
+    
+    // Initialize can be empty if no specific elements needed beyond root
+    initialize() {
+        // Query for the text element if needed for messages
+        this.textElement = this.rootElement.querySelector('h1');
+        console.log(`[${this.name}] Initialized.`);
     }
 
-    /**
-     * Listens for events that should show/hide the loading indicator.
-     * @private
+    /** 
+     * Registers DOM and eventBus event listeners.
+     * Called by BaseComponent constructor.
      */
-    listenForEvents() {
+    registerListeners() {
+        // Bind handlers
+        this._handleLoadingStart = this._handleLoadingStart.bind(this);
+        this._handleLoadingEnd = this._handleLoadingEnd.bind(this);
+        
         // Listen for explicit loading events
-        this.listen(Events.System.LoadingStart, this.handleLoadingStart);
-        this.listen(Events.System.LoadingEnd, this.handleLoadingEnd);
+        this.listen(Events.System.LoadingStart, this._handleLoadingStart);
+        this.listen(Events.System.LoadingEnd, this._handleLoadingEnd);
+        
+        console.log(`[${this.name}] Listeners registered.`);
     }
 
-    /** Handles the LoadingStart event. @private */
-    handleLoadingStart = (payload = {}) => {
-        // Optionally display a message if provided in payload
+    // Define handlers as regular methods
+    _handleLoadingStart(payload = {}) {
         const message = payload.message || getTextTemplate('loadingDefault');
-        if (this.rootElement) {
-            // Example: Update a text element within the loading indicator if it exists
-            const textElement = this.rootElement.querySelector('h1'); // Assuming an h1 for text
-            if (textElement) {
-                textElement.textContent = message;
-            }
+        if (this.textElement) { // Use queried element
+            this.textElement.textContent = message;
         }
         console.debug(`[${this.name}] Showing loading indicator. Message: ${message}`);
         this.show();
     }
 
-    /** Handles the LoadingEnd event. @private */
-    handleLoadingEnd = () => {
+    _handleLoadingEnd() {
         console.debug(`[${this.name}] Hiding loading indicator.`);
         this.hide();
     }
 
-    // BaseComponent show/hide methods are sufficient for this component.
+    // BaseComponent show/hide methods are sufficient.
+    // No specific destroy logic needed beyond BaseComponent.
 } 

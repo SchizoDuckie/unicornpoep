@@ -9,69 +9,64 @@ import { getTextTemplate } from '../utils/miscUtils.js';
  * @extends BaseDialog
  */
 class DisconnectionDialog extends BaseDialog {
-    /**
-     * Creates an instance of DisconnectionDialog.
-     */
-    constructor() {
-        super('#disconnectionDialog', 'DisconnectionDialog');
+    static SELECTOR = '#disconnectionDialog';
+    static VIEW_NAME = 'DisconnectionDialog';
 
-        // Find elements (rootElement guaranteed by super())
-        this.messageElement = this.rootElement.querySelector('#disconnectionMessage');
-        this.menuButton = this.rootElement.querySelector('#backToMainMenu'); // Button ID from HTML
+    /** Initializes component elements. */
+    initialize() {
+        this.messageElement = this.rootElement.querySelector('.dialog-message'); // Generic message class
+        this.okButton = this.rootElement.querySelector('#disconnectionOkButton'); // Specific OK button
 
-        if (!this.messageElement || !this.menuButton) {
-            // Throw if essential elements are missing
-            throw new Error(`[${this.name}] Missing required child elements within #disconnectionDialog: #disconnectionMessage or #backToMainMenu.`);
-        }
+        if (!this.messageElement) console.error(`[${this.name}] Missing required child element .dialog-message.`);
+        if (!this.okButton) console.error(`[${this.name}] Missing required child element #disconnectionOkButton.`);
 
         this._bindMethods();
-        this._addEventListeners();
+        // Listeners added by registerListeners
+        console.log(`[${this.name}] Initialized.`);
     }
 
-    /** Binds component methods to the class instance. */
     _bindMethods() {
-        this.handleMenu = this.handleMenu.bind(this);
+        this.handleOk = this.handleOk.bind(this);
     }
 
-    /** Adds specific DOM event listeners for this dialog. */
-    _addEventListeners() {
-        this.menuButton.addEventListener('click', this.handleMenu);
-        // No specific close listener needed as BaseDialog handles ESC
+    /** Registers DOM listeners. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering DOM listeners.`);
+        if (this.okButton) {
+             this.okButton.addEventListener('click', this.handleOk);
+        } else {
+             console.warn(`[${this.name}] OK button not found, cannot add listener.`);
+        }
     }
 
-    /** Removes specific DOM event listeners. */
-    _removeEventListeners() {
-        // Constructor throws if menuButton is missing, so we can assume it exists here.
-        this.menuButton.removeEventListener('click', this.handleMenu);
+    /** Unregisters DOM listeners. */
+    unregisterListeners() {
+        console.log(`[${this.name}] Unregistering DOM listeners.`);
+        if (this.okButton) {
+             this.okButton.removeEventListener('click', this.handleOk);
+        }
     }
 
-    /**
-     * Handles the return to menu button click.
-     */
-    handleMenu() {
-        console.debug(`[${this.name}] Return to menu clicked.`);
-        // Use ReturnToMenu event for consistency.
-        eventBus.emit(Events.UI.EndDialog.ReturnToMenuClicked);
+    /** Handles the OK button click */
+    handleOk() {
+        console.debug(`[${this.name}] OK button clicked.`);
         this.hide();
+        // Optionally emit an event to navigate back to the main menu
+        eventBus.emit(Events.UI.Dialog.ReturnToMenuClicked);
     }
 
-    /**
-     * Shows the dialog and sets the disconnection message.
-     * @param {string} [message] - The message to display (defaults to template).
-     */
-    show(message = getTextTemplate('disconnectDefault')) {
-        // Constructor throws if messageElement is missing, safe to use here.
-
-        console.debug(`[${this.name}] Showing disconnection dialog: ${message}`);
-        this.messageElement.textContent = message;
-        super.show(); // Call BaseDialog's showModal logic
+    /** Shows the dialog with a specific message */
+    show(message = 'You have been disconnected.') { // Provide a default message
+        if (this.messageElement) {
+            this.messageElement.textContent = message;
+        }
+        super.show(); // Call BaseDialog show
     }
-
-    /**
-     * Overrides base destroy method to remove specific DOM listeners.
-     */
+    
+    // Override destroy to ensure listeners are removed
     destroy() {
-        this._removeEventListeners();
+        console.log(`[${this.name}] Destroying...`);
+        this.unregisterListeners(); // Ensure DOM listeners are removed
         super.destroy();
     }
 }

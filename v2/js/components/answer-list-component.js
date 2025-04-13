@@ -3,7 +3,6 @@ import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
 
-// Define the CSS class for the answer buttons (matches V1 CSS/HTML)
 const ANSWER_BUTTON_CLASS = 'answer-button';
 const CORRECT_CLASS = 'correct-answer';
 const INCORRECT_CLASS = 'wrong-answer';
@@ -14,71 +13,77 @@ const SELECTED_CLASS = 'selected'; // Used for immediate feedback
  * Listens for new questions to populate the list and for answer checks to provide feedback.
  * Emits an event when an answer is selected by the user.
  * Uses BUTTON elements directly.
+ *
  * @extends BaseComponent
  */
 class AnswerListComponent extends BaseComponent {
-    /**
-     * Creates an instance of AnswerListComponent.
-     */
+    static SELECTOR = '#answers';
+    static VIEW_NAME = 'AnswerListComponent';
+
+    /** Initializes component elements. */
     constructor() {
-        // Target the div container
-        super('#answers', Views.AnswerList); 
-        this.isAnswerable = false;
+        super(); // Call BaseComponent constructor
+        console.log("[AnswerListComponent] Constructed (via BaseComponent).");
+    }
 
-        // --- REMOVE Template Logic ---
-        // const templateSelector = '#answer-item-template'; 
-        // this.template = document.querySelector(templateSelector);
-        // if (!this.template) {
-        //     console.error(`[${this.name}] Answer item template not found with selector: ${templateSelector}`);
-        //     this.rootElement = null; 
-        //     return;
-        // }
-        // --- END REMOVE ---
-
-        // Ensure the rootElement (div#answers) exists
-        if (!this.rootElement) {
-            throw new Error(`AnswerListComponent: Root element ('#answers') not found.`);
-       }
-
-        this._bindMethods();
-        this._addEventListeners(); // Keep original listeners
+    /**
+     * Initializes the component, setting up the root element and binding methods.
+     */
+    initialize() {
+        console.log(`[${this.name}] Initializing...`);
+        this.listElement = this.rootElement; 
+        if (!this.listElement) {
+             throw new Error(`[${this.name}] Root element not found with selector: ${this.selector}`);
+        }
+        this._clearAnswers(); // Initial state
         
-        // Listen for game events
-        this.listen(Events.Game.QuestionNew, this.handleNewQuestion);
+        // --- BIND ALL METHODS HERE --- 
+        console.log(`[${this.name}] Binding methods in initialize...`);
+        this._handleQuestionNew = this._handleQuestionNew.bind(this);
+        
+        // --- Ensure exact name match for the failing bind --- 
+        this._handleAnswerClick = this._handleAnswerClick.bind(this); 
+        // --- End exact name check --- 
+
+        this._handleTimeUp = this._handleTimeUp.bind(this);
+        this._handleFeedback = this._handleFeedback.bind(this); 
+        this._handleGameFinished = this._handleGameFinished.bind(this);
+        this._handleKeyDown = this._handleKeyDown.bind(this);
+        console.log(`[${this.name}] Methods bound in initialize.`);
+        
+        console.log(`[${this.name}] Initialized.`);
+    }
+
+    /**
+     * Registers DOM listeners and eventBus listeners using pre-bound methods.
+     */
+    registerListeners() {
+        console.log(`[${this.name}] Registering listeners.`);
+        
+        // DOM Listeners (Event delegation on root)
+        if (this.listElement) {
+             this.listElement.addEventListener('click', this._handleAnswerClick); // Uses bound method
+             this.listElement.addEventListener('keydown', this._handleKeyDown);   // Uses bound method
+        }
+        
+        // eventBus Listeners (Uses bound methods via this.listen)
+        this.listen(Events.Game.QuestionNew, this._handleQuestionNew);
         this.listen(Events.Game.AnswerChecked, this._handleFeedback);
-        this.listen('multiplayer:client:answerResult', this._handleFeedback);
-    }
-
-    /** Binds component methods to the class instance. */
-    _bindMethods() {
-        // Keep original bindings
-        this.handleAnswerClick = this.handleAnswerClick.bind(this);
-        this.handleNewQuestion = this.handleNewQuestion.bind(this);
-        this._handleFeedback = this._handleFeedback.bind(this);
-        this.handleKeyDown = this.handleKeyDown.bind(this); 
-    }
-
-    /** Adds DOM event listeners. */
-    _addEventListeners() {
-        // Keep original listeners on the root element
-        this.rootElement.addEventListener('click', this.handleAnswerClick);
-        this.rootElement.addEventListener('keydown', this.handleKeyDown); 
-    }
-
-    /** Removes DOM event listeners. */
-    _removeEventListeners() {
-        // Keep original removal logic
-        this.rootElement.removeEventListener('click', this.handleAnswerClick);
-        this.rootElement.removeEventListener('keydown', this.handleKeyDown);
+        this.listen(Events.Multiplayer.Client.AnswerResult, this._handleFeedback);
+        this.listen(Events.Game.TimeUp, this._handleTimeUp);
+        this.listen(Events.Game.Finished, this._handleGameFinished);
+        
+        console.log(`[${this.name}] Listeners registered.`);
     }
 
     /**
      * Handles keydown events on the answer list for accessibility.
      * Allows navigation with arrow keys and selection with Enter/Space.
-     * ADAPTED FOR BUTTONS.
-     * @param {KeyboardEvent} event
+     * Adapted for BUTTON elements.
+     *
+     * @param {KeyboardEvent} event - The keydown event object.
      */
-    handleKeyDown(event) {
+    _handleKeyDown(event) {
         if (!this.isAnswerable) return; 
 
         // *** CHANGE: Target buttons instead of li items ***
@@ -120,23 +125,21 @@ class AnswerListComponent extends BaseComponent {
     }
 
     /**
-     * Handles clicks within the answer list container. Uses event delegation.
-     * ADAPTED FOR BUTTONS.
-     * @param {Event} event - The click event.
+     * Handles clicks within the answer list container using event delegation.
+     *
+     * @param {Event} event - The click event object.
      */
-    handleAnswerClick(event) {
+    _handleAnswerClick(event) { // <<< Ensure name matches exactly
         if (!this.isAnswerable) return; 
-
-        // *** CHANGE: Target buttons instead of li items ***
         const answerButton = event.target.closest(`button.${ANSWER_BUTTON_CLASS}`); 
-        if (!answerButton || answerButton.disabled) return; // Clicked outside a button or on a disabled one
-
+        if (!answerButton || answerButton.disabled) return;
         this._submitAnswer(answerButton);
     }
 
     /**
      * Processes the submission of an answer, whether by click or keyboard.
-     * ADAPTED FOR BUTTONS.
+     * Adapted for BUTTON elements.
+     *
      * @param {HTMLButtonElement} answerButton - The selected button element.
      * @private
      */
@@ -155,11 +158,12 @@ class AnswerListComponent extends BaseComponent {
 
     /**
      * Populates the container with new answer BUTTONS when a new question is received.
+     *
      * @param {object} payload - The event payload.
      * @param {object} payload.questionData - Data for the new question.
      * @param {string[]} payload.questionData.answers - Array of answer strings.
      */
-    handleNewQuestion({ questionData }) {
+    _handleQuestionNew({ questionData }) {
         // --- REPLACE Template Logic with Button Creation ---
         console.debug(`[${this.name}] Displaying new answer buttons.`);
         this._clearAnswers(); // Clear previous buttons
@@ -200,7 +204,10 @@ class AnswerListComponent extends BaseComponent {
         }
     }
     
-    /** Clears existing answer buttons. @protected */
+    /**
+     * Clears existing answer buttons.
+     * @protected
+     */
     _clearAnswers() {
         if (this.rootElement) {
             this.rootElement.innerHTML = ''; 
@@ -211,6 +218,7 @@ class AnswerListComponent extends BaseComponent {
     /**
      * Unified handler for providing visual feedback on answer buttons.
      * Handles payloads from both Events.Game.AnswerChecked and multiplayer:client:answerResult.
+     *
      * @param {object} payload - The event payload.
      * @param {boolean} payload.isCorrect - Whether the submitted answer was correct.
      * @param {string} payload.correctAnswer - The correct answer text.
@@ -262,19 +270,49 @@ class AnswerListComponent extends BaseComponent {
         this.isAnswerable = false; 
     }
 
-     /** Disables all answer buttons. */
-     disableInteraction() {
-         if (!this.rootElement) return;
-         const buttons = this.rootElement.querySelectorAll(`button.${ANSWER_BUTTON_CLASS}`);
-         buttons.forEach(button => button.disabled = true);
-     }
+    /**
+     * Disables all answer buttons.
+     */
+    disableInteraction() {
+        if (!this.rootElement) return;
+        const buttons = this.rootElement.querySelectorAll(`button.${ANSWER_BUTTON_CLASS}`);
+        buttons.forEach(button => button.disabled = true);
+    }
 
     /**
      * Overrides base destroy method to remove specific DOM listeners.
      */
     destroy() {
-        this._removeEventListeners(); // Keep original removal
+        // Ensure specific DOM listeners are removed if added directly (like keydown)
+        // BaseComponent handles listeners added via this.listen() and addEventListener in registerListeners
+        if (this.listElement) {
+            this.listElement.removeEventListener('click', this._handleAnswerClick);
+            this.listElement.removeEventListener('keydown', this._handleKeyDown);
+        }
         super.destroy(); 
+        console.log(`[${this.name}] Destroyed.`);
+    }
+
+    /** 
+     * Handles the game time running out and disables interaction.
+     * @private 
+     */
+    _handleTimeUp() {
+        console.debug(`[${this.name}] Time up.`);
+        this.isAnswerable = false;
+        this.disableInteraction();
+        // Optionally add visual feedback for time up
+    }
+
+    /**
+     * Handles the game finishing and clears the answers.
+     * @private
+     */
+    _handleGameFinished() {
+        console.debug(`[${this.name}] Game finished.`);
+        this._clearAnswers();
+        this.isAnswerable = false;
+        // Component might be hidden by GameArea or UIManager anyway
     }
 }
 

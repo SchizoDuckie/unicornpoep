@@ -12,15 +12,15 @@ digraph GameEndFlow_WithBus {
     BaseGameMode [shape="record", style="rounded,filled", fillcolor="#343a40", color="#20c997", penwidth=2,
                   label="{ Game Mode (Any) | {<emits_fin> Emits: Game.Finished} }"];
     GameEndDialog [shape="record", style="rounded,filled", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
-                   label="{ Game End Dialog UI | {<handles_fin> Handles: Game.Finished} | {<emits_menu> Emits: UI.ReturnToMenu} | {<emits_play> Emits: UI.PlayAgain} }"];
+                   label="{ Game End Dialog UI | {<handles_fin> Handles: Game.Finished} | {<emits_menu> Emits: UI.GameEndDialog.ReturnToMenuClicked} | {<emits_play> Emits: UI.GameEndDialog.PlayAgainClicked} }"];
     HighscoresComponent [shape="record", style="rounded,filled", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
                          label="{ Highscores UI | {<handles_loaded> Handles: Highscores.Loaded} | {<handles_failed> Handles: Highscores.Failed} }"];
     MainMenuComponent [shape="record", style="rounded,filled", fillcolor="#343a40", color="#0dcaf0", penwidth=2,
-                       label="{ MainMenu UI | {<emits_hs> Emits: UI.ShowHighscores} }"];
+                       label="{ MainMenu UI | {<emits_hs> Emits: UI.MainMenu.HighscoresClicked} }"];
     GameCoordinator [shape="record", style="rounded,filled", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
-                     label="{ GameCoordinator | {<handles_fin> Handles: Game.Finished} | {<handles_play> Handles: UI.PlayAgain} }"];
+                     label="{ GameCoordinator | {<handles_fin> Handles: Game.Finished} | {<handles_play> Handles: UI.GameEndDialog.PlayAgainClicked} }"];
     UnicornPoep [shape="record", style="rounded,filled", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
-                 label="{ App Entry Point | {<handles_menu> Handles: UI.ReturnToMenu} | {<handles_hs> Handles: UI.ShowHighscores} | {<emits_nav> Emits: System.Navigate} }"];
+                 label="{ App Entry Point | {<handles_menu> Handles: UI.GameEndDialog.ReturnToMenuClicked} | {<handles_hs> Handles: UI.MainMenu.HighscoresClicked} | {<emits_nav> Emits: System.Navigate} }"];
     HighscoreManager [shape="record", style="rounded,filled", fillcolor="#343a40", color="#ffc107", penwidth=2,
                       label="{ HighscoreManager | {<emits_feedback> Emits: System.ShowFeedback} | {<emits_loaded> Emits: Highscores.Loaded} | {<emits_failed> Emits: Highscores.Failed} }"];
     UIManager [shape="record", style="rounded,filled", fillcolor="#343a40", color="#e6e0f8", penwidth=2,
@@ -30,7 +30,7 @@ digraph GameEndFlow_WithBus {
 
     // EventBus: Shows specific events for Game End / Highscore flow
     EventBus [shape="record", style="rounded,filled", fillcolor="#343a40", color="#aaaaaa", penwidth=2,
-              label="{ EventBus | {<evGameFin> Game.Finished} | {<evReturnMenu> UI.ReturnToMenu} | {<evPlayAgain> UI.PlayAgain} | {<evShowHS> UI.ShowHighscores} | {<evHSLoaded> Highscores.Loaded} | {<evHSFailed> Highscores.Failed} | {<evFeedback> System.ShowFeedback} | {<evNav> System.Navigate} }"];
+              label="{ EventBus | {<evGameFin> Game.Finished} | {<evReturnMenu> UI.GameEndDialog.ReturnToMenuClicked} | {<evPlayAgain> UI.GameEndDialog.PlayAgainClicked} | {<evShowHS> UI.MainMenu.HighscoresClicked} | {<evHSLoaded> Highscores.Loaded} | {<evHSFailed> Highscores.Failed} | {<evFeedback> System.ShowFeedback} | {<evNav> System.Navigate} }"];
 
     // 1. Game Mode finishes (Event)
     BaseGameMode:emits_fin -> EventBus:evGameFin [label=""];

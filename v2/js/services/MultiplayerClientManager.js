@@ -4,12 +4,20 @@ import Events from '../core/event-constants.js';
 import QuizEngine from '../services/QuizEngine.js';
 import webRTCManager from '../services/WebRTCManager.js'; // Corrected path
 import { getTextTemplate } from '../utils/miscUtils.js'; // Import the utility
+import { MSG_TYPE } from '../core/message-types.js'; // CORRECTED IMPORT: Use named import for MSG_TYPE
+import questionsManager from '../services/QuestionsManager.js'; // Import questionsManager
+import uiManager from '../ui/UIManager.js'; // Import UIManager
+import Views from '../core/view-constants.js'; // Import Views for GameArea
 
 import miscUtils from '../utils/miscUtils.js'; // Changed to default import
 
-// Using MSG_TYPE defined in WebRTCManager for consistency if possible,
-// or redefine here if needed for game-specific messages.
-// For now, assuming WebRTCManager defines the transport-level types.
+// Define message types used specifically by the client manager
+const ClientMessageTypes = {
+    REQUEST_JOIN: 'c_requestJoin',      // Client -> Host: Request to join after confirmation
+    SUBMIT_ANSWER: 'c_submitAnswer',    // Client -> Host: Submit answer for current question
+    FINISHED_GAME: 'c_finishedGame',    // Client -> Host: Notify host client finished quiz
+    // Add other client-specific outgoing message types here if needed
+};
 
 /**
  * Manages the client-side state and interactions during a multiplayer game.
@@ -34,8 +42,8 @@ class MultiplayerClientManager {
      * @private
      */
     listen() {
-        // Listen for data coming FROM the host (via WebRTCManager)
-        eventBus.on(Events.WebRTC.MessageReceived, this._boundHandleDataReceived);
+        // Listen for data coming FROM the host (via WebRTCManager) - REMOVED FROM HERE
+        // eventBus.on(Events.WebRTC.MessageReceived, this._boundHandleDataReceived);
 
         // Listen for the client successfully connecting TO the host
         eventBus.on(Events.Multiplayer.Client.ConnectedToHost, this.handleConnectedToHost.bind(this));
@@ -109,6 +117,8 @@ class MultiplayerClientManager {
     handleConnectedToHost({ hostId }) {
         console.log(`[MultiplayerClientManager] Connected to host: ${hostId}`);
         this.hostPeerId = hostId;
+        // Start listening for messages FROM this specific host NOW
+        eventBus.on(Events.WebRTC.MessageReceived, this._boundHandleDataReceived);
         // Ready to receive game info, but game hasn't necessarily started.
         // The JoinLobby or Coordinator should manage the transition to the game view.
     }
@@ -119,10 +129,14 @@ class MultiplayerClientManager {
      * @param {string} [payload.reason] - Optional reason for disconnection.
      */
     handleDisconnectedFromHost(payload) {
-        console.warn('[MultiplayerClientManager] Disconnected from host.', payload.reason || '');
+        console.warn('[MultiplayerClientManager] Disconnected from host.', payload?.reason || '');
         const wasActive = this.isGameActive;
         this._stopListeningForAnswers(); // Stop listening on disconnect
-        this.resetState();
+
+        // *** ADDED: Stop listening for WebRTC messages on disconnect ***
+        eventBus.off(Events.WebRTC.MessageReceived, this._boundHandleDataReceived);
+
+        this.resetState(); // Reset internal state (also ensures listener is off if called directly)
         // UI should react to DisconnectedFromHost or a specific Game.Finished/Error event
         // Emitting a generic error or feedback might be appropriate here.
         // Use template for feedback message
@@ -153,6 +167,9 @@ class MultiplayerClientManager {
      * @private
      */
     resetState() {
+        // *** ADDED: Ensure WebRTC message listener is off during reset ***
+        eventBus.off(Events.WebRTC.MessageReceived, this._boundHandleDataReceived);
+
         this.isGameActive = false;
         this.hostPeerId = null;
         console.log('[MultiplayerClientManager] State reset.');
@@ -171,21 +188,9 @@ class MultiplayerClientManager {
             return;
         }
 
-        // Assuming msg contains { type: string, payload: any }
+        // Revert to using local variables for clarity
         const type = msg.type;
         const payload = msg.payload;
-
-        if (!type) {
-            console.warn(`[MultiplayerClientManager] Received message without type from host ${sender}:`, msg);
-            return;
-        }
-
-        if (!this.isGameActive && !['game_info', 'game_start'].includes(type)) {
-             console.warn(`[MultiplayerClientManager] Received game data type '${type}' while game not active. Ignoring.`);
-             // Allow 'game_info' even before game start (e.g., in JoinLobby confirm step)
-             // Allow 'game_start' to trigger the active state.
-             // return; // Removed return to allow game_start to activate
-        }
 
         console.log(`[MultiplayerClientManager] Received data from host (${sender}): Type=${type}`, payload);
 
@@ -193,25 +198,74 @@ class MultiplayerClientManager {
         switch (type) {
             case 'game_info':
                 // Emitted before game officially starts, usually for confirmation screen
-                // Payload example: { settings: {...}, players: Map<string, object> }
-                eventBus.emit(Events.Multiplayer.Client.GameInfoReceived, payload);
+                // Payload example: { questions: { sheets: [...] }, difficulty: '...', players: { peerId: playerData, ... }, hostId: '...' }
+                // Reconstruct the players Map from the plain object received via JSON
+                let reconstructedPlayersMap = new Map();
+                if (payload.players && typeof payload.players === 'object') {
+                    reconstructedPlayersMap = new Map(Object.entries(payload.players));
+                    // DEBUG: Log the reconstructed map and the host ID we expect
+                    console.log('[MultiplayerClientManager DEBUG] Reconstructed players map:', reconstructedPlayersMap);
+                    console.log('[MultiplayerClientManager DEBUG] Expecting host ID:', payload.hostId);
+                }
+                
+                // Prepare the payload for the event, including the full questions data and difficulty
+                const gameInfoPayload = {
+                    questionsData: payload.questions, // Pass the questions structure
+                    difficulty: payload.difficulty,   // Pass the difficulty
+                    players: reconstructedPlayersMap, // Use the reconstructed Map
+                    hostId: payload.hostId            // Pass the hostId
+                };
+                eventBus.emit(Events.Multiplayer.Client.GameInfoReceived, gameInfoPayload);
+
+                // Attempt to save received custom sheets locally
+                try {
+                    if (gameInfoPayload.questionsData && Array.isArray(gameInfoPayload.questionsData.sheets)) {
+                         const hostPlayer = reconstructedPlayersMap.get(gameInfoPayload.hostId);
+                         const hostName = hostPlayer ? hostPlayer.name : 'Unknown Host';
+
+                         gameInfoPayload.questionsData.sheets.forEach(sheet => {
+                             if (sheet.isCustom) {
+                                 // questionsManager is imported as a singleton instance
+                                 questionsManager.addReceivedCustomSheet(sheet, hostName);
+                             }
+                         });
+                    }
+                } catch (saveError) {
+                    console.error("[MultiplayerClientManager] Error trying to save received custom sheets:", saveError);
+                    // Don't block game flow for this, just log it.
+                }
+
                 break;
 
-            case 'game_start':
-                // Host signals the game is actually starting NOW
-                // Payload example: { settings: {...}, players: Map<string, object>, /* any other initial state */ }
-                this.isGameActive = true; // Mark game active on explicit start signal
-                eventBus.emit(Events.Game.Started, { mode: 'multiplayer', settings: payload.settings, role: 'client' });
-                // Update player list immediately on start
-                if (payload.players) {
-                     // Use getTextTemplate for default name if needed during conversion (although unlikely here)
-                     const defaultName = getTextTemplate('mcDefaultPlayerName'); 
-                     const playerMap = new Map(Object.entries(payload.players).map(([id, data]) => [
-                         id, 
-                         { ...data, name: data.name || defaultName } // Ensure name exists
-                     ]));
-                     eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: playerMap }); 
+            case MSG_TYPE.PREPARE_GAME:
+                console.log("[MultiplayerClientManager] Received PREPARE_GAME from host.", payload);
+                if (payload && payload.duration) {
+                    // Emit the local event to start the countdown UI
+                    eventBus.emit(Events.Game.CountdownStart, { 
+                        duration: payload.duration, 
+                        // Ensure the standard completion event is specified 
+                        // so GameCoordinator knows when to start the actual game instance logic
+                        completionEvent: Events.Game.CountdownComplete 
+                    });
+                    // Client game instance will be started AFTER countdown via 
+                    // GameCoordinator._handleCountdownComplete
+                } else {
+                    console.error("[MultiplayerClientManager] Invalid PREPARE_GAME payload:", payload);
+                    // Handle error - maybe disconnect or show feedback?
                 }
+                break;
+
+            case MSG_TYPE.GAME_START:
+                console.log(`[${this.constructor.name}] Received GAME_START from host.`);
+                
+                // Hide the WaitingDialog before navigating
+                const waitingDialog = uiManager.getComponent('WaitingDialog');
+                if (waitingDialog) {
+                    waitingDialog.hide();
+                }
+
+                // Now navigate to the GameArea view
+                eventBus.emit(Events.Navigation.ShowView, { viewName: Views.GameArea });
                 break;
 
             case 'question_new':
@@ -253,14 +307,17 @@ class MultiplayerClientManager {
                 break;
 
              case 'player_list_update': // Full refresh of the player list
-                 // Payload example: { players: Map<string, object> }
-                 // Use getTextTemplate for default name if needed during conversion
-                 const defaultPlayerName = getTextTemplate('mcDefaultPlayerName'); 
-                 const updatedPlayerMap = new Map(Object.entries(payload.players).map(([id, data]) => [
-                     id, 
-                     { ...data, name: data.name || defaultPlayerName } // Ensure name exists
-                 ]));
-                 eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: updatedPlayerMap }); 
+                 // --- ADDED DEBUG LOG --- 
+                 console.debug(`[${this.constructor.name}] Received player_list_update from host. Payload:`, payload);
+                 // --- END DEBUG LOG ---
+                 if (payload.players && typeof payload.players === 'object') {
+                     const updatedPlayersMap = new Map(Object.entries(payload.players));
+                     console.log(`[${this.constructor.name}] Emitting PlayerListUpdated event.`, updatedPlayersMap);
+                     eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: updatedPlayersMap });
+                     // TODO: Maybe update localPlayerId if it changed? Not likely needed here.
+                 } else {
+                      console.warn(`[${this.constructor.name}] Received player_list_update without valid players object.`, payload);
+                 }
                  break;
 
             case 'game_over':
@@ -289,21 +346,21 @@ class MultiplayerClientManager {
                 });
                 break;
 
-            case 'feedback':
-                 // Host wants to show feedback to this client
-                 // Payload example: { message: string, level: 'info'|'warn'|'error'|'success', duration?: number }
-                 eventBus.emit(Events.System.ShowFeedback, payload);
-                 break;
+             case 'feedback':
+                  // Host wants to show feedback to this client
+                  // Payload example: { message: string, level: 'info'|'warn'|'error'|'success', duration?: number }
+                  eventBus.emit(Events.System.ShowFeedback, payload);
+                  break;
 
-             case 'player_joined': // Notification that a new player joined the lobby/game
-                 // Payload example: { peerId: string, playerData: { name: string } }
-                 eventBus.emit(Events.Multiplayer.Common.PlayerJoined, payload);
-                 break;
+              case 'player_joined': // Notification that a new player joined the lobby/game
+                  // Payload example: { peerId: string, playerData: { name: string } }
+                  eventBus.emit(Events.Multiplayer.Common.PlayerJoined, payload);
+                  break;
 
-             case 'player_left': // Notification that a player left
-                 // Payload example: { peerId: string }
-                 eventBus.emit(Events.Multiplayer.Common.PlayerLeft, payload);
-                 break;
+              case 'player_left': // Notification that a player left
+                  // Payload example: { peerId: string }
+                  eventBus.emit(Events.Multiplayer.Common.PlayerLeft, payload);
+                  break;
 
             default:
                 console.warn(`[MultiplayerClientManager] Unhandled data type from host: ${type}`);
@@ -328,6 +385,27 @@ class MultiplayerClientManager {
         });
         // Local UI feedback (e.g., disable buttons) should be handled by the UI component
         // listening to UI.GameArea.AnswerSubmitted or 'multiplayer:client:answerResult'.
+    }
+
+    /**
+     * Sends the initial request to join the game to the host.
+     * Called by GameCoordinator after connection is open and user confirms.
+     * @param {string} playerName - The name the player wants to use.
+     */
+    sendJoinRequest(playerName) {
+        if (!this.hostPeerId) {
+            console.error("[MultiplayerClientManager] Cannot send join request: Not connected to host.");
+            throw new Error("Not connected to host.");
+        }
+        console.log(`[MultiplayerClientManager] Sending join request to host ${this.hostPeerId} with name: ${playerName}`);
+
+        // --- ADD DEBUG LOG ---
+        const messageType = ClientMessageTypes.REQUEST_JOIN;
+        console.log(`[MultiplayerClientManager DEBUG] messageType before sendToHost: '${messageType}' (Type: ${typeof messageType})`);
+        // --- END DEBUG LOG ---
+
+        // Use the WebRTCManager's core send function
+        webRTCManager.sendToHost(messageType, { name: playerName });
     }
 
      /**

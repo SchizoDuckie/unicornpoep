@@ -9,95 +9,130 @@ import Events from '../core/event-constants.js';
  * @extends BaseDialog
  */
 class NamePromptDialog extends BaseDialog {
-    /**
-     * Creates an instance of NamePromptDialog.
-     */
-    constructor() {
-        super('#namePromptDialog', 'NamePromptDialog');
+    static SELECTOR = '#namePromptDialog';
+    static VIEW_NAME = 'NamePromptDialog';
 
-        this.nameInput = this.rootElement.querySelector('#namePromptInput');
-        this.confirmButton = this.rootElement.querySelector('#namePromptConfirm');
+    /** Initializes component elements. */
+    initialize() {
+        this.nameInput = this.rootElement.querySelector('#namePromptInput'); // Use specific ID
+        this.confirmButton = this.rootElement.querySelector('#namePromptConfirm'); // Use specific ID
+        this.errorDisplay = this.rootElement.querySelector('#nameError'); // Use specific ID
 
-        if (!this.nameInput || !this.confirmButton) {
-            console.error(`[${this.name}] Could not find all required child elements (input, confirm button) within ${this.selector}. Dialog cannot function.`);
-            throw new Error(`[${this.name}] Missing required child elements within ${this.selector}. Check HTML structure.`);
-        }
+        if (!this.nameInput) console.error(`[${this.name}] Missing #namePromptInput.`);
+        if (!this.confirmButton) console.error(`[${this.name}] Missing #namePromptConfirm.`);
+        if (!this.errorDisplay) console.warn(`[${this.name}] Missing #nameError.`);
 
+        this.confirmCallback = null;
         this._bindMethods();
-        this._boundHandleClose = this._handleDialogClose.bind(this); // Handle native close
-        this._addEventListeners();
+        // Listeners added by registerListeners
+        console.log(`[${this.name}] Initialized.`);
     }
 
-    /** Binds component methods to the class instance. */
     _bindMethods() {
         this.handleConfirm = this.handleConfirm.bind(this);
+        this._clearError = this._clearError.bind(this);
+        this._handleDialogClose = this._handleDialogClose.bind(this); // Handle native close
     }
 
-    /** Adds specific DOM event listeners for this dialog. */
-    _addEventListeners() {
-        this.confirmButton.addEventListener('click', this.handleConfirm);
-        this.rootElement.addEventListener('close', this._boundHandleClose); // Listen for native close (e.g., ESC key)
+    /** Registers DOM listeners. */
+    registerListeners() {
+        console.log(`[${this.name}] Registering DOM listeners.`);
+        if (this.confirmButton) this.confirmButton.addEventListener('click', this.handleConfirm);
+        if (this.nameInput) this.nameInput.addEventListener('input', this._clearError);
+        // Listen for native close (e.g., ESC key) only when shown?
+        // Or maybe always listen? Let's keep it simple for now.
+        this.rootElement.addEventListener('close', this._handleDialogClose); 
     }
 
-     /**
-      * Handles the native 'close' event of the dialog element.
-      * Ensures the input is cleared when the dialog is dismissed without confirming.
-      * @private
-      */
-     _handleDialogClose() {
-        if (this.nameInput) {
-            this.nameInput.value = '';
-             console.debug(`[${this.name}] Dialog closed natively, name input cleared.`);
-        }
+    /** Unregisters DOM listeners. */
+    unregisterListeners() {
+        console.log(`[${this.name}] Unregistering DOM listeners.`);
+        if (this.confirmButton) this.confirmButton.removeEventListener('click', this.handleConfirm);
+        if (this.nameInput) this.nameInput.removeEventListener('input', this._clearError);
+        this.rootElement.removeEventListener('close', this._handleDialogClose);
      }
 
-    /**
-     * Handles the confirm button click.
-     * Validates the name and emits the confirmation event.
-     */
+    /** Handles the confirm button click */
     handleConfirm() {
         const name = this.nameInput.value.trim();
-        if (name) {
-            console.debug(`[${this.name}] Name confirmed: '${name}'`);
-            eventBus.emit(Events.UI.Dialog.NameConfirmed, { name: name });
-            this.hide(); // Close dialog on confirmation
+        if (this.validateName(name)) {
+            this.hide();
+            if (typeof this.confirmCallback === 'function') {
+                this.confirmCallback(name);
+            }
         } else {
-            console.warn(`[${this.name}] Confirm attempt failed: Name is empty.`);
-            this.nameInput.focus(); // Re-focus input if empty
-            // Optionally add visual feedback here (e.g., shake animation)
+            this.nameInput.focus();
         }
     }
 
-    /**
-     * Shows the dialog and prepares the input field.
-     */
-    show() {
-        this.nameInput.value = ''; // Clear previous input
-        super.show(); // Call BaseDialog show to make it visible
+    /** Handles the native dialog close event (e.g., ESC key) */
+    _handleDialogClose() {
+        console.debug(`[${this.name}] Dialog closed (native).`);
+        // Treat native close as cancellation/no action
+        if (typeof this.confirmCallback === 'function') {
+            // Optionally call callback with null/undefined to indicate cancellation?
+            // For now, just do nothing, like clicking outside.
+        }
+        // Ensure listeners are cleaned up if hide() wasn't called via button
+        this.unregisterListeners(); // Might be redundant if hide calls it, but safe
+    }
 
-        // Focus the input after the dialog is shown
-        requestAnimationFrame(() => {
-            if (this.rootElement.open && this.nameInput) {
-                this.nameInput.focus();
+    /** Clears the error message */
+    _clearError() {
+        if (this.errorDisplay) {
+            this.errorDisplay.textContent = '';
+            this.errorDisplay.classList.add('hidden');
             }
-        });
+    }
+
+    /** Shows an error message */
+    _showError(message) {
+        if (this.errorDisplay) {
+            this.errorDisplay.textContent = message;
+            this.errorDisplay.classList.remove('hidden');
+        }
+    }
+    
+    /** Validates the entered name */
+    validateName(name) {
+        if (!name) {
+            this._showError(getTextTemplate('joinErrorEmptyName'));
+            return false;
+        }
+        if (name.length > 40) { 
+            this._showError(getTextTemplate('joinErrorNameTooLong'));
+            return false;
+        }
+        this._clearError();
+        return true;
     }
 
     /**
-     * Overrides base destroy method to remove specific DOM listeners.
+     * Shows the dialog and sets the callback.
+     * @param {function(string | null)} onConfirm - Callback function executed with the entered name 
+     *                                              or null if canceled (optional).
+     * @param {string} [defaultName=''] - Optional default value for the input.
      */
-    destroy() {
-        console.debug(`[${this.name}] Destroying...`);
-        this._removeEventListeners();
-        this._boundHandleClose = null; // Clear bound reference
-        super.destroy(); // Call base class destroy
+    show(onConfirm, defaultName = '') {
+        this.confirmCallback = onConfirm;
+        if (this.nameInput) {
+            this.nameInput.value = defaultName;
+        }
+        this._clearError();
+        // Ensure listeners are added when shown
+        // this.registerListeners(); // Now handled by BaseComponent constructor
+        super.show(); // Call BaseDialog show
+        if (this.nameInput) {
+            this.nameInput.focus();
+            this.nameInput.select();
+        }
     }
 
-    /** Removes specific DOM event listeners attached by this component. */
-    _removeEventListeners() {
-        // No need to check if elements exist, constructor guarantees it or throws.
-        this.confirmButton.removeEventListener('click', this.handleConfirm);
-        this.rootElement.removeEventListener('close', this._boundHandleClose);
+    // Override destroy to ensure listeners are removed
+    destroy() {
+        console.log(`[${this.name}] Destroying...`);
+        this.unregisterListeners(); // Ensure DOM listeners are removed
+        super.destroy();
     }
 }
 
