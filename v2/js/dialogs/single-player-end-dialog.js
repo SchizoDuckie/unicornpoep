@@ -2,6 +2,7 @@ import BaseDialog from './base-dialog.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import { getTextTemplate } from '../utils/miscUtils.js';
+import miscUtils from '../utils/miscUtils.js';  // Import default export
 
 
 /**
@@ -24,6 +25,7 @@ class SinglePlayerEndDialog extends BaseDialog {
         // this.saveErrorDisplay is removed as the element doesn't exist in HTML
         this.playAgainButton = this.rootElement.querySelector('#restartGame'); // Corrected ID
         this.backToMenuButton = this.rootElement.querySelector('#spEndMenuButton'); // Corrected ID
+        this.refreshNameButton = this.rootElement.querySelector('#refreshNameButton'); // Find the HTML button
 
         // Add checks - Updated IDs and removed saveErrorDisplay check
         if (!this.scoreDisplay) console.error(`[${this.name}] Missing #finalScore`);
@@ -32,6 +34,7 @@ class SinglePlayerEndDialog extends BaseDialog {
         if (!this.saveButton) console.error(`[${this.name}] Missing #saveHighscore`);
         if (!this.playAgainButton) console.error(`[${this.name}] Missing #restartGame`);
         if (!this.backToMenuButton) console.error(`[${this.name}] Missing #spEndMenuButton`);
+        if (!this.refreshNameButton) console.error(`[${this.name}] Missing #refreshNameButton`);
 
         // Store game results temporarily
         this.currentGameResults = null;
@@ -48,6 +51,7 @@ class SinglePlayerEndDialog extends BaseDialog {
         this.handleSaveScore = this.handleSaveScore.bind(this);
         this.handlePlayAgain = this.handlePlayAgain.bind(this);
         this.handleBackToMenu = this.handleBackToMenu.bind(this);
+        this._handleRefreshName = this._handleRefreshName.bind(this);
         // No need to bind _clearError if it only emits events now
     }
 
@@ -58,6 +62,7 @@ class SinglePlayerEndDialog extends BaseDialog {
         if (this.saveButton) this.saveButton.addEventListener('click', this.handleSaveScore);
         if (this.playAgainButton) this.playAgainButton.addEventListener('click', this.handlePlayAgain);
         if (this.backToMenuButton) this.backToMenuButton.addEventListener('click', this.handleBackToMenu);
+        if (this.refreshNameButton) this.refreshNameButton.addEventListener('click', this._handleRefreshName);
         // Optionally clear errors on input - maybe less relevant now? Keep for now.
         // if (this.nameInput) this.nameInput.addEventListener('input', this._clearError); 
     }
@@ -69,7 +74,20 @@ class SinglePlayerEndDialog extends BaseDialog {
         if (this.saveButton) this.saveButton.removeEventListener('click', this.handleSaveScore);
         if (this.playAgainButton) this.playAgainButton.removeEventListener('click', this.handlePlayAgain);
         if (this.backToMenuButton) this.backToMenuButton.removeEventListener('click', this.handleBackToMenu);
+        if (this.refreshNameButton) this.refreshNameButton.removeEventListener('click', this._handleRefreshName);
         // if (this.nameInput) this.nameInput.removeEventListener('input', this._clearError);
+    }
+
+    /**
+     * Handles the refresh name button click
+     * @private
+     */
+    _handleRefreshName() {
+        if (this.nameInput) {
+            const randomName = miscUtils.generateRandomPlayerName();
+            this.nameInput.value = randomName;
+            console.log(`[${this.name}] Generated random name: ${randomName}`);
+        }
     }
 
     /** Handles the save score button click */
@@ -84,6 +102,14 @@ class SinglePlayerEndDialog extends BaseDialog {
              this._showError(getTextTemplate('hsErrorNameTooLong'));
              return;
          }
+
+        // Save player name to localStorage using consistent key
+        try {
+            localStorage.setItem('unicornPoepUserName', playerName);
+            console.log(`[${this.name}] Saved player name to localStorage: ${playerName}`);
+        } catch (e) {
+            console.warn(`[${this.name}] Could not save name to localStorage:`, e);
+        }
 
         if (this.currentGameResults && this.currentGameResults.score !== undefined) {
             console.log(`[${this.name}] Save score clicked. Name: ${playerName}, Score: ${this.currentGameResults.score}`);
@@ -140,24 +166,27 @@ class SinglePlayerEndDialog extends BaseDialog {
      */
     show(results) {
         this.currentGameResults = results;
-        this.gameName = results.gameName || 'Unknown Game';
+        // Expect top-level properties provided by GameCoordinator
+        this.gameName = results.gameName || 'Unknown Game'; 
         this.currentDifficulty = results.difficulty || 'Unknown';
         this.currentMode = results.mode || 'single';
 
         // Use updated element references
         if (this.scoreDisplay) {
              // Use textContent for security, assuming score is just a number
-             this.scoreDisplay.textContent = results.score !== undefined ? results.score : '?';
+             // Add check for results itself before accessing score
+             this.scoreDisplay.textContent = (results && results.score !== undefined) ? results.score : '?'; 
         }
 
         // Show/hide save score section using the indirectly found container
-        if (results.eligibleForHighscore) {
+        // Add check for results itself before accessing eligibleForHighscore
+        if (results && results.eligibleForHighscore) { 
             if (this.nameInputContainer) this.nameInputContainer.classList.remove('hidden');
             if (this.nameInput) {
-                // Pre-fill with stored name?
-                 const storedName = localStorage.getItem('unicornPoepPlayerName');
-                 this.nameInput.value = storedName || '';
-                 // this._clearError(); // May not be necessary
+                // Pre-fill with stored name using consistent key
+                const storedName = localStorage.getItem('unicornPoepUserName');
+                this.nameInput.value = storedName || '';
+                console.log(`[${this.name}] Pre-filled player name from localStorage: ${storedName || '(empty)'}`);
             }
         } else {
             if (this.nameInputContainer) this.nameInputContainer.classList.add('hidden');

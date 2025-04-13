@@ -71,14 +71,23 @@ class ScoreDisplayComponent extends BaseComponent {
     /**
      * Handles the Game.ScoreUpdated event (only relevant for SP/Practice).
      * @param {object} payload
-     * @param {number} payload.score - The new total score.
+     * @param {number} payload.newScore - The new total score.
      * @private
      */
-    _handleScoreUpdate({ score }) {
-        // Only update if the component is currently visible
-        // (prevents updating during hidden multiplayer games)
-        if (this.isVisible && this.scoreElement) {
-            this.scoreElement.textContent = `Score: ${score}`;
+    _handleScoreUpdate(payload) {
+     
+        // Explicitly check for payload and the required property
+        if (payload && typeof payload.newScore === 'number') {
+            const newScore = payload.newScore; // Assign if valid
+            // Only update if the component is currently visible
+            // (prevents updating during hidden multiplayer games)
+            if (this.isVisible && this.scoreElement) {
+                this.scoreElement.textContent = `Score: ${newScore}`;
+            }
+        } else {
+            // Log a warning if the payload is not as expected
+            console.warn(`[${this.name}] Received invalid or incomplete score update payload:`, payload);
+            // Optional: Decide how to handle the display - e.g., leave it unchanged
         }
     }
 

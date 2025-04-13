@@ -550,6 +550,9 @@ const Events = {
              /** Fired when user clicks back/cancel. Payload: None */
              BackClicked: 'ui:about:backClicked',
         },
+        MultiplayerEndDialog: {
+            Closed: 'ui:multiplayerEndDialog:closed',
+        },
         // ... other UI interaction events could go here, organized by component
     },
     /**

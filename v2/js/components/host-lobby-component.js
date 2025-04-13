@@ -259,8 +259,17 @@ class HostLobbyComponent extends BaseComponent {
                 // Build list item using latest data
                 if (this.playerListUL) {
                     const li = document.createElement('li');
-                    // Use the name directly from the map
-                    li.textContent = playerData.name || getTextTemplate('playerListUnnamed') || `Speler_${peerId.slice(-4)}`; 
+                    const playerName = playerData.name || getTextTemplate('playerListUnnamed') || `Speler_${peerId.slice(-4)}`;
+                    
+                    // Check if player is ready and add ready tag if they are
+                    if (playerData.isReady) {
+                        const readyTag = getTextTemplate('lobbyReadyTag') || '[IS ER KLAAR VOOR]';
+                        li.textContent = `${playerName} ${readyTag}`;
+                        li.classList.add('player-ready'); // Add a class for styling if needed
+                    } else {
+                        li.textContent = playerName;
+                    }
+                    
                     this.playerListUL.appendChild(li);
                 }
             }

@@ -4,6 +4,8 @@ import Views from '../core/view-constants.js'; // Import Views constants
 import ErrorDialog from '../dialogs/error-dialog.js'; // Assuming ErrorDialog export
 // Import the default export object from miscUtils
 import miscUtils from '../utils/miscUtils.js'; 
+// <<< ADD Import for ConnectionStatus >>>
+import { ConnectionStatus } from '../core/connection-constants.js';
 
 // Import game mode classes
 import SinglePlayerGame from '../game/SinglePlayerGame.js'; // Corrected path case
@@ -53,6 +55,7 @@ class GameCoordinator {
         }
 
         this.activeGame = null; // Reference to the currently active game instance
+        this.activeHostManager = null; // Reference to the active MultiplayerHostManager
         this.pendingHostInfo = null; // Store temporary info while host lobby is active
         this.pendingJoinInfo = null; // Store temporary info while join process is active
         this.currentGameMode = null; // 'single', 'practice', 'multiplayer-host', 'multiplayer-client'
@@ -60,8 +63,13 @@ class GameCoordinator {
         this.localPlayerName = null; // Stores the name of the local player (for client)
         this.currentPlayerList = new Map(); // Store the current player list (client-side)
 
-        this._bindMethods(); // Bind methods first
-        this.registerListeners(); // Then register listeners
+        // Load player name early
+        this._loadPlayerName();
+
+        // Bind methods BEFORE registering listeners
+        this._bindMethods(); 
+        // Register listeners AFTER binding
+        this.registerListeners(); 
     }
 
     /**
@@ -93,6 +101,7 @@ class GameCoordinator {
         this.handleSaveHighscore = this.handleSaveHighscore.bind(this);
         // +++ ADD: Bind handler for Host Waiting +++
         this._handleHostWaiting = this._handleHostWaiting.bind(this);
+        this._handleMultiplayerDialogClosed = this._handleMultiplayerDialogClosed.bind(this); // Bind new handler
     }
 
     /**
@@ -149,6 +158,12 @@ class GameCoordinator {
         
         // +++ ADDED: Listen for Save Score click +++
         eventBus.on(Events.UI.EndDialog.SaveScoreClicked, this.handleSaveHighscore);
+
+        // +++ ADDED: Listen for Multiplayer End Dialog Closed event +++
+        eventBus.on(Events.UI.MultiplayerEndDialog.Closed, this._handleMultiplayerDialogClosed);
+
+        // <<< Add Listener for Play Again Click >>>
+        eventBus.on(Events.UI.MultiplayerEndDialog.PlayAgainClicked, this._handlePlayAgainRequest);
 
         console.info("[GameCoordinator ASYNC] Event listeners registered.");
     }
@@ -508,33 +523,44 @@ class GameCoordinator {
         console.log(`[GameCoordinator] Starting Multiplayer Game as Host. Player: ${playerName}, HostID: ${myPeerId}, Settings:`, settings);
         this.pendingHostInfo = null; // Clear pending info now that we're starting the game
 
-        // --- Stop Lobby Manager before starting Game Instance --- 
-        if (this.activeHostManager) {
-            console.log("[GameCoordinator] Stopping active MultiplayerHostManager before starting game.");
-            this.activeHostManager.stopHosting();
-            this.activeHostManager = null; // Release the instance
-        } else {
-            console.warn("[GameCoordinator] handleHostStartGame called but no activeHostManager found. This might indicate a state issue.");
-            // Proceed cautiously, but log a warning.
+        // --- Ensure HostManager exists and tell it to start the game sequence --- 
+        if (!this.activeHostManager) {
+            console.error("[GameCoordinator] Critical Error: handleHostStartGame called without an active HostManager.");
+            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('genericInternalError'), level: 'error' });
+            eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+            return; // Stop execution
         }
-        // --- End Stop Lobby Manager ---
+        
+        // Tell the manager to stop lobby listeners and broadcast GAME_START
+        if (typeof this.activeHostManager.initiateGameStart === 'function') {
+             this.activeHostManager.initiateGameStart();
+         } else {
+             console.error("[GameCoordinator] Error: activeHostManager missing initiateGameStart method!");
+             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('genericInternalError'), level: 'error' });
+             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+             return; // Stop execution
+         }
+        // --- End HostManager Start --- 
 
-        // Show loading screen
+        // Show loading screen WHILE the game instance is created/started
         eventBus.emit(Events.Navigation.ShowView, { viewName: Views.Loading });
         await new Promise(resolve => setTimeout(resolve, 100)); // Allow loading screen to render
 
         try {
+             // Game Instance Creation (Host)
+            // This should happen AFTER HostManager has broadcasted GAME_START
+            console.log("[GameCoordinator] Creating host MultiplayerGame instance...");
             this.activeGame = new MultiplayerGame(
                 true,                 // isHost
-                playerName,           // localPlayerName
-                settings,             // gameData (host expects settings object)
-                settings.difficulty,  // difficulty
-                myPeerId,             // peerId (host's own ID)
-                // Pass the SINGLETON webRTCManager instance correctly
+                playerName,
+                settings,             // Host expects settings
+                settings.difficulty,
+                myPeerId,
                 webRTCManager
             );
-            await this.activeGame.start();
-            // Navigation to GameArea happens via Game.Started event
+            await this.activeGame.start(); // This emits Game.Started -> Navigates UI
+            this.currentGameMode = 'multiplayer-host'; // Set mode tracking AFTER successful start
+
         } catch (error) {
             console.error("[GameCoordinator] Error starting Multiplayer Game (Host):", error);
             // Use template for feedback
@@ -753,9 +779,25 @@ class GameCoordinator {
                  // --- Show Appropriate End Dialog ---
                  if (mode === 'single') {
                      console.log("[GameCoordinator ASYNC] Requesting UIManager show Single Player End Dialog.");
+                     
+                     // *** Construct payload assuming finalResults is valid (NO extra validation here) ***
+                     const dialogData = {
+                         // Pass existing top-level properties 
+                         score: finalResults.score,
+                         playerName: finalResults.playerName,
+                         correctAnswers: finalResults.correctAnswers,
+                         totalQuestions: finalResults.totalQuestions,
+                         eligibleForHighscore: finalResults.eligibleForHighscore,
+                         // Assign difficulty and constructed gameName directly from settings
+                         difficulty: finalResults.settings.difficulty, 
+                         gameName: finalResults.settings.sheetIds.join(', '),
+                         mode: 'single' // Explicitly set mode for the dialog
+                     };
+                     // *** END CONSTRUCTION ***
+                     
                      eventBus.emit(Events.Navigation.ShowView, {
                          viewName: Views.SinglePlayerEndDialog,
-                         data: finalResults || {}
+                         data: dialogData // Use the constructed data object
                      });
                  } else if (mode === 'multiplayer-host') {
                       console.log("[GameCoordinator ASYNC] Processing Multiplayer Host finish.");
@@ -963,16 +1005,16 @@ class GameCoordinator {
 
     /**
      * Handles incoming raw WebRTC messages for the CLIENT.
-     * Starts game on GAME_START, handles GAME_OVER (triggers final cleanup).
+     * Starts game on GAME_START, handles GAME_OVER (saves score, triggers final cleanup via dialog).
      * @private
      */
-    async _handleWebRTCMessageReceived({ msg, sender }) { 
+    async _handleWebRTCMessageReceived({ msg, sender }) {
         if (!msg || !msg.type || this.webRTCManager.isHost) return;
         const type = msg.type;
         const payload = msg.payload;
-        const hostId = this.pendingJoinInfo?.hostId || this.webRTCManager.hostPeerId; 
+        const hostId = this.pendingJoinInfo?.hostId || this.webRTCManager.hostPeerId;
         if (sender !== hostId) { /* ... warning ... */ return; }
-        console.log(`[GameCoordinator Client ASYNC] Received message Type: ${type} from Host ${sender}`);
+        // console.log(`[GameCoordinator Client ASYNC] Received message Type: ${type} from Host ${sender}`); // Reduce noise
 
         switch (type) {
             case MSG_TYPE.GAME_START:
@@ -1036,31 +1078,52 @@ class GameCoordinator {
                 break;
 
             case MSG_TYPE.GAME_OVER:
-                console.log("[GameCoordinator Client ASYNC] Received GAME_OVER.", payload);
-                
-                // Close waiting dialog
+                console.log(`[GameCoordinator Client ASYNC] Received GAME_OVER.`, payload);
+
+                // *** Hide the WaitingDialog FIRST ***
                 const waitingDialog = uiManager.getComponent('WaitingDialog');
-                if (waitingDialog && waitingDialog.isOpen) waitingDialog.close();
+                if (waitingDialog) {
+                    waitingDialog.hide();
+                }
 
-                // Show end dialog
-                 /** @type {MultiplayerEndDialog | undefined} */
-                const endDialog = uiManager.getComponent('MultiplayerEndDialog');
-                if (endDialog) {
-                     console.log("[GameCoordinator Client ASYNC] Showing MultiplayerEndDialog.");
-                     endDialog.show(payload || {}); 
-                } else { /* ... error handling ... */ }
+                // Stop active client game if it exists
+                if (this.activeGame && !this.activeGame.isFinished) {
+                    // Ensure client game resources are cleaned up (e.g., timers)
+                    this.activeGame.finishGame(true); // Use flag to signal final cleanup
+                }
 
-                // --- TRIGGER FINAL CLEANUP FOR CLIENT --- 
-                console.log("[GameCoordinator Client ASYNC] Received GAME_OVER, performing final cleanup.");
-                 if (this.activeGame) {
-                     // Call destroy directly on the active game instance
-                     if (typeof this.activeGame.destroy === 'function') {
-                         this.activeGame.destroy(); 
-                     }
-                     this.activeGame = null;
-                 }
-                 this.currentGameMode = null;
-                 this.resetCoordinatorState(); // Close connection, clear pending info etc.
+                // Attempt to save score if client exists
+                if (this.localPlayerName) {
+                    console.log(`[GameCoordinator Client ASYNC] Host declared winner: ${payload.winner?.name || 'Tie'}. Attempting to save score locally.`);
+                    try {
+                        // Ensure all necessary data is present for saving
+                        if (payload.gameName && payload.difficulty && typeof this.activeGame?.score === 'number') {
+                             await highscoreManager.addHighscore(
+                                 this.localPlayerName,
+                                 this.activeGame.score,
+                                 payload.gameName, 
+                                 'multiplayer', // Use generic mode
+                                 payload.difficulty
+                             );
+                            console.log("[GameCoordinator Client ASYNC] Highscore add attempt finished locally.");
+                        } else {
+                            console.warn("[GameCoordinator Client ASYNC] Missing data required to save local highscore on GAME_OVER.", { gameName: payload.gameName, difficulty: payload.difficulty, score: this.activeGame?.score });
+                        }
+                    } catch (error) {
+                        console.error("[GameCoordinator Client ASYNC] Error saving local highscore on GAME_OVER:", error);
+                        eventBus.emit(Events.System.ShowFeedback, { message: 'Error saving local highscore.', level: 'error' });
+                    }
+                } else {
+                    console.warn("[GameCoordinator Client ASYNC] Cannot save local score, localPlayerName is not set.");
+                }
+
+                // Show MultiplayerEndDialog for the client
+                console.log("[GameCoordinator Client ASYNC] Requesting UIManager show MultiplayerEndDialog for Client.");
+                eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MultiplayerEndDialog, data: payload });
+
+                // Reset coordinator state related to the active game
+                this.activeGame = null; // Nullify active game *after* processing GAME_OVER
+                this.currentGameMode = null;
                 break;
 
             case MSG_TYPE.PLAYER_LIST_UPDATE:
@@ -1078,6 +1141,21 @@ class GameCoordinator {
                     }
                 }
                  break;
+
+            // <<< Handle Host Restarting Lobby for Rematch >>>
+            case MSG_TYPE.H_RESTARTING_LOBBY:
+                console.log("[GameCoordinator Client ASYNC] Host signaled lobby restart for rematch.");
+                // Navigate back to the lobby dialog view
+                eventBus.emit(Events.Navigation.ShowView, {
+                     viewName: Views.MultiplayerLobby,
+                     // Pass the current player list if available? Or let lobby fetch?
+                     // data: { players: this.currentPlayerList } 
+                });
+                // Clear any previous active game state if necessary (should be null already)
+                this.activeGame = null;
+                this.currentGameMode = null;
+                break;
+            // <<< End Handle Lobby Restart >>>
 
             default:
                 // Log unexpected types, but don't error out
@@ -1116,55 +1194,58 @@ class GameCoordinator {
      }
 
     /**
-     * Handles the request to save a highscore, typically from the SP end-game dialog.
-     * NOTE: This should ONLY be called for Single Player games via the appropriate UI event.
-     * @param {object} payload
-     * @param {string} payload.playerName
-     * @param {number} payload.score
-     * @param {string} payload.gameName
-     * @param {string} payload.difficulty
-     * @param {string} [payload.mode='singleplayer'] - Mode is expected from the event source.
+     * Handles the request to save a highscore, typically from the SinglePlayerEndDialog.
+     * Validates data, calls the HighscoreManager, provides feedback, and navigates.
+     * Now uses arrow function syntax for automatic `this` binding and is async.
+     * @param {object} payload - Event payload from Events.UI.EndDialog.SaveScoreClicked
+     * @param {string} [payload.playerName]
+     * @param {number} [payload.score]
+     * @param {string} [payload.gameName]
+     * @param {string} [payload.mode]
+     * @param {string} [payload.difficulty]
      * @private
      */
-    handleSaveHighscore({ playerName, score, gameName, mode, difficulty }) {
-        console.log(`[GameCoordinator] Received request to save highscore:`, { playerName, score, gameName, mode, difficulty });
+    handleSaveHighscore = async (payload) => { // Accept the whole payload object
+        console.log(`[GameCoordinator] Received request to save highscore:`, payload); // Log the entire payload
+
+        // *** CORRECTED CHECK: Use the mode from the event payload ***
+        if (payload.mode !== 'single') { 
+            console.warn(`[GameCoordinator] handleSaveHighscore called, but event payload mode is not 'single' (Mode: ${payload.mode}). Ignoring.`);
+            // This prevents saving scores if the event somehow comes from a non-single-player context.
+            return; 
+        }
 
         // --- Strengthened Validation ---
-        // Check if ALL required fields are present AND have valid types/values *before* proceeding.
-        // Explicitly check 'mode' is provided and is 'singleplayer'/'single'.
-        if (
-            playerName === undefined || typeof playerName !== 'string' || playerName.trim() === '' ||
-            score === undefined || typeof score !== 'number' || score < 0 || // Allow 0 score? Check requirement. Let's keep <0 for now.
-            gameName === undefined || typeof gameName !== 'string' || gameName.trim() === '' ||
-            difficulty === undefined || typeof difficulty !== 'string' || difficulty.trim() === '' ||
-            mode === undefined || (mode !== 'singleplayer' && mode !== 'single') // Check mode is provided and correct
-        ) {
-             console.error("[GameCoordinator] Attempted to save highscore with invalid or incomplete data. Ignoring.",
-                           { playerName, score, gameName, mode, difficulty });
-             // Emit specific feedback for validation failure
-             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveErrorInvalidData'), level: 'error' });
-             return; // Stop processing
-         }
-        // --- End Strengthened Validation ---
+        // Access properties via the payload object
+        const isValid = payload.name && typeof payload.name === 'string' && payload.name.trim() !== '' && // Use payload.name
+                        payload.score !== undefined && typeof payload.score === 'number' && payload.score >= 0 && // Added score >= 0 check
+                        payload.gameName && typeof payload.gameName === 'string' &&
+                        payload.difficulty && typeof payload.difficulty === 'string';
 
-        // Now we know we have valid single player data
-        try {
-             highscoreManager.addHighscore(
-                 playerName,
-                 score,
-                 gameName,
-                 'singleplayer', // Force mode to singleplayer for saving consistency
-                 difficulty
-             );
-            console.log("[GameCoordinator] Highscore save request sent to HighscoreManager.");
-            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveSuccess') || 'Score saved!', level: 'success' });
-            // Navigate AFTER successful save attempt
+        if (!isValid) {
+            console.error("[GameCoordinator] Attempted to save highscore with invalid or incomplete data.", payload);
+            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveErrorInvalidData') || 'Fout bij opslaan: Ongeldige gegevens.', level: 'error' });
+            // Navigate back to main menu even on error to avoid getting stuck?
             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+            return;
+        }
+
+        // --- Perform Save, Feedback, and Navigation (Single-Player ONLY) ---
+        try {
+            console.log("[GameCoordinator] Saving highscore for single-player game...");
+            // Call the correct method on the manager instance using payload properties
+            await highscoreManager.addHighscore(payload.name, payload.score, payload.gameName, payload.mode, payload.difficulty); // Use payload.name
+            eventBus.emit(Events.System.ShowFeedback, { message: 'Highscore opgeslagen!', level: 'success' }); // Use appropriate message
         } catch (error) {
-            console.error("[GameCoordinator] Error calling HighscoreManager.addHighscore:", error);
-            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveErrorGeneric') || 'Failed to save score.', level: 'error' });
-            // Optionally navigate back even on error, or leave dialog open
-             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+            console.error("[GameCoordinator] Error saving highscore:", error);
+            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveError') || 'Kon highscore niet opslaan.', level: 'error' });
+            // Optionally, add more specific error messages based on error type
+        } finally {
+            // Always navigate back to main menu after attempting save (success or fail) in single player
+            console.log("[GameCoordinator] Navigating back to Main Menu after save attempt.");
+            eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+            // Also ensure game state is fully reset if needed after SP game
+            this.resetCoordinatorState(); 
         }
     }
 
@@ -1196,32 +1277,109 @@ class GameCoordinator {
     // +++ ADDED: Handler for Host Waiting +++
     /**
      * Handles the host finishing before clients.
-     * Shows the waiting dialog.
+     * Shows the waiting dialog ONLY FOR CLIENTS (logic error fixed).
+     * Host should not see this dialog.
      * @param {object} payload - Event payload.
      * @param {string} payload.messageKey - The localization key for the waiting message.
      * @private
      */
     _handleHostWaiting(payload) {
-        // --- ADD CHECK: Don't show if game is already finishing/finished --- 
-        if (!this.activeGame || this.currentGameMode !== 'multiplayer-host') {
-            console.log("[GameCoordinator] _handleHostWaiting called, but game is not in active host state. Ignoring.");
+        // --- Check if this is the HOST ---
+        if (this.currentGameMode === 'multiplayer-host') {
+            console.log("[GameCoordinator] Host finished locally. _handleHostWaiting invoked, but Host doesn't need waiting dialog. Ignoring.");
+            return; // Do nothing for the host
+        }
+
+        // --- Existing logic (now only runs for non-hosts, e.g., if event was misused) ---
+        // Check: Don't show if game is already finishing/finished
+        if (!this.activeGame) { // Simplified check
+            console.log("[GameCoordinator] _handleHostWaiting called, but game is not active. Ignoring.");
             return;
         }
-        // --- END CHECK ---
 
-        console.log("[GameCoordinator] Host is waiting for clients.");
-        const messageKey = payload?.messageKey || 'mpHostWaitOthers'; // Use default if needed
+        console.log("[GameCoordinator] Non-host waiting triggered (potentially unexpected). Showing WaitingDialog."); // Adjusted log
+        const messageKey = payload?.messageKey || 'mpClientWaitOthers'; // Default relevant for client
         const message = miscUtils.getTextTemplate(messageKey) || "Waiting for other players...";
 
         /** @type {import('../dialogs/waiting-dialog.js').default | undefined} */
         const waitingDialog = uiManager.getComponent('WaitingDialog');
         if (waitingDialog) {
-            waitingDialog.show(message);
+            console.log(`[GameCoordinator] Found WaitingDialog component. Attempting to show with message: "${message}"`);
+            try {
+                if (waitingDialog.isOpen) {
+                    console.warn("[GameCoordinator] WaitingDialog was already open when _handleHostWaiting was called. Updating message.");
+                }
+                waitingDialog.show(message);
+                console.log("[GameCoordinator] Called waitingDialog.show(). Current isOpen state: ", waitingDialog.isOpen);
+            } catch (error) {
+                console.error("[GameCoordinator] Error calling waitingDialog.show():", error);
+            }
         } else {
             console.error("[GameCoordinator] WaitingDialog component not found.");
         }
     }
-    // --- END ADDED --- 
+    // --- END CHANGE ---
+
+    /**
+     * Handles the closing of the Multiplayer End Dialog.
+     * Performs final state cleanup and navigates to the main menu.
+     * @private
+     */
+    _handleMultiplayerDialogClosed() {
+        console.log("[GameCoordinator] MultiplayerEndDialog closed. Cleaning up multiplayer state if needed.");
+
+        // <<< Explicitly hide WaitingDialog FIRST >>>
+        try {
+            const waitingDialog = uiManager.getComponent('WaitingDialog');
+            if (waitingDialog && waitingDialog.isOpen) { 
+                console.log("[GameCoordinator] Force-hiding WaitingDialog on MP Dialog close.");
+                waitingDialog.hide();
+                 // Optional: Check if it actually closed
+                 if (waitingDialog.isOpen) {
+                     console.warn("[GameCoordinator] WaitingDialog did NOT hide after calling hide()!");
+                 }
+            } else {
+                 console.log("[GameCoordinator] WaitingDialog not found or not open during MP Dialog close.");
+            }
+        } catch (error) {
+            console.error("[GameCoordinator] Error trying to hide WaitingDialog:", error);
+        }
+        // <<< END HIDE >>>
+
+        // Stop the WebRTCManager's timeout check if it's running (client-side)
+        if (this.webRTCManager.isClient && this.webRTCManager.status === ConnectionStatus.CONNECTED_CLIENT) { // Added status check for robustness
+            console.log("[GameCoordinator] Stopping WebRTC timeout check as client left end dialog.");
+            this.webRTCManager.stopTimeoutCheck(); // Assuming this method exists
+        }
+        
+        // Optionally: Reset the client manager state if no rematch is planned immediately
+        // if (this.multiplayerClientManager && this.multiplayerClientManager.isConnected()) {
+        //     console.log("[GameCoordinator] Resetting MultiplayerClientManager state.");
+        //     this.multiplayerClientManager.resetState();
+        // }
+
+        // Ensure any lingering game/mode state is cleared
+        this.resetCoordinatorState();
+
+        // <<< ADD NAVIGATION BACK TO MAIN MENU >>>
+        console.log("[GameCoordinator] Navigating back to Main Menu after MP Dialog close.");
+        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+    }
+
+    /**
+     * Handles the request to play again from the MultiplayerEndDialog.
+     * Uses arrow function syntax for automatic `this` binding.
+     * @private
+     */
+    _handlePlayAgainRequest = async () => { // <<< Changed to arrow function
+        console.log("[GameCoordinator] Play Again requested.");
+        
+        if (this.webRTCManager.status !== ConnectionStatus.CONNECTED_CLIENT) { 
+            console.error("[GameCoordinator] Cannot play again, not connected.");
+            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('mpErrorNotConnected'), level: 'error' });
+            return;
+        }
+    };
 }
 
 export default GameCoordinator;

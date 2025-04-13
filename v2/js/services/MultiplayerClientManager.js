@@ -448,9 +448,9 @@ class MultiplayerClientManager {
     }
 
     /**
-     * Sends the initial request to join the game to the host.
-     * Called by GameCoordinator after connection is open and user confirms.
-     * @param {string} playerName - The name the player wants to use.
+     * Sends a join request to the host with the client's player name.
+     * @param {string} playerName - The name the client wishes to use.
+     * @throws {Error} If not connected to a host.
      */
     sendJoinRequest(playerName) {
         if (!this.hostPeerId) {
@@ -466,6 +466,14 @@ class MultiplayerClientManager {
 
         // Use the WebRTCManager's core send function
         webRTCManager.sendToHost(messageType, { name: playerName });
+        
+        // After sending join request, also send a CLIENT_READY message to mark as ready
+        setTimeout(() => {
+            console.log(`[MultiplayerClientManager] Sending CLIENT_READY to host ${this.hostPeerId}`);
+            // Use the correct message type constant from MSG_TYPE
+            // Always use the SAME name as the initial join request to ensure consistency
+            webRTCManager.sendToHost(MSG_TYPE.CLIENT_READY, { name: playerName });
+        }, 200); // Small delay to ensure join request is processed first
     }
 
      /**

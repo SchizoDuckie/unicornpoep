@@ -477,6 +477,14 @@ class MultiplayerGame extends BaseGameMode {
                 const nextIndex = this.currentQuestionIndex + 1;
                 if (this.quizEngine.isQuizComplete(nextIndex)) {
                     console.log(`[MultiplayerGame Client] Finished last question (${nextIndex}). Sending CLIENT_FINISHED to host with score: ${this.score}`);
+                    
+                    // *** Cancel the BaseGameMode's pending nextQuestion call ***
+                    if (this._nextQuestionTimeoutId) {
+                        console.log(`[MultiplayerGame Client] Cancelling pending BaseGameMode nextQuestion timeout.`);
+                        clearTimeout(this._nextQuestionTimeoutId);
+                        this._nextQuestionTimeoutId = null;
+                    }
+                    
                     // Send CLIENT_FINISHED *in addition* to the final score update
                     this.webRTCManager.sendToHost(MSG_TYPE.CLIENT_FINISHED, { score: this.score });
                     // Emit local event AFTER sending messages
@@ -486,7 +494,7 @@ class MultiplayerGame extends BaseGameMode {
                 console.error("[MultiplayerGame Client] Error sending score update or finished message:", error);
                 eventBus.emit(Events.System.ShowFeedback, { message: 'Error sending update to host.', level: 'warning' });
             }
-            // Note: nextQuestion() will still be called unless quiz is complete.
+            // Note: nextQuestion() will still be called by BaseGameMode's timeout unless cancelled above.
         }
     }
 
@@ -632,31 +640,26 @@ class MultiplayerGame extends BaseGameMode {
         if (!this.isHost && this.webRTCManager && this.webRTCManager.hostConnection) {
             try {
                 console.log("[MultiplayerGame Client] Sending CLIENT_LEFT message to host before destroying.");
-                // +++ DEBUG LOGGING +++
                 const messageTypeToSend = MSG_TYPE.CLIENT_LEFT;
-                console.log(`[MultiplayerGame Client DEBUG] Message type to send: ${messageTypeToSend} (Type: ${typeof messageTypeToSend})`);
                 this.webRTCManager.sendToHost(messageTypeToSend, {});
             } catch (error) {
-                // Log warning, but don't prevent destruction
                 console.warn("[MultiplayerGame Client] Error sending CLIENT_LEFT message during destroy:", error);
             }
         }
-        // --- End Client Notification ---
 
-        // Host-specific cleanup (like removing listeners, handled in _cleanupListeners)
-        // if (this.isHost) { ... }
+        // --- Ensure Multiplayer-specific listeners are cleaned up --- 
+        this._cleanupListeners();
+        // --- End Ensure --- 
 
         // Nullify references for this instance
         this.quizEngine = null;
-        // DO NOT nullify or destroy webRTCManager here, it's managed externally (singleton)
-        // this.webRTCManager = null;
         this.settings = null;
         this.clientScores = null;
         this.clientsFinished = null;
 
         console.log("[MultiplayerGame] Instance destroyed.");
 
-        // Ensure base class cleanup runs (handles eventBus listeners etc.)
+        // Base class cleanup runs last (it calls its own _cleanupListeners now)
         super.destroy();
     }
 

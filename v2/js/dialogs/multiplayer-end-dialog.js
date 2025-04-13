@@ -18,11 +18,13 @@ class MultiplayerEndDialog extends BaseDialog {
         this.titleDisplay = this.rootElement.querySelector('#multiplayerEndTitle');
         this.playerListBody = this.rootElement.querySelector('#mpResultsList');
         this.backToMenuButton = this.rootElement.querySelector('#mpReturnToMenuButton');
+        this.playAgainButton = this.rootElement.querySelector('#mpPlayAgainButton');
         this.playerTemplate = document.getElementById('mp-results-row-template');
 
         if (!this.titleDisplay) console.error(`[${this.name}] Missing #multiplayerEndTitle`);
         if (!this.playerListBody) console.error(`[${this.name}] Missing #mpResultsList (tbody)`);
         if (!this.backToMenuButton) console.error(`[${this.name}] Missing #mpReturnToMenuButton`);
+        if (!this.playAgainButton) console.warn(`[${this.name}] Play Again button (#mpPlayAgainButton) not found.`);
         if (!this.playerTemplate) console.error(`[${this.name}] Missing template #mp-results-row-template`);
 
         this._bindMethods();
@@ -31,6 +33,7 @@ class MultiplayerEndDialog extends BaseDialog {
 
     _bindMethods() {
         this._handleBackClick = this._handleBackClick.bind(this);
+        this._handlePlayAgainClick = this._handlePlayAgainClick.bind(this);
         this.updateDisplay = this.updateDisplay.bind(this);
     }
 
@@ -42,6 +45,9 @@ class MultiplayerEndDialog extends BaseDialog {
         } else {
              console.warn(`[${this.name}] Back button not found, cannot add listener.`);
         }
+        if (this.playAgainButton) {
+            this.playAgainButton.addEventListener('click', this._handlePlayAgainClick);
+        }
     }
 
     /** Unregisters DOM listeners. */
@@ -50,12 +56,22 @@ class MultiplayerEndDialog extends BaseDialog {
         if (this.backToMenuButton) {
              this.backToMenuButton.removeEventListener('click', this._handleBackClick);
         }
+        if (this.playAgainButton) {
+            this.playAgainButton.removeEventListener('click', this._handlePlayAgainClick);
+        }
     }
 
     /** Handles the back to menu button click */
     _handleBackClick() {
         console.log(`[${this.name}] Back to menu clicked.`);
-        eventBus.emit(Events.UI.EndDialog.ReturnToMenuClicked);
+        eventBus.emit(Events.UI.MultiplayerEndDialog.Closed);
+        this.hide();
+    }
+
+    /** Handles the play again button click */
+    _handlePlayAgainClick() {
+        console.log(`[${this.name}] Play Again clicked.`);
+        eventBus.emit(Events.UI.MultiplayerEndDialog.PlayAgainClicked);
         this.hide();
     }
     

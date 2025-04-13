@@ -175,33 +175,6 @@ class UIManager {
             // Tell the manager to load and emit the scores
             highscoreManager.loadAndEmitAllScores();
         });
-
-        // Listen for the request to save a highscore (from End Dialogs)
-        // Note: Assuming Events.UI.EndDialog.SaveScoreClicked exists and has the correct payload
-        eventBus.on(Events.UI.EndDialog.SaveScoreClicked, (payload) => {
-            console.log("[UIManager] SaveScoreClicked received with payload:", payload);
-            const { name, score, gameName, mode, difficulty } = payload;
-            // Validate payload before calling manager
-            if (name !== undefined && score !== undefined && gameName !== undefined && mode !== undefined && difficulty !== undefined) {
-                 // Call the highscore manager to add the score
-                 const saved = highscoreManager.addHighscore(name, score, gameName, mode, difficulty);
-                 // Optionally provide feedback based on whether it was saved
-                 if (saved) {
-                     eventBus.emit(Events.System.ShowFeedback, { message: 'Highscore saved!', level: 'success' });
-                 } else {
-                      // HighscoreManager logs reasons for not saving (practice, low score, error)
-                      // Maybe a generic feedback here, or rely on HighscoreManager's logs/feedback?
-                      // eventBus.emit(Events.System.ShowFeedback, { message: 'Score did not qualify for highscores.', level: 'info' });
-                 }
-                 // Usually, after saving, we navigate back to the main menu
-                 this.handleShowView({ viewName: Views.MainMenu });
-            } else {
-                 console.error("[UIManager] Invalid payload received for SaveScoreClicked:", payload);
-                 eventBus.emit(Events.System.ShowFeedback, { message: 'Error saving highscore: Invalid data.', level: 'error' });
-                 // Navigate back to main menu even on error to avoid getting stuck
-                 this.handleShowView({ viewName: Views.MainMenu });
-            }
-        });
     }
 
     /**
@@ -247,6 +220,16 @@ class UIManager {
      */
     handleShowView({ viewName, data }) {
         console.log(`[UIManager] Received ShowView event for: '${viewName}'`, data ? `with data:` : '', data || '');
+
+        // <<< ADD: Ensure WaitingDialog is hidden when navigating TO MainMenu >>>
+        if (viewName === Views.MainMenu) {
+            const waitingDialog = this.getComponent('WaitingDialog');
+            if (waitingDialog && waitingDialog.isOpen) {
+                console.log("[UIManager] Hiding WaitingDialog because MainMenu is being shown.");
+                waitingDialog.hide();
+            }
+        }
+        // <<< END ADD >>>
 
         // --- DEBUGGING --- 
         // Check if we are trying to navigate back to MainMenu unexpectedly

@@ -4,6 +4,8 @@ import Events from '../core/event-constants.js';
 import quizEngine from './QuizEngine.js'; 
 import webRTCManager from './WebRTCManager.js';
 import { getTextTemplate } from '../utils/miscUtils.js';
+// Import MSG_TYPE constants
+import { MSG_TYPE } from '../core/message-types.js'; 
 
 /**
  * Manages the host-side logic for the **lobby phase** of a multiplayer game session.
@@ -25,6 +27,7 @@ class MultiplayerHostManager {
         this.hostId = hostId; // The host's own PeerJS ID
         this.settings = { sheetIds, difficulty, hostId }; // Store settings
         this.isHosting = false; // Is the lobby active?
+        this.gameHasStarted = false; // Added this flag
 
         // Use the imported singleton instance
         this.quizEngine = quizEngine.getInstance(); // Get the singleton instance
@@ -32,6 +35,9 @@ class MultiplayerHostManager {
         // Player Management for lobby
         /** @type {Map<string, { name: string, isReady: boolean }>} */
         this.players = new Map();
+        /** @type {Set<string>} Peers who have requested a rematch */
+        this._rematchRequestedPeers = new Set(); 
+
         // Add host immediately, marked as ready
         this.addPlayer(this.hostId, this.hostName, true); 
 
@@ -199,9 +205,10 @@ class MultiplayerHostManager {
         console.log(`[${this.constructor.name} Lobby] Client disconnected: ${peerId}`);
         const playerName = this.players.get(peerId)?.name || 'Unknown';
         this.removePlayer(peerId);
+        this._rematchRequestedPeers.delete(peerId); // <<< Clear rematch request on disconnect
 
         // Host UI update handled by removePlayer
-        eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('mpHostInfoPlayerLeft', {'%NAME%': playerName }), level: 'info' });
+        eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('mpHostLobbyCancelled', {'%NAME%': playerName }), level: 'info' });
     }
 
     /**
@@ -223,7 +230,8 @@ class MultiplayerHostManager {
         const playerName = this.players.get(sender)?.name || sender;
 
         // Only process lobby-relevant messages
-        if (!['c_requestJoin', 'client_ready'].includes(type)) {
+        const acceptedTypes = [MSG_TYPE.C_REQUEST_JOIN, MSG_TYPE.CLIENT_READY, MSG_TYPE.C_REQUEST_REMATCH];
+        if (!acceptedTypes.includes(type)) {
              console.log(`[${this.constructor.name} Lobby] Ignoring non-lobby message type '${type}' from ${playerName} (${sender})`);
              return;
         }
@@ -231,7 +239,7 @@ class MultiplayerHostManager {
         console.log(`[${this.constructor.name} Lobby] Received lobby message from ${playerName} (${sender}): Type=${type}`, payload);
 
         switch (type) {
-            case 'c_requestJoin': 
+            case MSG_TYPE.C_REQUEST_JOIN: 
                  const requestedName = payload?.name;
                  if (requestedName) {
                      console.log(`[${this.constructor.name} Lobby] Processing join request for ${sender} with name: ${requestedName}`);
@@ -241,7 +249,7 @@ class MultiplayerHostManager {
                       console.warn(`[${this.constructor.name} Lobby] Received c_requestJoin from ${sender} without a name.`);
                  }
                  break;
-            case 'client_ready':
+            case MSG_TYPE.CLIENT_READY:
                  const player = this.players.get(sender);
                  if (player) {
                      if (!player.isReady) {
@@ -255,9 +263,16 @@ class MultiplayerHostManager {
                       console.warn(`[${this.constructor.name} Lobby] Received client_ready from unknown peer ${sender}`);
                  }
                 break;
-            case MSG_TYPE_CLIENT.CLIENT_LEFT:
-                console.log(`[${this.name} Lobby] Processing voluntary leave for ${peerId}.`);
-                this.handleClientDisconnect(peerId, 'left_voluntarily'); // Use existing handler with specific reason
+            case MSG_TYPE.C_REQUEST_REMATCH:
+                if (!this._rematchRequestedPeers.has(sender)) {
+                    console.log(`[${this.constructor.name} Lobby] Rematch requested by ${playerName} (${sender})`);
+                    this._rematchRequestedPeers.add(sender);
+                    // Optionally notify other players? For now, just track.
+                    // Check if all connected players are now ready for rematch
+                    this._checkRematchReadiness();
+                } else {
+                    console.log(`[${this.constructor.name} Lobby] Duplicate rematch request from ${playerName} (${sender})`);
+                }
                 break;
             default:
                 // Should not be reached due to filter above
@@ -327,6 +342,7 @@ class MultiplayerHostManager {
         this.players.clear();
         this.quizEngine = null; // Release reference
         this.isHosting = false;
+        this._rematchRequestedPeers.clear(); // <<< Clear rematch requests on destroy
         console.log(`[${this.constructor.name}] Destroyed.`);
     }
 
@@ -374,6 +390,83 @@ class MultiplayerHostManager {
         //         this.removePlayer(localPeerId);
         //     }
         // });
+    }
+
+    /**
+     * [REVISED] Initiates the game start sequence.
+     * Stops lobby listeners and broadcasts GAME_START.
+     * Called by GameCoordinator for both initial start and rematches.
+     */
+    initiateGameStart() {
+        if (!this.isHosting) {
+            console.warn(`[${this.constructor.name}] initiateGameStart called, but not hosting.`);
+            return;
+        }
+
+        // Prevent starting multiple times
+        if (this.gameHasStarted) { // Assuming we add this flag
+            console.warn(`[${this.constructor.name}] initiateGameStart called, but game sequence already started.`);
+            return;
+        }
+
+        console.log(`[${this.constructor.name}] Initiating game start sequence...`);
+        this.gameHasStarted = true; // Set flag
+
+        // 1. Stop listening specifically for *lobby* events (join requests, ready)
+        // Keep listeners for generic messages and disconnects active for the game phase.
+        this.stopHosting(); // Rename or refine this if needed
+
+        // 2. Broadcast GAME_START to all connected clients
+        console.log(`[${this.constructor.name}] Broadcasting GAME_START.`);
+        this._broadcast(MSG_TYPE.GAME_START, {
+             // Payload might include final confirmed player list or initial game state if needed
+             players: Object.fromEntries(this.players)
+        });
+
+        console.log(`[${this.constructor.name}] Game sequence initiated. GameCoordinator will create game instance.`);
+    }
+
+    /**
+     * Checks if all currently connected clients have requested a rematch.
+     * If so, initiates the rematch process.
+     * @private
+     */
+    _checkRematchReadiness() {
+        if (!this.isHosting) return; // Only check if hosting
+
+        const connectedClientIds = Array.from(this.players.keys()).filter(id => id !== this.hostId);
+        
+        if (connectedClientIds.length === 0) {
+            console.log(`[${this.constructor.name} Rematch Check] No clients connected, cannot start rematch.`);
+            this._rematchRequestedPeers.clear(); 
+            return;
+        }
+
+        const allReady = connectedClientIds.every(clientId => this._rematchRequestedPeers.has(clientId));
+
+        if (allReady) {
+            console.log(`[${this.constructor.name} Rematch Check] All ${connectedClientIds.length} client(s) ready for rematch! Initiating...`);
+            
+            // 1. Notify clients rematch is accepted/starting (Optional but good UX)
+            this._broadcast(MSG_TYPE.H_REMATCH_ACCEPTED, {}, []); 
+
+            // 2. Trigger the game start sequence (broadcasts GAME_START)
+            this.initiateGameStart();
+
+            // 3. Emit local event for GameCoordinator to create the Game Instance
+            eventBus.emit(Events.Multiplayer.Host.RematchReady, {
+                hostId: this.hostId,
+                settings: this.settings,
+                players: this.players 
+            });
+
+            // 4. Reset rematch state for the next round
+            this._rematchRequestedPeers.clear();
+
+        } else {
+             const readyCount = connectedClientIds.filter(id => this._rematchRequestedPeers.has(id)).length;
+             console.log(`[${this.constructor.name} Rematch Check] Waiting for rematch requests (${readyCount}/${connectedClientIds.length} ready).`);
+        }
     }
 }
 

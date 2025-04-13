@@ -1,6 +1,7 @@
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 
+
 // REMOVED: Singleton import
 // import QuizEngine from '../services/QuizEngine.js'; 
 
@@ -45,6 +46,7 @@ class BaseGameMode {
         this._boundHandleAnswerSubmitted = null; // Store bound listener
         this.currentQuestionIndex = -1; // Initialize index tracking
         this.score = 0; // +++ Initialize score +++
+        this._nextQuestionTimeoutId = null; // ID for the delayed nextQuestion call
 
         this._registerBaseListeners();
     }
@@ -152,7 +154,7 @@ class BaseGameMode {
      * @param {any} payload.answer - The submitted answer.
      * @protected
      */
-    _handleAnswerSubmitted({ answer }) {
+    _handleAnswerSubmitted(answer) {
         if (this.isFinished || this.lastAnswerCorrect !== null) {
             console.log(`[BaseGameMode:${this.mode}] Ignoring answer submission (finished or already answered).`);
             return; // Ignore if game is over or already processed
@@ -164,7 +166,7 @@ class BaseGameMode {
         this._beforeAnswerCheck();
 
         // Use the INSTANCE
-        const checkResult = this.quizEngine.checkAnswer(currentIndex, answer);
+        const checkResult = this.quizEngine.checkAnswer(currentIndex, answer.answer);
         this.lastAnswerCorrect = checkResult.isCorrect;
         const scoreDelta = this._calculateScore(checkResult.isCorrect);
 
@@ -177,10 +179,21 @@ class BaseGameMode {
 
         this._afterAnswerChecked(checkResult.isCorrect, scoreDelta);
 
+        // Clear any pending timeout from a rapid previous answer (unlikely but safe)
+        if (this._nextQuestionTimeoutId) {
+            clearTimeout(this._nextQuestionTimeoutId);
+            this._nextQuestionTimeoutId = null;
+        }
+
         // Delay moving to the next question to allow feedback display
-        setTimeout(() => {
-            if (this.quizEngine && !this.isFinished && this.lastAnswerCorrect !== null) { 
+        // *** ALWAYS schedule this in the base class ***
+        this._nextQuestionTimeoutId = setTimeout(() => {
+            this._nextQuestionTimeoutId = null; // Clear the ID now that the timeout is running
+            // Check if engine still exists, game isn't finished *now*, and an answer was processed
+            if (this.quizEngine && !this.isFinished && this.lastAnswerCorrect !== null) {
                  this.nextQuestion();
+            } else {
+                 console.log(`[BaseGameMode:${this.mode}] Skipping nextQuestion call after delay (game finished or state invalid).`);
             }
         }, 1500); // Standard delay
     }
@@ -239,6 +252,11 @@ class BaseGameMode {
      */
     destroy() {
         console.log(`[BaseGameMode:${this.mode}] Destroying instance.`);
+        
+        // --- Ensure listeners are always cleaned up --- 
+        this._cleanupListeners();
+        // --- End Ensure ---
+        
         this.quizEngine = null; // Release reference
         // Any other subclass-specific cleanup should happen before/after super.destroy()
     }
@@ -313,6 +331,7 @@ class BaseGameMode {
      * @protected
      */
     _afterAnswerChecked(isCorrect, scoreDelta) { 
+        console.log("[Afteranswerchecked!]", arguments)
         // Update the total score
         if (scoreDelta > 0) {
             this.score += scoreDelta;

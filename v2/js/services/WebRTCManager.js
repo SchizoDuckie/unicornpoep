@@ -61,13 +61,35 @@ class WebRTCManager {
         /** @private Store original onerror */
         // this._originalOnError = window.onerror; // REMOVED
         /** @private Store our bound error handler */
-        // this._boundErrorHandler = this._handleGlobalError.bind(this);
+        this._boundErrorHandler = this._handleGlobalError.bind(this);
 
         // Setup global error handler using addEventListener
         // window.onerror = this._boundErrorHandler; // REMOVED
         window.addEventListener('error', this._boundErrorHandler);
 
         console.info("[WebRTCManager] Initialized.");
+    }
+
+    /**
+     * Handles uncaught global errors, attempting to log context.
+     * @param {ErrorEvent} event - The global error event.
+     * @private
+     */
+    _handleGlobalError(event) {
+        const error = event.error || new Error(event.message || 'Unknown global error');
+        const context = `global-${event.filename}:${event.lineno}:${event.colno}`;
+        console.error(`[WebRTCManager] Uncaught Global Error (${context}):`, error);
+
+        // Optionally emit a specific event for critical failures
+        eventBus.emit(Events.System.Error, { 
+            error: error, 
+            message: `Unhandled error: ${error.message}`, 
+            context: context,
+            isFatal: false // Decide if this type of error should be considered fatal
+        });
+        
+        // Prevent default browser error handling? Usually false.
+        // event.preventDefault(); 
     }
 
     // --- Host Functionality ---
@@ -991,12 +1013,19 @@ class WebRTCManager {
 
     /** [Client Only] Resumes the host timeout check interval if paused. */
     resumeHostTimeoutCheck() {
-        // Only resume if we are a client, connected, and the interval isn't already running
-        if (!this.isHost && this.status === ConnectionStatus.CONNECTED_CLIENT && !this._timeoutCheckIntervalId) {
-            console.log("[WebRTCManager Client] Resuming host timeout check.");
-            // Re-initialize last contact time to now to avoid immediate timeout after resuming
-            this._lastHostContact = Date.now();
-            this._startHostTimeoutCheck(); // Re-use the start logic
+        if (!this.isHost || this.status !== ConnectionStatus.CONNECTED || !this.hostId) return;
+        console.log("[WebRTCManager Client] Resuming host timeout check.");
+        this._startHostTimeoutCheck(); // Restart the interval
+    }
+
+    /**
+     * Stops the client-side interval checking for host timeout.
+     */
+    stopTimeoutCheck() {
+        if (this._timeoutCheckIntervalId) {
+            console.log("[WebRTCManager] Stopping timeout check interval.");
+            clearInterval(this._timeoutCheckIntervalId);
+            this._timeoutCheckIntervalId = null;
         }
     }
 

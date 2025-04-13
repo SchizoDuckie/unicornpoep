@@ -365,15 +365,22 @@ class JoinLobbyComponent extends BaseComponent {
          if (!this.confirmNameInput) return;
  
          try {
-             const storedName = localStorage.getItem('unicornPoepUserName');
-             if (storedName) {
-                 this.confirmNameInput.value = storedName;
-                 console.log(`[${this.name}] Pre-filled confirm name with stored: ${storedName}`);
+             // First priority: Use the username already set in this component from the initial connection
+             if (this.playerName) {
+                 this.confirmNameInput.value = this.playerName;
+                 console.log(`[${this.name}] Pre-filled confirm name with already set playerName: ${this.playerName}`);
              } else {
-                 // If no stored name, generate one just for this input field
-                 const randomName = miscUtils.generateRandomPlayerName();
-                 this.confirmNameInput.value = randomName;
-                 console.log(`[${this.name}] Generated random name for confirm input: ${randomName}`);
+                 // Second priority: Try getting from localStorage
+                 const storedName = localStorage.getItem('unicornPoepUserName');
+                 if (storedName) {
+                     this.confirmNameInput.value = storedName;
+                     console.log(`[${this.name}] Pre-filled confirm name with stored: ${storedName}`);
+                 } else {
+                     // Last resort: Generate random name
+                     const randomName = miscUtils.generateRandomPlayerName();
+                     this.confirmNameInput.value = randomName;
+                     console.log(`[${this.name}] Generated random name for confirm input: ${randomName}`);
+                 }
              }
          } catch (error) {
              console.error(`[${this.name}] Error loading/generating name for confirm input:`, error);

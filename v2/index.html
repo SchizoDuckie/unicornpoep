@@ -458,7 +458,10 @@
             <p>Je score is: <strong id="finalScore"></strong>!</p>
             <div>
                 <label for="playerName">Jouw naam (voor scorelijst):</label>
-                <input type="text" id="playerName" placeholder="Typ hier...">
+                <div class="input-with-button">
+                    <input type="text" id="playerName" placeholder="Typ hier...">
+                    <button id="refreshNameButton" class="refresh-name-button" title="Genereer willekeurige naam">🔄</button>
+                </div>
             </div>
             <div id="endGameButtons">
                 <button id="saveHighscore">Opslaan</button>
@@ -518,7 +521,9 @@
                  </template>
                  <!-- End added elements -->
              </div>
-             <button id="mpReturnToMenuButton" class="menuButton yellow-button">Sluiten</button> <!-- Renamed button ID -->
+             <!-- Add Play Again Button -->
+             <button id="mpPlayAgainButton" class="menuButton green-button">Play Again</button> 
+             <button id="mpReturnToMenuButton" class="menuButton yellow-button">Hoofdmenu</button> <!-- Renamed button ID -->
              <!-- Moved Multiplayer End Templates -->
              <data data-translation-key="mpEndDefaultPlayerName">Unknown</data>
              <data data-translation-key="mpEndLoadError">Kon resultaten niet laden.</data>
