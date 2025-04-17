@@ -12,63 +12,73 @@ import { getTextTemplate } from '../utils/miscUtils.js';
 class MultiplayerEndDialog extends BaseDialog {
     static SELECTOR = '#multiplayerEndDialog';
     static VIEW_NAME = 'MultiplayerEndDialog';
+    
+    static SELECTORS = {
+        TITLE_DISPLAY: '#multiplayerEndTitle',
+        PLAYER_LIST_BODY: '#mpResultsList',
+        BACK_BUTTON: '#mpReturnToMenuButton',
+        PLAY_AGAIN_BUTTON: '#mpPlayAgainButton',
+        PLAYER_TEMPLATE: '#mp-results-row-template'
+    };
 
-    /** Initializes component elements. */
+    /** 
+     * Initializes the component using the declarative pattern
+     * @returns {Object} Configuration object with events, domEvents, and domElements
+     */
     initialize() {
-        this.titleDisplay = this.rootElement.querySelector('#multiplayerEndTitle');
-        this.playerListBody = this.rootElement.querySelector('#mpResultsList');
-        this.backToMenuButton = this.rootElement.querySelector('#mpReturnToMenuButton');
-        this.playAgainButton = this.rootElement.querySelector('#mpPlayAgainButton');
-        this.playerTemplate = document.getElementById('mp-results-row-template');
-
-        if (!this.titleDisplay) console.error(`[${this.name}] Missing #multiplayerEndTitle`);
-        if (!this.playerListBody) console.error(`[${this.name}] Missing #mpResultsList (tbody)`);
-        if (!this.backToMenuButton) console.error(`[${this.name}] Missing #mpReturnToMenuButton`);
-        if (!this.playAgainButton) console.warn(`[${this.name}] Play Again button (#mpPlayAgainButton) not found.`);
-        if (!this.playerTemplate) console.error(`[${this.name}] Missing template #mp-results-row-template`);
-
-        this._bindMethods();
-        console.log(`[${this.name}] Initialized.`);
+        return {
+            domEvents: [
+                {
+                    selector: MultiplayerEndDialog.SELECTORS.BACK_BUTTON,
+                    event: 'click',
+                    handler: this._handleBackClick
+                },
+                {
+                    selector: MultiplayerEndDialog.SELECTORS.PLAY_AGAIN_BUTTON,
+                    event: 'click',
+                    handler: this._handlePlayAgainClick
+                }
+            ],
+            domElements: [
+                {
+                    name: 'titleDisplay',
+                    selector: MultiplayerEndDialog.SELECTORS.TITLE_DISPLAY
+                },
+                {
+                    name: 'playerListBody',
+                    selector: MultiplayerEndDialog.SELECTORS.PLAYER_LIST_BODY
+                },
+                {
+                    name: 'backButton',
+                    selector: MultiplayerEndDialog.SELECTORS.BACK_BUTTON
+                },
+                {
+                    name: 'playAgainButton',
+                    selector: MultiplayerEndDialog.SELECTORS.PLAY_AGAIN_BUTTON
+                },
+                {
+                    name: 'playerTemplate',
+                    selector: MultiplayerEndDialog.SELECTORS.PLAYER_TEMPLATE,
+                    isGlobal: true // Template is not under the component's root element
+                }
+            ]
+        };
     }
 
-    _bindMethods() {
-        this._handleBackClick = this._handleBackClick.bind(this);
-        this._handlePlayAgainClick = this._handlePlayAgainClick.bind(this);
-        this.updateDisplay = this.updateDisplay.bind(this);
-    }
-
-    /** Registers DOM listeners. */
-    registerListeners() {
-        console.log(`[${this.name}] Registering DOM listeners.`);
-        if (this.backToMenuButton) {
-             this.backToMenuButton.addEventListener('click', this._handleBackClick);
-        } else {
-             console.warn(`[${this.name}] Back button not found, cannot add listener.`);
-        }
-        if (this.playAgainButton) {
-            this.playAgainButton.addEventListener('click', this._handlePlayAgainClick);
-        }
-    }
-
-    /** Unregisters DOM listeners. */
-    unregisterListeners() {
-        console.log(`[${this.name}] Unregistering DOM listeners.`);
-        if (this.backToMenuButton) {
-             this.backToMenuButton.removeEventListener('click', this._handleBackClick);
-        }
-        if (this.playAgainButton) {
-            this.playAgainButton.removeEventListener('click', this._handlePlayAgainClick);
-        }
-    }
-
-    /** Handles the back to menu button click */
+    /** 
+     * Handles the back to menu button click 
+     * @private
+     */
     _handleBackClick() {
         console.log(`[${this.name}] Back to menu clicked.`);
         eventBus.emit(Events.UI.MultiplayerEndDialog.Closed);
         this.hide();
     }
 
-    /** Handles the play again button click */
+    /** 
+     * Handles the play again button click 
+     * @private
+     */
     _handlePlayAgainClick() {
         console.log(`[${this.name}] Play Again clicked.`);
         eventBus.emit(Events.UI.MultiplayerEndDialog.PlayAgainClicked);
@@ -84,10 +94,10 @@ class MultiplayerEndDialog extends BaseDialog {
     updateDisplay(results) {
         if (!results || !results.players) {
             console.error(`[${this.name}] Invalid results data received.`, results);
-            if (this.titleDisplay) this.titleDisplay.textContent = 'Error displaying results.';
-            if (this.playerListBody) this.playerListBody.innerHTML = '';
-                 return;
-            }
+            if (this.elements.titleDisplay) this.elements.titleDisplay.textContent = 'Error displaying results.';
+            if (this.elements.playerListBody) this.elements.playerListBody.innerHTML = '';
+            return;
+        }
 
         let winnerText = getTextTemplate('mpEndDraw') || 'It\'s a draw!';
         if (results.winner) {
@@ -95,13 +105,13 @@ class MultiplayerEndDialog extends BaseDialog {
             const name = winner.name || getTextTemplate('mpEndDefaultPlayerName') || `Player ${winner.peerId.slice(-4)}`;
             winnerText = getTextTemplate('mpEndWinnerPrefix', { '%NAME%': name }) || `${name} wint!`; 
         }
-        if (this.titleDisplay) this.titleDisplay.textContent = winnerText;
+        if (this.elements.titleDisplay) this.elements.titleDisplay.textContent = winnerText;
 
-        if (this.playerListBody && this.playerTemplate) {
-            this.playerListBody.innerHTML = '';
+        if (this.elements.playerListBody && this.elements.playerTemplate) {
+            this.elements.playerListBody.innerHTML = '';
             const fragment = document.createDocumentFragment();
             results.players.forEach((player, index) => {
-                const itemClone = this.playerTemplate.content.cloneNode(true);
+                const itemClone = this.elements.playerTemplate.content.cloneNode(true);
                 const rankCell = itemClone.querySelector('.rank');
                 const nameCell = itemClone.querySelector('.name');
                 const scoreCell = itemClone.querySelector('.score');
@@ -112,10 +122,10 @@ class MultiplayerEndDialog extends BaseDialog {
 
                 fragment.appendChild(itemClone);
             });
-            this.playerListBody.appendChild(fragment);
+            this.elements.playerListBody.appendChild(fragment);
         } else {
-             if (!this.playerListBody) console.error(`[${this.name}] Cannot populate results: List body (#mpResultsList) not found.`);
-             if (!this.playerTemplate) console.error(`[${this.name}] Cannot populate results: Template (#mp-results-row-template) not found.`);
+            if (!this.elements.playerListBody) console.error(`[${this.name}] Cannot populate results: List body (#mpResultsList) not found.`);
+            if (!this.elements.playerTemplate) console.error(`[${this.name}] Cannot populate results: Template (#mp-results-row-template) not found.`);
         }
     }
 

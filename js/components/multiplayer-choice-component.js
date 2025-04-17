@@ -1,193 +1,204 @@
-import BaseComponent from './base-component.js';
+import RefactoredBaseComponent from './RefactoredBaseComponent.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
 import { getTextTemplate } from '../utils/miscUtils.js';
-import miscUtils from '../utils/miscUtils.js'; // Ensure default import
+import miscUtils from '../utils/miscUtils.js';
 
 /**
  * @class MultiplayerChoiceComponent
- * @extends BaseComponent
+ * @extends RefactoredBaseComponent
  * Handles the view where the user chooses to Host or Join a multiplayer game
  * after entering their name.
  */
-class MultiplayerChoiceComponent extends BaseComponent {
+class MultiplayerChoiceComponent extends RefactoredBaseComponent {
     static SELECTOR = '#multiplayerChoice';
     static VIEW_NAME = 'MultiplayerChoiceComponent';
 
-    /** Initializes the component. */
-    constructor() {
-        super();
-        console.log("[MultiplayerChoiceComponent] Constructed (via BaseComponent).");
-    }
+    // Element selectors using consistent pattern
+    static SELECTORS = {
+        PLAYER_NAME_INPUT: '#playerNameInput',
+        HOST_BUTTON: '#hostGame',
+        JOIN_BUTTON: '#joinGame',
+        BACK_BUTTON: '.backToMain',
+        NAME_ERROR: '#choiceError',
+        REFRESH_NAME_BUTTON: '#refreshPlayerNameButton'
+    };
 
+    /**
+     * Initializes the component using the declarative pattern.
+     * @returns {Object} Configuration object for BaseComponent.
+     */
     initialize() {
-        // Find elements
-        this.playerNameInput = this.rootElement.querySelector('#playerNameInput');
-        this.hostButton = this.rootElement.querySelector('#hostGame');
-        this.joinButton = this.rootElement.querySelector('#joinGame');
-        this.backButton = this.rootElement.querySelector('.backToMain');
-        this.difficultyRadios = this.rootElement.querySelectorAll('input[name="mpDifficulty"]');
-        this.difficultyContainer = this.rootElement.querySelector('.difficulty-selection-mp');
-        this.nameError = this.rootElement.querySelector('#choiceError');
-        this.refreshNameButton = this.rootElement.querySelector('#refreshPlayerNameButton');
-
-        if (!this.playerNameInput || !this.hostButton || !this.joinButton || !this.backButton || !this.nameError || !this.refreshNameButton) {
-             console.error(`[${this.name}] Missing one or more required elements.`);
-        }
-        
-        // --- Bind Handlers Here --- 
-        this.handleShowView = this.handleShowView.bind(this);
-        this._handleHostClick = this._handleHostClick.bind(this);
-        this._handleJoinClick = this._handleJoinClick.bind(this);
-        this._handleBackClick = this._handleBackClick.bind(this);
-        this._clearError = this._clearError.bind(this); 
-        this._handleRefreshName = this._handleRefreshName.bind(this);
-
-        // --- PRE-POPULATE Name Input --- 
-        this._loadAndSetName();
-        // --- END PRE-POPULATE ---
-
-        console.log(`[${this.name}] Initialized.`);
-    }
-
-    /** Registers DOM and eventBus event listeners using pre-bound handlers. */
-    registerListeners() {
-        console.log(`[${this.name}] Registering listeners.`);
-        
-        // DOM Listeners
-        if (this.hostButton) this.hostButton.addEventListener('click', this._handleHostClick);
-        if (this.joinButton) this.joinButton.addEventListener('click', this._handleJoinClick);
-        if (this.backButton) this.backButton.addEventListener('click', this._handleBackClick);
-        if (this.playerNameInput) this.playerNameInput.addEventListener('input', this._clearError);
-        if (this.refreshNameButton) this.refreshNameButton.addEventListener('click', this._handleRefreshName);
-        
-        // eventBus Listeners
-        this.listen(Events.Navigation.ShowView, this.handleShowView); 
-    }
-
-    // --- Event Handlers (Regular Methods) ---
-    handleShowView({ viewName }) {
-        if (viewName === this.name) {
-            console.log(`[${this.name}] Showing view.`);
-            this.show();
-            this.playerNameInput.focus();
-        }
-    }
-    
-    _clearError() {
-        if (this.nameError) {
-            this.nameError.textContent = '';
-            this.nameError.classList.add('hidden');
-        }
-    }
-
-    _showError(message) {
-        if (this.nameError) {
-            this.nameError.textContent = message;
-            this.nameError.classList.remove('hidden');
-        }
-    }
-    
-    _validateAndGetName() {
-        const playerName = this.playerNameInput.value.trim();
-        if (!playerName) {
-            this._showError(getTextTemplate('joinErrorEmptyName')); // Using template keys from join dialog
-            this.playerNameInput.focus();
-            return null;
-        }
-         if (playerName.length > 40) { 
-             this._showError(getTextTemplate('joinErrorNameTooLong'));
-             this.playerNameInput.focus();
-             return null;
-         }
-        this._clearError();
-        return playerName;
-    }
-
-    _handleHostClick() {
-        console.log(`[${this.name}] _handleHostClick triggered!`);
-        const playerName = this._validateAndGetName();
-        if (!playerName) return;
-
-        localStorage.setItem('unicornPoepUserName', playerName); // Save validated name
-
-        console.log(`[${this.name}] Host button clicked. Player: ${playerName}`);
-
-        let selectedDifficulty = 'medium'; // Default
-        
-        // Check for selected difficulty radio button
-        if (this.difficultyRadios && this.difficultyRadios.length > 0) {
-            this.difficultyRadios.forEach(radio => {
-                if (radio.checked) {
-                    selectedDifficulty = radio.value;
+        return {
+            // Global event listeners
+            events: [
+                // Listen for ShowView to handle focus, visibility is handled by UIManager/Base
+                { 
+                    eventName: Events.Navigation.ShowView, 
+                    callback: this._handleShowView 
                 }
-            });
-        }
-
-        // Settings are now determined later in sheet selection, pass only difficulty for now
-        const settings = { 
-            difficulty: selectedDifficulty 
-            // sheetIds handled later
+            ],
+            
+            // DOM event handlers
+            domEvents: [
+                { 
+                    selector: MultiplayerChoiceComponent.SELECTORS.HOST_BUTTON, 
+                    event: 'click', 
+                    handler: this._handleHostClick
+                },
+                { 
+                    selector: MultiplayerChoiceComponent.SELECTORS.JOIN_BUTTON, 
+                    event: 'click', 
+                    handler: this._handleJoinClick
+                },
+                { 
+                    selector: MultiplayerChoiceComponent.SELECTORS.BACK_BUTTON, 
+                    event: 'click',
+                    emits: Events.UI.MainMenu.Show
+                },
+                { 
+                    selector: MultiplayerChoiceComponent.SELECTORS.PLAYER_NAME_INPUT, 
+                    event: 'input', 
+                    handler: this._clearError
+                },
+                { 
+                    selector: MultiplayerChoiceComponent.SELECTORS.REFRESH_NAME_BUTTON, 
+                    event: 'click', 
+                    handler: this._handleRefreshName
+                }
+            ],
+            
+            // Use domElements pattern to query and cache elements
+            domElements: [
+                {
+                    name: 'playerNameInput',
+                    selector: MultiplayerChoiceComponent.SELECTORS.PLAYER_NAME_INPUT
+                },
+                {
+                    name: 'nameError',
+                    selector: MultiplayerChoiceComponent.SELECTORS.NAME_ERROR
+                }
+            ],
+            
+            // Directly use the method that loads player name
+            setup: this._loadAndSetName
         };
-
-        eventBus.emit(Events.UI.MultiplayerChoice.HostClicked, { 
-            playerName: playerName,
-            settings: settings
-        });
-    }
-
-    _handleJoinClick() {
-        const playerName = this._validateAndGetName();
-        if (!playerName) return;
-
-        localStorage.setItem('unicornPoepUserName', playerName); // Save validated name
-
-        console.log(`[${this.name}] Join button clicked. Player: ${playerName}`);
-        eventBus.emit(Events.UI.MultiplayerChoice.JoinClicked, { 
-            playerName: playerName
-        });
-    }
-
-    _handleBackClick() {
-        console.log(`[${this.name}] Back button clicked.`);
-        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
     }
     
-    // BaseComponent handles show/hide/destroy
-
-    /** Handles the click on the refresh name button. @private */
-    _handleRefreshName() {
-        console.log(`[${this.name}] Refresh name button clicked.`);
-        const newName = miscUtils.generateRandomPlayerName();
-        if (this.playerNameInput) {
-            this.playerNameInput.value = newName;
-            this._clearError();
-            console.log(`[${this.name}] Set random name: ${newName}`);
+    /**
+     * Handles the ShowView event specifically for this component.
+     * Focuses the input field when the view becomes active.
+     * @param {object} payload Event payload.
+     * @param {string} payload.viewName The name of the view being shown.
+     * @private
+     */
+    _handleShowView({ viewName }) {
+        // Check if the event is for this specific component
+        if (viewName === this.name) {
+            if (this.elements.playerNameInput) {
+                this.elements.playerNameInput.focus();
+            }
+        }
+    }
+    
+    /**
+     * Clears the error message display.
+     * @private
+     */
+    _clearError() {
+        if (this.elements.nameError) {
+            this.elements.nameError.textContent = '';
+            this.elements.nameError.classList.add('hidden');
         }
     }
 
-    /** Loads name from localStorage or generates a random one. */
+    /**
+     * Shows an error message.
+     * @param {string} message The message to display
+     * @private
+     */
+    _showError(message) {
+        if (this.elements.nameError) {
+            this.elements.nameError.textContent = message;
+            this.elements.nameError.classList.remove('hidden');
+        }
+    }
+    
+    /**
+     * Handles the click on the refresh name button.
+     * @private
+     */
+    _handleRefreshName() {
+        const newName = miscUtils.generateRandomPlayerName();
+        if (this.elements.playerNameInput) {
+            this.elements.playerNameInput.value = newName;
+            this._clearError();
+        }
+    }
+
+    /**
+     * Loads name from localStorage or generates a random one.
+     * @private
+     */
     _loadAndSetName() {
+        eventBus.emit(Events.UI.HideAllViews);
         try {
             const storedName = localStorage.getItem('unicornPoepUserName'); 
-            let nameToSet = '';
-            if (storedName) {
-                nameToSet = storedName;
-                console.log(`[${this.name}] Pre-populated name input with stored name: ${storedName}`);
-            } else {
-                nameToSet = miscUtils.generateRandomPlayerName();
-                console.log(`[${this.name}] No stored name found. Generated random name: ${nameToSet}`);
-            }
-             if (this.playerNameInput) {
-                this.playerNameInput.value = nameToSet;
+            let nameToSet = storedName || miscUtils.generateRandomPlayerName();
+            
+            if (this.elements.playerNameInput) {
+                this.elements.playerNameInput.value = nameToSet;
             }
         } catch (error) {
-            console.error(`[${this.name}] Error loading/generating name:`, error);
-            if (this.playerNameInput) {
-                this.playerNameInput.value = 'Player'; 
+            if (this.elements.playerNameInput) {
+                this.elements.playerNameInput.value = 'Player'; 
             }
         }
+    }
+
+    /**
+     * Handles the Host Game button click.
+     * Validates name, emits NamePrompt.Show event, saves name.
+     * @param {Event} event The click event.
+     * @private
+     */
+    _handleHostClick(event) {
+        event.preventDefault();
+        const playerName = this.elements.playerNameInput.value.trim();
+        if (!playerName) {
+            this._showError(getTextTemplate('errorPlayerNameMissing'));
+            return;
+        }
+        
+        // Save name for future use
+        localStorage.setItem('unicornPoepUserName', playerName);
+        
+        // Emit the host event directly with the player name
+        // No need for redundant name prompt since we already have the name
+        eventBus.emit(Events.UI.MultiplayerChoice.HostClicked, { playerName });
+    }
+
+    /**
+     * Handles the Join Game button click.
+     * Validates name, emits NamePrompt.Show event, saves name.
+     * @param {Event} event The click event.
+     * @private
+     */
+    _handleJoinClick(event) {
+        event.preventDefault();
+        const playerName = this.elements.playerNameInput.value.trim();
+        if (!playerName) {
+            this._showError(getTextTemplate('errorPlayerNameMissing'));
+            return;
+        }
+        
+        // Save name for future use
+        localStorage.setItem('unicornPoepUserName', playerName);
+        
+        // Emit the join event directly with the player name
+        // No need for redundant name prompt since we already have the name
+        eventBus.emit(Events.UI.MultiplayerChoice.JoinClicked, { playerName });
     }
 }
 

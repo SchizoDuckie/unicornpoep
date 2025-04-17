@@ -1,4 +1,4 @@
-import BaseComponent from './base-component.js';
+import RefactoredBaseComponent from './RefactoredBaseComponent.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js'; // Import Views
@@ -8,45 +8,48 @@ import questionsManager from '../services/QuestionsManager.js';
 
 /**
  * @class ScoreDisplayComponent
- * @extends BaseComponent
+ * @extends RefactoredBaseComponent
  * Displays the player's current score.
  */
-class ScoreDisplayComponent extends BaseComponent {
+class ScoreDisplayComponent extends RefactoredBaseComponent {
     static SELECTOR = '#scoreDisplay';
     static VIEW_NAME = 'ScoreDisplayComponent';
 
-    constructor() {
-        super();
-        console.log(`[${this.name}] Constructed (via BaseComponent).`);
-    }
-
+    /**
+     * Initializes the component using the declarative pattern
+     * @returns {Object} Configuration object with events and domEvents
+     */
     initialize() {
-        console.log(`[${this.name}] Initializing...`);
-        // No specific elements needed beyond the rootElement handled by BaseComponent
-        this.scoreElement = this.rootElement; // Assuming root element IS the display
-
-        // Bind handlers
-        this._handleGameStart = this._handleGameStart.bind(this);
-        this._handleScoreUpdate = this._handleScoreUpdate.bind(this);
-        this._handleGameFinished = this._handleGameFinished.bind(this); // Add finish handler
-        this._handleShowView = this._handleShowView.bind(this);     // Add view handler
-
-        this._resetDisplay(); // Set initial text
-        console.log(`[${this.name}] Initialized.`);
+        return {
+            events: [
+                {
+                    eventName: Events.Game.Started,
+                    callback: this._handleGameStart
+                },
+                {
+                    eventName: Events.Game.ScoreUpdated,
+                    callback: this._handleScoreUpdate
+                },
+                {
+                    eventName: Events.Game.Finished,
+                    callback: this._handleGameFinished
+                },
+                {
+                    eventName: Events.Navigation.ShowView,
+                    callback: this._handleShowView
+                }
+            ],
+            
+            domEvents: [] // No DOM events to handle
+        };
     }
 
-    registerListeners() {
-        console.log(`[${this.name}] Registering listeners.`);
-        this.listen(Events.Game.Started, this._handleGameStart);
-        this.listen(Events.Game.ScoreUpdated, this._handleScoreUpdate);
-        this.listen(Events.Game.Finished, this._handleGameFinished); // Listen for game end
-        this.listen(Events.Navigation.ShowView, this._handleShowView); // Listen for navigation
-    }
-
+    /**
+     * Resets the score display to initial state
+     * @private
+     */
     _resetDisplay() {
-        if (this.scoreElement) {
-            this.scoreElement.textContent = 'Score: 0';
-        }
+        this.rootElement.textContent = 'Score: 0';
         // By default, assume it should be visible unless game starts in MP
         this.show();
     }
@@ -59,10 +62,8 @@ class ScoreDisplayComponent extends BaseComponent {
      */
     _handleGameStart({ mode }) {
         if (mode === 'multiplayer-host' || mode === 'multiplayer-client') {
-            console.log(`[${this.name}] Multiplayer game started, hiding score display.`);
             this.hide(); // Hide for multiplayer
         } else {
-            console.log(`[${this.name}] Single player/practice game started, showing score display.`);
             this._resetDisplay(); // Reset score to 0
             this.show(); // Ensure visible for other modes
         }
@@ -75,19 +76,14 @@ class ScoreDisplayComponent extends BaseComponent {
      * @private
      */
     _handleScoreUpdate(payload) {
-     
         // Explicitly check for payload and the required property
         if (payload && typeof payload.newScore === 'number') {
             const newScore = payload.newScore; // Assign if valid
             // Only update if the component is currently visible
             // (prevents updating during hidden multiplayer games)
-            if (this.isVisible && this.scoreElement) {
-                this.scoreElement.textContent = `Score: ${newScore}`;
+            if (this.isVisible) {
+                this.rootElement.textContent = `Score: ${newScore}`;
             }
-        } else {
-            // Log a warning if the payload is not as expected
-            console.warn(`[${this.name}] Received invalid or incomplete score update payload:`, payload);
-            // Optional: Decide how to handle the display - e.g., leave it unchanged
         }
     }
 
@@ -98,32 +94,26 @@ class ScoreDisplayComponent extends BaseComponent {
     _handleGameFinished() {
         // When any game finishes, make sure the score display is potentially visible
         // for subsequent non-multiplayer games or menu views.
-        // Don't necessarily reset the text here, just ensure visibility.
-        console.log(`[${this.name}] Game finished, ensuring score display is visible.`);
         this.show();
     }
 
-     /**
+    /**
      * Handles navigation events to ensure the display is visible on non-game views.
-      * @param {object} payload
-      * @param {string} payload.viewName - The name of the view being shown.
+     * @param {object} payload
+     * @param {string} payload.viewName - The name of the view being shown.
      * @private
      */
-     _handleShowView({ viewName }) {
+    _handleShowView({ viewName }) {
         // Show the score display if navigating to main menu or other non-gameplay views
         // Hide it specifically if navigating TO the game area (handled by _handleGameStart)
         if (viewName !== Views.GameArea && viewName !== Views.Loading) {
-             // If we aren't explicitly in the game area or loading, ensure score is visible
-             // This covers returning to MainMenu, Highscores, etc.
-             if (!this.isVisible) {
-                console.log(`[${this.name}] Navigating to non-game view (${viewName}), ensuring score display is visible.`);
+            // If we aren't explicitly in the game area or loading, ensure score is visible
+            if (!this.isVisible) {
                 this.show();
-             }
+            }
         }
         // Hiding for GameArea is handled by _handleGameStart based on mode
-     }
-
-    // destroy() is handled by BaseComponent to remove listeners.
+    }
 }
 
 export default ScoreDisplayComponent;

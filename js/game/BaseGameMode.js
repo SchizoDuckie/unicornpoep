@@ -87,15 +87,7 @@ class BaseGameMode {
     async start() {
         console.log(`[BaseGameMode:${this.mode}] Starting game...`);
         try {
-            // Load questions using the INSTANCE's specific loading method
-            // Host will use loadQuestionsFromManager, Client instance is pre-loaded
-            // We might need a more abstract `initializeEngine` method here
-            // For now, assume the engine passed to constructor is ready
-            if (typeof this.quizEngine.loadQuestionsFromManager === 'function' && this.settings.sheetIds) {
-                 // If host-like settings and method exists, load via manager
-                 await this.quizEngine.loadQuestionsFromManager(this.settings.sheetIds, this.settings.difficulty);
-             }
-            // If it's a client instance from createInstance, questions are already loaded.
+            await this.quizEngine.loadQuestionsFromManager(this.settings.sheetIds, this.settings.difficulty);
             
             if (this.quizEngine.getQuestionCount() === 0) {
                 throw new Error("Quiz engine has no questions loaded.");
@@ -123,39 +115,54 @@ class BaseGameMode {
     }
 
     /**
-     * Handles moving to the next question or finishing the game.
-     * Uses the injected this.quizEngine instance.
+     * Advances to the next question or finishes the game if complete.
+     * Emits Events.Game.QuestionNew or calls finishGame().
+     * @protected
      */
     nextQuestion() {
         if (this.isFinished) return;
-        this._beforeNextQuestion();
+
+        this._beforeNextQuestion(); // Hook for subclasses
         this.lastAnswerCorrect = null;
         const nextIndex = this.currentQuestionIndex + 1;
 
-        // Use the INSTANCE
-        if (this.quizEngine.isQuizComplete(nextIndex)) {
+        // --- Rely ONLY on methods defined in QuizEngine ---
+        const totalQuestions = this.quizEngine.getQuestionCount(); // Assumes this.quizEngine is a valid instance
+
+        if (nextIndex >= totalQuestions) {
+            console.log(`[${this.mode}] Reached end of questions (Index: ${nextIndex}, Total: ${totalQuestions}). Finishing game.`);
             this.finishGame();
         } else {
-            // Use the INSTANCE
-            const questionData = this.quizEngine.getQuestionData(nextIndex);
-            if (questionData) {
+            try {
+                const questionData = this.quizEngine.getQuestionData(nextIndex);
+                if (!questionData) {
+                     console.error(`[${this.mode}] Could not retrieve question data for index ${nextIndex}. Finishing game.`);
+                     this.finishGame();
+                     return; // Stop execution
+                 }
+
                 this.currentQuestionIndex = nextIndex;
-                // Use the INSTANCE
-                const totalQuestions = this.quizEngine.getQuestionCount();
-                console.log(`[BaseGameMode:${this.mode}] Presenting question ${this.currentQuestionIndex + 1}/${totalQuestions}`);
+                this.currentQuestion = questionData; // Store current question data
+
+                console.log(`[${this.mode}] Presenting question ${this.currentQuestionIndex + 1}/${totalQuestions}`);
+
+                // --- Rely ONLY on getShuffledAnswers ---
+                const answers = this.quizEngine.getShuffledAnswers(this.currentQuestionIndex);
+                // --- REMOVED FALLBACK LOGIC ---
+
                 eventBus.emit(Events.Game.QuestionNew, {
                     questionIndex: this.currentQuestionIndex,
                     totalQuestions: totalQuestions,
                     questionData: {
                         question: questionData.question,
-                        // Use the INSTANCE
-                        answers: this.quizEngine.getShuffledAnswers(this.currentQuestionIndex)
+                        answers: answers // Use result directly
                     }
                 });
-                this._afterQuestionPresented();
-            } else {
-                console.error(`[BaseGameMode:${this.mode}] Could not retrieve question data for index ${nextIndex}`);
-                this.finishGame();
+                this._afterQuestionPresented(); // Hook for subclasses (e.g., start timer)
+            } catch (error) {
+                // Log the specific error from QuizEngine methods if they fail
+                console.error(`[${this.mode}] Error during QuizEngine interaction in nextQuestion (Index: ${nextIndex}):`, error);
+                this.finishGame(); // Finish game on error
             }
         }
     }

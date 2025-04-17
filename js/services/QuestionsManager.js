@@ -20,8 +20,6 @@ class QuestionsManager {
         this.isInitialized = false;
         this.initializationPromise = null;
         this.initialize();
-
-        console.info("[QuestionsManager] Instance created. Initialization started.");
     }
 
     /**
@@ -31,7 +29,6 @@ class QuestionsManager {
      */
     async initialize() {
         if (this.initializationPromise) return this.initializationPromise;
-        console.log("[QuestionsManager] Starting initialization (V1 Category Logic)...");
 
         this.initializationPromise = (async () => {
             this.selectableItems = []; // Reset selectable items list
@@ -598,18 +595,13 @@ class QuestionsManager {
      * @returns {string|null} The display name or null if not found.
      */
     getSheetDisplayName(sheetId) {
-        // Find in default categories
-        const defaultSheet = this.defaultCategories.find(cat => cat.id === sheetId);
-        if (defaultSheet) {
-            return defaultSheet.name;
+        // Defensive: ensure selectableItems is an array
+        if (!Array.isArray(this.selectableItems)) {
+            console.warn('[QuestionsManager] selectableItems is not an array in getSheetDisplayName:', this.selectableItems);
+            return 'Unknown';
         }
-        // Find in custom sheets (assuming they are stored with id and name)
-        const customSheet = this.customSheets.find(sheet => sheet.id === sheetId);
-        if (customSheet) {
-            return customSheet.name; // Assuming custom sheets have a 'name' property
-        }
-        console.warn(`[QuestionsManager] Display name not found for sheetId: ${sheetId}`);
-        return null; // Not found
+        const item = this.selectableItems.find(item => item.id === sheetId);
+        return item ? item.name : 'Unknown';
     }
 
     /** Refreshes the `selectableItems` array based on current default and custom sheets. */

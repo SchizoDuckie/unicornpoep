@@ -174,7 +174,7 @@ class HighscoreManager {
             const currentScores = this._getScoresForSheetSync(sheetKey, difficulty, mode);
 
             // 2. Check if it qualifies (top N or list not full)
-            if (currentScores.length < MAX_ENTRIES_PER_SHEET || score > (currentScores[currentScores.length - 1]?.score || 0)) {
+            if (currentScores.length < MAX_ENTRIES_PER_SHEET || score > (currentScores[currentScores.length - 1].score || 0)) {
 
                 // 3. Add the new score
                 currentScores.push(entry);
@@ -326,7 +326,7 @@ class HighscoreManager {
 
             // If the list is full, check against the lowest score
             // Use nullish coalescing for safety in case the last entry is malformed (though validation should prevent this)
-            const lowestScore = currentScores[currentScores.length - 1]?.score ?? 0;
+            const lowestScore = currentScores[currentScores.length - 1].score ?? 0;
             return score > lowestScore;
 
         } catch (error) {

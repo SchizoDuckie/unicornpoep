@@ -13,6 +13,7 @@ class EventBus {
             return EventBus.instance;
         }
         this.listeners = {};
+   
         EventBus.instance = this;
         console.info("[EventBus] Singleton instance created.");
     }
@@ -21,24 +22,36 @@ class EventBus {
      * Registers a listener for a specific event.
      * @param {string} eventName - The name of the event to listen for (use constants from event-constants.js).
      * @param {Function} callback - The function to execute when the event is emitted.
+     * @throws {Error} If eventName is not a valid, non-empty string.
+     * @throws {Error} If callback is not a function.
      */
     on(eventName, callback) {
-        // --- ADD DEBUGGING --- 
-        if (eventName === Events.Multiplayer.Host.Initialized) {
-            console.log(`[EventBus DEBUG] Registering listener for ${eventName}. Callback:`, callback);
-            if (typeof callback !== 'function') {
-                console.error(`[EventBus DEBUG] ATTEMPTING TO REGISTER NON-FUNCTION LISTENER FOR ${eventName}`, callback);
-                // Optionally add a stack trace
-                console.trace('Stack trace for non-function registration:');
+
+        // --- Input Validation --- 
+        if (typeof eventName !== 'string' || !eventName) {
+            const error = new Error(`[EventBus] Invalid event name provided for registration: Must be a non-empty string, received: ${eventName}`);
+            if (error.stack) {
+                console.error("Invalid event registration attempt from:", error.stack);
             }
+            throw error;
         }
-        // --- END DEBUGGING ---
+        if (typeof callback !== 'function') {
+            const error = new Error(`[EventBus] Invalid callback provided for event '${eventName}'. Must be a function, received: ${typeof callback}`);
+            if (error.stack) {
+                console.error("Invalid event registration attempt from:", error.stack);
+            }
+            throw error;
+        }
+        // --- End Validation --- 
+        
+        // Log all event registrations
+        console.log(`[EventBus] Registering: '${eventName}'`, typeof callback === 'function' ? '' : callback);
+        
         if (!this.listeners[eventName]) {
             this.listeners[eventName] = [];
         }
         if (!this.listeners[eventName].includes(callback)) {
             this.listeners[eventName].push(callback);
-            // console.debug(`[EventBus] Listener added for '${eventName}'`);
         } else {
             console.warn(`[EventBus] Listener already registered for '${eventName}'`);
         }
@@ -63,20 +76,31 @@ class EventBus {
     }
 
     /**
+     * Checks if an event is in the whitelist of events allowed without listeners.
+     * @param {string} eventName - The name of the event to check.
+     * @returns {boolean} - True if the event is whitelisted.
+     * @private
+     */
+    _isWhitelisted(eventName) {
+        return this.whitelistedEvents.includes(eventName);
+    }
+
+    /**
      * Emits an event, triggering all registered listeners.
      * @param {string} eventName - The name of the event to emit.
      * @param {...any} args - Arguments to pass to the listener functions.
+     * @throws {Error} When a non-whitelisted event is emitted with no listeners (fail fast approach)
      */
     emit(eventName, ...args) {
-        // Option 1: Reduce level (less visible in default console)
-        // console.trace(`[EventBus] Emitting: '${eventName}'`, args); 
-
-        // Option 2: Skip logging for specific events
-        if (eventName !== Events.Game.TimeTick) { 
-            console.debug(`[EventBus] Emitting: '${eventName}'`, args);
-        } else {
-            // Optionally trace tick events if needed for deep debugging
-            // console.trace(`[EventBus] Emitting: '${eventName}'`, args);
+        console.log(`Emitting event: ${eventName} (${JSON.stringify(args)})`);
+        // --- Immediate check for invalid eventName ---
+        if (typeof eventName !== 'string' || !eventName) {
+            const error = new Error(`[EventBus] Attempted to emit an invalid event: ${eventName}`, arguments);
+            if (error.stack) {
+                 console.error("Invalid emit called from:", error.stack);
+            }
+            debugger;
+            throw error;
         }
 
         const eventListeners = this.listeners[eventName];
@@ -87,10 +111,10 @@ class EventBus {
                     callback(...args);
                 } catch (error) {
                     console.error(`[EventBus] Error in listener for '${eventName}':`, error, "Payload:", args);
-                    // Optionally emit a system error event here later
-                    // this.emit(Events.System.ErrorOccurred, { message: `Listener error for ${eventName}`, error, context: 'EventBus' });
                 }
             });
+        } else {
+            console.debug(`[EventBus] Event '${eventName}' emitted with no listeners. `, args);
         }
     }
 }

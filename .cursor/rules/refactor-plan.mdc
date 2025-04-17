@@ -1,0 +1,363 @@
+---
+description: 
+globs: *.js,*.html
+alwaysApply: false
+---
+# GameCoordinator Refactoring Plan: Component-Driven Architecture (Revised - Preserving Existing UI Flow)
+
+## 1. Problem Statement
+
+The current `GameCoordinator` class is excessively large and complex, handling too many responsibilities related to multiplayer game management:
+
+- **Excessive Responsibilities**: The class manages game creation, lobby management, player connections, game state, navigation, and more - violating the Single Responsibility Principle.
+- **Multiplayer Focus**: Despite its generic name, `GameCoordinator` is predominantly focused on multiplayer logic, with ~70% of its code dedicated to multiplayer-specific handling.
+- **Navigation Control**: The coordinator directly manages navigation that belongs in UI components.
+- **Component Coupling**: Components rely on `GameCoordinator` for functionality they need to manage internally.
+- **Callback Hell**: Multiple nested event handlers and callbacks make the code flow difficult to trace and maintain.
+
+## 2. Solution: Component-Driven Architecture with Event-Based Communication
+
+We will refactor to a component-driven architecture where:
+
+1.  **Components Handle Their Own Logic**: UI components manage their own initialization, event handling, and navigation *within their existing scope*.
+2.  **Lightweight Coordination**: `GameCoordinator` becomes a lightweight service that creates game instances, maintains minimal global state, and potentially handles initial navigation triggers, but delegates detailed logic and subsequent navigation to components via events.
+3.  **Clear Separation of Concerns**: Each class has clearly defined responsibilities with minimal overlap, respecting the existing UI structure.
+4.  **Event-Based Communication**: All inter-component and inter-service interactions occur via the `EventBus` using events defined in `event-constants.js`, ensuring explicit bindings and decoupling. Direct method calls between components or services are prohibited unless performance-critical and explicitly documented.
+
+## 3. Implementation Strategy
+
+### 3.1 Component Refactoring (Preserving UI Flow)
+
+-   Each component (`MainMenuComponent`, `MultiplayerChoiceComponent`, `JoinLobbyComponent`, etc.) takes responsibility for its own internal logic and state management.
+-   Components communicate exclusively via events defined in `event-constants.js` rather than direct coordinator method calls.
+-   Navigation happens through components emitting navigation events (e.g., `Navigation.ShowView`) or specific action events (e.g., `UI.MainMenu.MultiplayerClicked`) that other components/services (like `UIManager` or `GameCoordinator`) listen for to trigger navigation.
+-   Leverage the updated `BaseComponent` interface (`RefactoredBaseComponent`) to define event listeners and setup logic declaratively within the `initialize()` method, ensuring implicit management of event listeners.
+
+### 3.2 Service Management
+
+-   `MultiplayerHostManager` and `MultiplayerClientManager` handle their specific connection logic, listening and emitting events like `Multiplayer.Host.Initialized` or `Multiplayer.Client.ConnectedToHost`.
+-   `WebRTCManager` focuses purely on the WebRTC connection layer, emitting events like `WebRTC.MessageReceived` for other components to handle.
+-   Game classes (`SinglePlayerGame`, `MultiplayerHostGame`, `MultiplayerClientGame`, etc.) manage their own lifecycle, using events like `Game.Started` and `Game.Finished` to signal state changes.
+- To prevent `GameCoordinator` being a large monolithic thing, take out the MultiplayerHost and MultiplayerClient and SinglePlayer events and put them into new `MultiplayerHostCoordinator`, `MultiplayerClientCoordinator` `SingleplayerGameCoordinator`. It is not certain what will be left for GameCoordinator after this.
+
+### 3.3 Event-Driven Architecture
+
+-   **EventBus as Mailman**: The `EventBus` (from `event-bus.js`) acts solely as a dispatcher with no logic beyond event delivery, ensuring all bindings are explicit through `eventBus.on` and `eventBus.emit`.
+-   **Event Definitions**: Expand `event-constants.js` to cover all interactions currently managed by `GameCoordinator` method calls, ensuring each event has a documented payload structure.
+-   **Component and Service Events**: Each component and service must define which events it emits and listens to, replacing direct method calls with event-based communication.
+-   **Implicit Event Management**: Utilize the `BaseComponent` class's implicit event listener management by defining events in the `initialize()` configuration, automating listener addition and removal during the component lifecycle.
+
+### 3.4 Performance and Risk Management
+
+-   **Performance Goals**: Set specific performance targets, especially for multiplayer scenarios (e.g., maximum 100ms latency for WebRTC message handling, minimal overhead for frequent events like `Game.TimeTick`).
+-   **Risk Mitigation**: Identify high-risk areas such as multiplayer state synchronization and propose strategies like a shared state manager or event bus for consistency across host and client.
+-   **Event Overhead Mitigation**: Batch events or allow direct calls for performance-critical paths (e.g., rapid game updates), with explicit documentation for exceptions.
+
+### 3.5 Callback Complexity Resolution
+
+-   Replace nested callbacks with structured event chains or modern JavaScript patterns like async/await to improve readability.
+-   Use sequential events to represent complex flows (e.g., `Multiplayer.Host.Initialized` followed by `Navigation.ShowView`) rather than nested handlers.
+
+
+### 3.6 Component Implementation Standards 
+1. All components should follow these strict implementation standards:
+    - Static Selectors as Constants:
+    - Define all element selectors as static constants within the class
+    Example: `static SELECTORS = { BUTTON: '#submitBtn', INPUT: '.form-input' }`
+2. Declarative Element Handling:
+   - Use domElements array for classes that extend RefactoredBaseComponent in `initialize()` to automatically query and cache DOM elements
+   - All elements become available via this.elements.elementName. All elements mentioned here are automaticall required to exist in `index.html`
+3. Minimal Setup:
+   - Avoid unnecessary setup functions
+   - Initialize state variables as class properties directly: `gameMode = null;`
+   - Only include setup logic if it can't be handled through class properties
+4. Clean Event Handling:
+   - Bind all DOM events through domEvents array
+   - Use arrow functions for all handlers to maintain proper this binding
+   - Keep event handlers focused and readable
+5. No Defensive Programming:
+   - Elements validated through the domElements system don't need additional null checks
+   - Trust that the architecture will provide elements as declared
+6. Remove Noise:
+   - No console logs in production code except for error handling
+   - No unnecessary comments explaining obvious code
+7. Example Component Implementation:
+
+```js
+class ExampleComponent extends RefactoredBaseComponent {
+    static SELECTOR = '#exampleComponent';
+    static VIEW_NAME = 'ExampleComponent';
+    
+    static SELECTORS = {
+        SUBMIT_BUTTON: '#submitBtn',
+        NAME_INPUT: '#nameInput',
+        ERROR_MESSAGE: '.error-msg'
+    };
+    
+    // State variables as direct properties
+    isSubmitting = false;
+    inputValue = '';
+    
+    initialize() {
+        return {
+            events: [
+                {
+                    eventName: Events.System.DataReceived,
+                    callback: this.handleDataReceived
+                }
+            ],
+            domEvents: [
+                {
+                    selector: ExampleComponent.SELECTORS.SUBMIT_BUTTON,
+                    event: 'click',
+                    handler: this.handleSubmit
+                },
+                {
+                    selector: ExampleComponent.SELECTORS.NAME_INPUT,
+                    event: 'input',
+                    handler: this.handleInput
+                }
+            ],
+            domElements: [
+                {
+                    name: 'submitButton',
+                    selector: ExampleComponent.SELECTORS.SUBMIT_BUTTON,
+                    required: true
+                },
+                {
+                    name: 'nameInput',
+                    selector: ExampleComponent.SELECTORS.NAME_INPUT,
+                    required: true
+                },
+                {
+                    name: 'errorMessage',
+                    selector: ExampleComponent.SELECTORS.ERROR_MESSAGE,
+                    required: false
+                }
+            ]
+        };
+    }
+    
+    handleSubmit = () => {
+        this.isSubmitting = true;
+        this.elements.submitButton.disabled = true;
+        
+        eventBus.emit(Events.UI.FormSubmitted, {
+            value: this.inputValue
+        });
+    }
+    
+    handleInput = (event) => {
+        this.inputValue = event.target.value.trim();
+        this.elements.submitButton.disabled = this.inputValue.length === 0;
+    }
+    
+    handleDataReceived = (data) => {
+        // Process received data
+        this.elements.errorMessage.textContent = '';
+        this.isSubmitting = false;
+        this.elements.submitButton.disabled = false;
+    }
+}
+```
+
+
+## 4. Component Responsibilities (Revised)
+
+### 4.1 MainMenuComponent
+
+**Responsibilities:**
+-   Handle clicks on Single Player, Practice, Multiplayer, Highscores, etc. buttons.
+-   Emit specific events for each action (e.g., `UI.MainMenu.StartSinglePlayerClicked`, `UI.MainMenu.MultiplayerClicked`).
+-   Listen for `System.ShowFeedback` to display errors (e.g., if a game is already active).
+-   *Does not* directly handle navigation or name prompts for multiplayer.
+
+**Refactoring Goal:**
+-   Convert all button handlers to use declarative `domEvents` in `initialize()`, emitting specific events.
+-   Remove direct calls to `GameCoordinator` methods like `handleRequestSinglePlayer`, replacing them with event emissions.
+
+**Initialization Configuration:**
+-   Define `domEvents` mapping button clicks to `UI.MainMenu.*Clicked` events.
+
+### 4.2 MultiplayerChoiceComponent
+
+**Responsibilities:**
+-   Listen for `Navigation.ShowView` with its `VIEW_NAME` to become visible.
+-   Handle clicks on "Host Game" and "Join Game" buttons.
+-   Emit events like `UI.MultiplayerChoice.HostClicked` and `UI.MultiplayerChoice.JoinClicked`.
+-   *Does not* directly handle navigation or name prompts; relies on other components/services to react to its events.
+
+**Refactoring Goal:**
+-   Implement the declarative `initialize()` pattern from `RefactoredBaseComponent`.
+-   Define `domEvents` for Host/Join buttons emitting specific events.
+-   Remove direct calls to `GameCoordinator` methods like `handleStartMultiplayerHost`, replacing them with event emissions.
+
+**Initialization Configuration:**
+-   Define `domEvents` mapping button clicks to `UI.MultiplayerChoice.*Clicked` events.
+-   Define `events` to listen for `Navigation.ShowView` (although `UIManager` might handle this implicitly if registered).
+
+### 4.3 JoinLobbyComponent
+
+**Responsibilities:**
+-   Listen for `Navigation.ShowView` with its `VIEW_NAME`.
+-   Capture and validate join code.
+-   Emit `UI.JoinLobby.SubmitCodeClicked` with the code.
+-   Listen for `Multiplayer.Client.GameInfoReceived` (triggered by `MultiplayerClientManager` after successful code validation/connection) to display game information.
+-   Emit `UI.JoinLobby.ConfirmClicked` to confirm joining.
+-   Listen for events indicating connection failure (e.g., `WebRTC.ConnectionFailed`, `Multiplayer.Client.JoinFailed`).
+
+**Refactoring Goal:**
+-   Move logic currently in `GameCoordinator` methods (`handleJoinMultiplayerAttempt`, `handleClientReceivedGameInfo`, `handleClientConfirmJoin`) into this component, triggered by events.
+-   Use declarative `initialize()` for DOM and EventBus listeners/emitters.
+
+**Events to Implement/Handle:**
+-   Emit: `UI.JoinLobby.SubmitCodeClicked`, `UI.JoinLobby.ConfirmClicked`.
+-   Listen: `Navigation.ShowView`, `Multiplayer.Client.GameInfoReceived`, `WebRTC.ConnectionFailed`, `Multiplayer.Client.JoinFailed`.
+
+**Initialization Configuration:**
+-   Define `domEvents` for submit/confirm buttons.
+-   Define `events` for listening to `GameInfoReceived`, connection failures.
+
+### 4.4 HostLobbyComponent
+
+**Responsibilities:**
+-   Listen for `Navigation.ShowView` with its `VIEW_NAME`.
+-   Display connected players (listen to `Multiplayer.Common.PlayerListUpdated`).
+-   Validate when to enable "Start Game" button based on connected clients.
+-   Emit `UI.HostLobby.StartGameClicked` to initiate game start sequence.
+-   Emit `UI.HostLobby.CancelClicked` if hosting is cancelled.
+
+**Refactoring Goal:**
+-   Move logic currently in `GameCoordinator` methods (related to player list updates, starting the game) into this component, triggered by events.
+-   Use declarative `initialize()`.
+
+**Events to Implement/Handle:**
+-   Emit: `UI.HostLobby.StartGameClicked`, `UI.HostLobby.CancelClicked`.
+-   Listen: `Navigation.ShowView`, `Multiplayer.Common.PlayerListUpdated`, `Multiplayer.Host.ClientConnected`.
+
+**Initialization Configuration:**
+-   Define `domEvents` for start/cancel buttons.
+-   Define `events` for listening to player/client updates.
+
+### 4.5 Game Classes
+
+*(Responsibilities remain largely the same as original plan, focusing on event-based communication)*
+
+#### 4.5.1 MultiplayerHostGame
+
+**Responsibilities:**
+-   Manage host-side game logic and state.
+-   Track player progress by listening to `Multiplayer.Host.PlayerAnswered`.
+-   Process incoming messages by listening to `WebRTC.MessageReceived`.
+-   Handle game completion logic and emit `Game.Finished`.
+-   Broadcast updates to clients via `Multiplayer.Common.SendMessage`.
+
+**Events to Implement/Handle:**
+-   Emit: `Game.Finished`, `Multiplayer.Host.AllPlayersAnswered`, `Multiplayer.Common.SendMessage`.
+-   Listen: `Multiplayer.Host.PlayerAnswered`, `WebRTC.MessageReceived`.
+
+**Initialization Configuration:**
+-   Define event listeners in `initialize()` (if extending BaseComponent) or constructor/setup method.
+
+#### 4.5.2 MultiplayerClientGame
+
+**Responsibilities:**
+-   Manage client-side game logic and state.
+-   Send updates to host via `Multiplayer.Common.SendMessage`.
+-   Process incoming messages by listening to `WebRTC.MessageReceived`.
+-   Handle local game completion and emit `Game.LocalPlayerFinished`.
+
+**Events to Implement/Handle:**
+-   Emit: `Game.LocalPlayerFinished`, `Multiplayer.Common.SendMessage`.
+-   Listen: `WebRTC.MessageReceived`, `Multiplayer.Common.GameStateSync`.
+
+**Initialization Configuration:**
+-   Define event listeners in `initialize()` or constructor/setup method.
+
+### 4.6 GameCoordinator
+
+**Reduced Responsibilities:**
+-   Listen for initial action events (`UI.MainMenu.StartSinglePlayerClicked`, `UI.MainMenu.StartPracticeClicked`, `UI.MainMenu.MultiplayerClicked`).
+-   Potentially trigger initial navigation (`Navigation.ShowView` for `MultiplayerChoiceComponent`, `GameAreaComponent` for single/practice after name prompt).
+-   Listen for `Game.StartRequested` (emitted after name prompt confirmation) to create appropriate game instances.
+-   Maintain minimal global state (active game reference only).
+-   Provide a central reset method for cleanup, triggered by events like `Game.Finished`.
+-   Handle only truly global events affecting multiple components (e.g., `Game.Finished` for cleanup).
+
+**Refactoring Goal:**
+-   Replace direct method calls (`handleRequest...`) with event listeners.
+-   Delegate most logic to components/services via subsequent event emissions.
+
+**Events to Implement/Handle:**
+-   Emit: `System.ShowFeedback` for global errors, `Navigation.ShowView` for initial view transitions.
+-   Listen: `UI.MainMenu.*Clicked`, `UI.MultiplayerChoice.*Clicked`, `Game.StartRequested`, `Game.Finished`, `UI.EndDialog.PlayAgainClicked`.
+
+**Initialization Configuration:**
+-   Define event listeners in `initialize()` (if extending BaseComponent) or constructor/setup method.
+
+**Methods to retain (simplified via events):**
+-   `resetCoordinatorState` (triggered by `Game.Finished`).
+-   Simplified game creation triggered by `Game.StartRequested`.
+-   Simplified initial navigation triggered by UI clicks.
+
+**Removed Methods:**
+-   Detailed logic within `handle...` methods will be moved to components/services, triggered by events.
+
+## 5. Task Breakdown (Revised)
+
+### Phase 1: Component Refactoring Foundation & Event Setup
+
+1.  **(Done)** Ensure `RefactoredBaseComponent` correctly implements the declarative `initialize()` pattern for `events`, `domEvents`, and `setup`, including automatic listener cleanup.
+2.  Review and expand `event-constants.js` to cover all necessary UI and logic interactions (e.g., `UI.MainMenu.MultiplayerClicked`, `UI.MultiplayerChoice.HostClicked`, `UI.MultiplayerChoice.JoinClicked`, `UI.JoinLobby.SubmitCodeClicked`, `UI.HostLobby.StartGameClicked`, etc.) with documented payloads.
+3.  Refactor `MainMenuComponent`:
+    *   Convert all button handlers to use declarative `domEvents` in `initialize()`, emitting specific `UI.MainMenu.*Clicked` events.
+    *   Remove direct calls to `GameCoordinator` methods.
+4.  Refactor `MultiplayerChoiceComponent`:
+    *   Implement the declarative `initialize()` pattern.
+    *   Convert Host/Join button handlers to use `domEvents`, emitting `UI.MultiplayerChoice.*Clicked` events.
+    *   Remove direct calls to `GameCoordinator` methods.
+5.  Update `UIManager` or `GameCoordinator` (decision needed: which handles initial UI navigation?) to listen for `UI.MainMenu.*Clicked` and `UI.MultiplayerChoice.*Clicked` events to:
+    *   Trigger `Navigation.ShowView` for the appropriate next component (`MultiplayerChoiceComponent`, `GameAreaComponent`, etc.).
+    *   Trigger the `NamePromptDialog` via `UI.NamePrompt.Show` when necessary (e.g., after Host/Join clicked in `MultiplayerChoiceComponent`), passing the context.
+
+### Phase 2: Component Logic Migration with Event Bindings
+
+6.  Refactor `JoinLobbyComponent`: Move join logic from `GameCoordinator` methods, trigger via events (`UI.JoinLobby.SubmitCodeClicked`), listen for responses (`Multiplayer.Client.GameInfoReceived`), and emit actions (`UI.JoinLobby.ConfirmClicked`) using `initialize()` configuration.
+7.  Refactor `HostLobbyComponent`: Move host lobby logic from `GameCoordinator` methods, listen for updates (`Multiplayer.Common.PlayerListUpdated`), and emit actions (`UI.HostLobby.StartGameClicked`) using `initialize()` configuration.
+8.  Split `MultiplayerGame` into dedicated `MultiplayerHostGame` and `MultiplayerClientGame` classes (if not already done), ensuring they communicate via `WebRTC.MessageReceived` and related events.
+9.  Move game message handling into appropriate game classes, replacing direct calls with event listeners.
+10. Implement proper event handling in all components, ensuring no direct method calls to `GameCoordinator` or other services, using the declarative event setup.
+
+### Phase 3: GameCoordinator Simplification and Interface Definition
+
+11. Simplify `GameCoordinator` methods:
+    *   Replace `handleRequest...` logic with listeners for `UI.MainMenu.*Clicked` / `UI.MultiplayerChoice.*Clicked` events.
+    *   Delegate actions by emitting `Navigation.ShowView` or `UI.NamePrompt.Show` events.
+    *   Ensure game creation only responds to `Game.StartRequested`.
+12. Ensure proper state management for active game reference, updated via events like `Game.Started` and `Game.Finished`.
+13. Define clear interfaces for event payloads in `event-constants.js`, ensuring components and services have predictable communication contracts.
+
+### Phase 4: Testing, Verification, and Performance Optimization
+
+14. Test all game flows (single-player, practice, host, join) to ensure event-driven communication works as expected within the *existing UI structure*.
+15. Verify game state consistency across players, especially for multiplayer sync.
+16. Test error handling and edge cases.
+17. Conduct performance testing for multiplayer scenarios.
+18. Trace event flows using `EventBus` debug logs.
+
+## 6. Development Guidelines
+
+*(Guidelines remain the same - focus on incremental changes, testing, event documentation, declarative patterns)*
+
+1.  **Complete One Component at a Time**: Fully refactor one component, including its event bindings, before moving to the next.
+2.  **Test Each Change**: After each component refactor, test all related flows to ensure events are emitted and received correctly.
+3.  **Incremental Coordinator Simplification**: Gradually remove coordinator methods as component event replacements are implemented.
+4.  **Preserve Event Structure**: Maintain existing event payloads in `event-constants.js` to minimize disruption, expanding only as needed.
+5.  **Document Event Dependencies**: For each component and service, document which events it emits and listens to, ensuring explicit bindings.
+6.  **Mitigate Performance Risks**: Batch events or use direct calls only for performance-critical operations, with clear documentation for exceptions.
+7.  **Resolve Callback Complexity**: Refactor nested callbacks into event chains or async/await patterns, ensuring readability of event-driven flows.
+8.  **Use Declarative Event Configuration**: Define all event listeners and setup logic in the `initialize()` method of components, leveraging the implicit event management of `BaseComponent` for clarity and simplicity.
+
+## 7. Component Implementation Standards
+
+*(Standards remain the same - avoid defensive programming, use static selectors, declarative pattern, validate elements on init, consistent naming, event-only communication)*

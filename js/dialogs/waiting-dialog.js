@@ -2,50 +2,75 @@ import BaseDialog from './base-dialog.js';
 import miscUtils from '../utils/miscUtils.js';
 
 /**
- * @class WaitingDialog
+ * Class WaitingDialog.
+ * 
+ * Simple dialog to display a waiting message.
+ * Shows a spinner or message while an operation is in progress.
+ * 
  * @extends BaseDialog
- * Simple dialog to display a waiting message
  */
 class WaitingDialog extends BaseDialog {
     static SELECTOR = '#waitingDialog';
     static VIEW_NAME = 'WaitingDialog';
-
-    /** Initializes component elements. */
-    initialize() {
-        this.messageElement = this.rootElement.querySelector('.dialog-message');
-        if (!this.messageElement) console.error(`[${this.name}] Missing required child element .dialog-message.`);
-        console.log(`[${this.name}] Initialized.`);
-    }
-
-    registerListeners() {
-        console.log(`[${this.name}] Registering DOM listeners (none).`);
-    }
     
-    unregisterListeners() {
-        console.log(`[${this.name}] Unregistering DOM listeners (none).`);
+    static SELECTORS = {
+        MESSAGE_ELEMENT: '.dialog-message'
+    };
+
+    /**
+     * Initialize the dialog component using the declarative pattern.
+     * 
+     * @return {Object} Configuration with domElements
+     */
+    initialize() {
+        return {
+            domElements: [
+                {
+                    name: 'messageElement',
+                    selector: WaitingDialog.SELECTORS.MESSAGE_ELEMENT
+                }
+            ]
+        };
     }
 
     /**
      * Shows the dialog, optionally updating the message.
-     * @param {string} [message] - Optional message to display. Defaults to template.
+     * 
+     * @param {string} message Optional message to display. Defaults to template.
+     * @return void
      */
     show(message) {
-        if (this.messageElement) {
-            this.messageElement.textContent = message || miscUtils.getTextTemplate('waitingDialogDefaultMsg');
+        console.log(`[${this.constructor.name}] Show method called with message: ${message || 'default'}`);
+        
+        if (!this.rootElement) {
+            console.error(`[${this.constructor.name}] Cannot show dialog: rootElement is null or undefined.`);
+            return;
         }
-        super.show(); // Call BaseDialog's show
-    }
-
-    /**
-     * Hides the dialog.
-     */
-    hide() {
-        super.hide(); // Call BaseDialog's hide
+        
+        if (this.elements.messageElement) {
+            const messageText = message || miscUtils.getTextTemplate('waitingDialogDefaultMsg');
+            console.log(`[${this.constructor.name}] Setting message to: "${messageText}"`);
+            this.elements.messageElement.textContent = messageText;
+        } else {
+            console.warn(`[${this.constructor.name}] Message element not found. Cannot set message.`);
+        }
+        
+        // Call BaseDialog's show method
+        super.show();
+        
+        // Check if the dialog is actually visible after showing
+        setTimeout(() => {
+            console.log(`[${this.constructor.name}] Dialog show complete. Dialog is ${this.isOpen ? 'open' : 'not open'}`);
+            if (this.rootElement) {
+                console.log(`[${this.constructor.name}] Element visibility: ${window.getComputedStyle(this.rootElement).display}`);
+            }
+        }, 100);
     }
 
     /**
      * Checks if the dialog is currently open.
-     * @returns {boolean} True if the dialog is open
+     * 
+     * @return {boolean} True if the dialog is open
      */
     get isOpen() {
         return this.rootElement instanceof HTMLDialogElement && this.rootElement.open;

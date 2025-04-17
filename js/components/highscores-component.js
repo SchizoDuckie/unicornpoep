@@ -1,4 +1,4 @@
-import BaseComponent from './base-component.js';
+import RefactoredBaseComponent from './RefactoredBaseComponent.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
@@ -11,60 +11,68 @@ import easterEggActivator from '../utils/easter-egg-activator.js';
  * Component managing the Highscores view (#highscores).
  * Displays the list of high scores.
  */
-export default class HighscoresComponent extends BaseComponent {
+export default class HighscoresComponent extends RefactoredBaseComponent {
     static SELECTOR = '#highscores';
     static VIEW_NAME = 'HighscoresComponent';
+    
+    static SELECTORS = {
+        LIST_CONTAINER: '#scoreList',
+        BACK_BUTTON: '.backToMain',
+        ROW_TEMPLATE: '#highscore-row-template'
+    };
 
     /**
-     * Initializes the HighscoresComponent.
-     */
-    constructor() {
-        super();
-        // NO element selection here
-        console.log("[HighscoresComponent] Constructor completed.");
-    }
-
-    /**
-     * Initializes the component by selecting DOM elements.
-     * Called by BaseComponent.
+     * Initializes the component using the declarative pattern
+     * @returns {Object} Configuration object with events, domEvents, and domElements
      */
     initialize() {
-        console.log(`[${this.name}] initialize() called.`);
-        // Select elements here, AFTER this.rootElement is available
-        this.listContainer = this.rootElement.querySelector('#scoreList');
-        this.backButton = this.rootElement.querySelector('.backToMain');
-        this.rowTemplate = this.rootElement.querySelector('#highscore-row-template');
-
-        // Error check remains important
-        if (!this.listContainer || !this.backButton || !this.rowTemplate) {
-            throw new Error(`[${this.name}] Missing required child elements (#scoreList, .backToMain, #highscore-row-template) after initialize(). Component cannot function.`);
-        }
-        console.log(`[${this.name}] Elements selected in initialize.`);
-    }
-
-    _bindMethods() {
-        this._handleBackClick = this._handleBackClick.bind(this);
-        this.handleScoresLoaded = this.handleScoresLoaded.bind(this);
-        this.handleScoresError = this.handleScoresError.bind(this);
-        this.clearDisplay = this.clearDisplay.bind(this);
-    }
-
-    /**
-     * Adds DOM and eventBus event listeners.
-     * Called by BaseComponent constructor.
-     */
-    registerListeners() {
-        this._bindMethods();
-        
-        if(this.backButton) this.backButton.addEventListener('click', this._handleBackClick);
-
-        this.listen(Events.Menu.Highscores.Loaded, this.handleScoresLoaded);
-        this.listen(Events.Menu.Highscores.LoadFailed, this.handleScoresError);
-        this.listen(Events.Navigation.ShowView, this._handleNavigation);
-        
-        console.log(`[${this.name}] Listeners registered.`);
+        return {
+            events: [
+                {
+                    eventName: Events.Menu.Highscores.Loaded,
+                    callback: this._handleScoresLoaded
+                },
+                {
+                    eventName: Events.Menu.Highscores.LoadFailed,
+                    callback: this._handleScoresError
+                },
+                {
+                    eventName: Events.Navigation.ShowView,
+                    callback: this._handleNavigation
+                }
+            ],
+            
+            domEvents: [
+                {
+                    selector: HighscoresComponent.SELECTORS.BACK_BUTTON,
+                    event: 'click',
+                    emits: Events.UI.MainMenu.Show
+                }
+            ],
+            
+            domElements: [
+                {
+                    name: 'listContainer',
+                    selector: HighscoresComponent.SELECTORS.LIST_CONTAINER
+                },
+                {
+                    name: 'backButton',
+                    selector: HighscoresComponent.SELECTORS.BACK_BUTTON
+                },
+                {
+                    name: 'rowTemplate',
+                    selector: HighscoresComponent.SELECTORS.ROW_TEMPLATE
+                }
+            ]
+        };
     }
     
+    /**
+     * Handles navigation events to clear display when navigating away
+     * @param {object} payload
+     * @param {string} payload.viewName
+     * @private
+     */
     _handleNavigation({ viewName }) {
         if (viewName !== this.name) {
             this.clearDisplay();
@@ -78,8 +86,7 @@ export default class HighscoresComponent extends BaseComponent {
      * @param {Array<object>} payload.scores - Array of score objects ({ name, score, date, level? }).
      * @private
      */
-    handleScoresLoaded({ scores }) {
-        console.log("[HighscoresComponent] Scores loaded event received:", scores);
+    _handleScoresLoaded({ scores }) {
         this.renderScores(scores);
     }
 
@@ -87,11 +94,9 @@ export default class HighscoresComponent extends BaseComponent {
      * Handles the Highscores.Error event.
      * @param {object} payload
      * @param {string} payload.message
-     * NOTE: Now listens for Events.Menu.Highscores.LoadFailed
      * @private
      */
-    handleScoresError({ message }) {
-        console.error(`[HighscoresComponent] Error event received: ${message}`);
+    _handleScoresError({ message }) {
         this.renderError(message || getTextTemplate('hsLoadErrorDefault'));
     }
 
@@ -100,13 +105,13 @@ export default class HighscoresComponent extends BaseComponent {
      * @param {Array<object>} scores
      * @private
      */
-    renderScores(scores) {
-        if (!this.listContainer || !this.rowTemplate) return;
+    renderScores = (scores) => {
+        if (!this.elements.listContainer || !this.elements.rowTemplate) return;
 
-        this.listContainer.innerHTML = '';
+        this.elements.listContainer.innerHTML = '';
 
         if (!scores || scores.length === 0) {
-            const row = this.listContainer.insertRow();
+            const row = this.elements.listContainer.insertRow();
             const cell = row.insertCell();
             cell.colSpan = 5;
             cell.textContent = getTextTemplate('hsListEmpty');
@@ -115,7 +120,7 @@ export default class HighscoresComponent extends BaseComponent {
         }
 
         scores.forEach((score, index) => {
-            const templateClone = this.rowTemplate.content.cloneNode(true);
+            const templateClone = this.elements.rowTemplate.content.cloneNode(true);
             const rowElement = templateClone.querySelector('tr');
 
             const rank = index + 1;
@@ -132,35 +137,27 @@ export default class HighscoresComponent extends BaseComponent {
             let displayGameName = score.gameName || '?';
             const gameNameCell = rowElement.querySelector('.game-name');
             const difficultyCell = rowElement.querySelector('.difficulty');
-            // --- Restore FULL Original Formatting Logic --- 
-            const formattedGameName = displayGameName.split(',') // Handle multiple sheets
+            
+            const formattedGameName = displayGameName.split(',')
                 .map(part => {
-                    // --- Corrected Formatting --- 
                     let baseNamePart = part.trim();
-                    // Check for ':' first (likely multiplayer)
                     if (baseNamePart.includes(':')) {
                         const subParts = baseNamePart.split(':');
                         if (subParts.length > 1) {
-                            // Join all parts after the first one
                             baseNamePart = subParts.slice(1).join(':').trim(); 
                         }
-                    // If no ':', check for '_' (likely V1 single player)
                     } else if (baseNamePart.includes('_')) {
                         const subParts = baseNamePart.split('_');
                         if (subParts.length > 1) {
-                            // Join all parts after the first one
                             baseNamePart = subParts.slice(1).join('_').trim(); 
                         }
                     }
-                    // Replace any remaining underscores in the name itself
                     const finalNamePart = baseNamePart.replace(/_/g, ' ');
                     return finalNamePart;
                 })
-                .join(', '); // Join back if multiple sheets
+                .join(', ');
+                
             if(gameNameCell) gameNameCell.textContent = formattedGameName;
-             // REMOVED difficulty cell population - column will be removed
-            // if(difficultyCell) difficultyCell.textContent = score.difficulty || '-';
-            // --- End Restore Formatting ---
             
             rowElement.querySelector('.name').textContent = score.player;
             rowElement.querySelector('.score').textContent = score.score;
@@ -172,14 +169,13 @@ export default class HighscoresComponent extends BaseComponent {
                     const formattedTime = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
                     dateCell.innerHTML = `${formattedDate} ${formattedTime}`;
                 } catch (e) {
-                    console.warn(`Error formatting date: ${score.date}`, e);
                     dateCell.textContent = '-';
                 }
             } else {
                 dateCell.textContent = '-';
             }
             
-            this.listContainer.appendChild(rowElement);
+            this.elements.listContainer.appendChild(rowElement);
         });
     }
 
@@ -188,63 +184,43 @@ export default class HighscoresComponent extends BaseComponent {
      * @param {string} message
      * @private
      */
-    renderError(message) {
-        if (!this.listContainer) return;
-        this.listContainer.innerHTML = ''; // Clear previous entries
-        const row = this.listContainer.insertRow();
+    renderError = (message) => {
+        if (!this.elements.listContainer) return;
+        this.elements.listContainer.innerHTML = '';
+        const row = this.elements.listContainer.insertRow();
         const cell = row.insertCell();
-        cell.colSpan = 5; // Reverted column count
+        cell.colSpan = 5;
         cell.textContent = `${getTextTemplate('hsRenderErrorPrefix')}${message}`;
         cell.style.textAlign = "center";
         cell.style.color = "red";
     }
 
-     /**
-     * Clears the score display.
-     * @private
+    /**
+     * Clears the score list display.
      */
-    clearDisplay() {
-        if (this.listContainer) {
-            this.listContainer.innerHTML = '';
-            console.debug("[HighscoresComponent] Display cleared.");
+    clearDisplay = () => {
+        if (this.elements.listContainer) {
+            this.elements.listContainer.innerHTML = '';
         }
     }
 
     /**
      * Override show to trigger loading scores when the view becomes visible.
      * HighscoreManager listens for ShowRequested.
+     * @override
      */
     show() {
         super.show();
-        console.log("[HighscoresComponent] Shown. Requesting scores...");
         eventBus.emit(Events.Menu.Highscores.ShowRequested);
-        // Add Konami listener when shown
         easterEggActivator.addKonamiListener();
     }
 
     /**
      * Override hide to remove Konami listener.
+     * @override
      */
     hide() {
         super.hide();
         easterEggActivator.deactivate();
-    }
-
-    /**
-     * Override destroy to remove listeners.
-     */
-    destroy() {
-        easterEggActivator.deactivate();
-        super.destroy();
-    }
-
-    /**
-     * Handles the back button click.
-     * @private
-     */
-    _handleBackClick() {
-        console.log("[HighscoresComponent] Back button clicked.");
-        eventBus.emit(Events.UI.Highscores.BackClicked);
-        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu }); // Use imported constant
     }
 } 

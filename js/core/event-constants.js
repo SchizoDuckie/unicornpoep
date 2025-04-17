@@ -18,7 +18,7 @@ const Events = {
          * @property {Error} [error] - The original Error object, if available.
          * @property {string} [context] - Optional context where the error occurred (e.g., 'WebRTC Connection').
          */
-        ErrorOccurred: 'system:errorOccurred',
+        ErrorOccurred: 'Events.System.ErrorOccurred',
         /**
          * Fired when a major application state transition occurs (e.g., view change).
          * @event Events.System.StateChange
@@ -26,7 +26,7 @@ const Events = {
          * @property {string} newState - Identifier of the new state/view.
          * @property {string} oldState - Identifier of the previous state/view.
          */
-        StateChange: 'system:stateChange',
+        StateChange: 'Events.System.StateChange',
         /**
          * Request to show transient feedback to the user (e.g., a toast notification).
          * @event Events.System.ShowFeedback
@@ -35,20 +35,20 @@ const Events = {
          * @property {'info'|'success'|'warn'|'error'} level - Severity level.
          * @property {number} [duration] - Optional display duration in milliseconds.
          */
-        ShowFeedback: 'system:showFeedback',
+        ShowFeedback: 'Events.System.ShowFeedback',
         /**
          * Request to show the global loading indicator.
          * @event Events.System.LoadingStart
          * @type {object} [payload]
          * @property {string} [payload.message] - Optional message to display (e.g., "Connecting...").
          */
-        LoadingStart: 'system:loadingStart',
+        LoadingStart: 'Events.System.LoadingStart',
         /**
          * Request to hide the global loading indicator.
          * @event Events.System.LoadingEnd
          * @type {object} - Payload is typically empty.
          */
-        LoadingEnd: 'system:loadingEnd',
+        LoadingEnd: 'Events.System.LoadingEnd',
         /**
          * Fired by UIManager when a valid 6-digit join code is detected in the URL parameters (?join=...).
          * Listened for by components responsible for initiating the join flow (e.g., GameCoordinator).
@@ -56,7 +56,25 @@ const Events = {
          * @type {object}
          * @property {string} code - The 6-digit join code detected.
          */
-        ValidJoinCodeDetected: 'system:validJoinCodeDetected',
+        ValidJoinCodeDetected: 'Events.System.ValidJoinCodeDetected',
+        /**
+         * Fired when the application is fully initialized and ready to use.
+         * @event Events.System.AppInitialized
+         * @type {object} - Payload is typically empty.
+         */
+        AppInitialized: 'Events.System.AppInitialized',
+        /**
+         * Fired when the application is waiting for user interaction.
+         * @event Events.System.ShowWaitingDialog
+         * @type {object} - Payload is typically empty.
+         */
+        ShowWaitingDialog: 'Events.System.ShowWaitingDialog',
+        /**
+         * Request to hide the waiting dialog.
+         * @event Events.System.HideWaitingDialog
+         * @type {object} - Payload is typically empty.
+         */
+        HideWaitingDialog: 'Events.System.HideWaitingDialog',
     },
     /**
      * Events related to application navigation and view management.
@@ -70,7 +88,7 @@ const Events = {
          * @property {string} viewName - The identifier of the view to show (e.g., 'MainMenu', 'GameArea', 'HostLobby').
          * @property {any} [data] - Optional data to pass to the view upon showing.
          */
-        ShowView: 'navigation:showView',
+        ShowView: 'Events.Navigation.ShowView',
     },
     /**
      * Lifecycle events emitted by BaseComponent instances.
@@ -84,7 +102,7 @@ const Events = {
          * @property {import('../components/base-component.js').BaseComponent} component - The component instance that was initialized.
          * @property {string} componentName - The name/identifier of the component.
          */
-        Initialized: 'component:initialized',
+        Initialized: 'Events.Component.Initialized',
         /**
          * Fired *by BaseComponent* when a component's root element is shown (e.g., 'hidden' class removed).
          * @event Events.Component.Shown
@@ -92,7 +110,7 @@ const Events = {
          * @property {import('../components/base-component.js').BaseComponent} component - The component instance that was shown.
          * @property {string} componentName - The name/identifier of the component.
          */
-        Shown: 'component:shown',
+        Shown: 'Events.Component.Shown',
         /**
          * Fired *by BaseComponent* when a component's root element is hidden (e.g., 'hidden' class added).
          * @event Events.Component.Hidden
@@ -100,7 +118,7 @@ const Events = {
          * @property {import('../components/base-component.js').BaseComponent} component - The component instance that was hidden.
          * @property {string} componentName - The name/identifier of the component.
          */
-        Hidden: 'component:hidden',
+        Hidden: 'Events.Component.Hidden',
         /**
          * Fired *by BaseComponent* just before a component is destroyed and listeners are cleaned up.
          * @event Events.Component.Destroyed
@@ -108,7 +126,7 @@ const Events = {
          * @property {import('../components/base-component.js').BaseComponent} component - The component instance being destroyed.
          * @property {string} componentName - The name/identifier of the component.
          */
-        Destroyed: 'component:destroyed',
+        Destroyed: 'Events.Component.Destroyed',
     },
     /**
      * General game-related events, applicable across different modes.
@@ -124,7 +142,7 @@ const Events = {
           * @property {string} [hostId] - Required for 'multiplayer-join' mode.
           * @property {string} [playerName] - Player's chosen name.
           */
-         StartRequested: 'game:startRequested',
+         StartRequested: 'Events.Game.StartRequested',
         /**
          * Fired by the active Game Mode class when a game has successfully started and is ready.
          * @event Events.Game.Started
@@ -132,7 +150,7 @@ const Events = {
          * @property {'single' | 'multiplayer' | 'practice'} mode - The mode of the game that started.
          * @property {object} settings - The final settings used for the game.
          */
-        Started: 'game:started',
+        Started: 'Events.Game.Started',
         /**
          * Fired by the active Game Mode class when a game finishes.
          * @event Events.Game.Finished
@@ -140,7 +158,7 @@ const Events = {
          * @property {'single' | 'multiplayer' | 'practice'} mode - The mode of the game that finished.
          * @property {object} results - Game results (e.g., score, rankings). Structure varies by mode.
          */
-        Finished: 'game:finished',
+        Finished: 'Events.Game.Finished',
         /**
          * Fired by the active Game Mode class (using QuizEngine) when a new question is presented.
          * @event Events.Game.QuestionNew
@@ -151,7 +169,7 @@ const Events = {
          * @property {string} questionData.question - The question text.
          * @property {string[]} questionData.answers - Shuffled array of possible answers.
          */
-        QuestionNew: 'game:questionNew',
+        QuestionNew: 'Events.Game.QuestionNew',
         /**
          * Fired *by the QuizEngine* after checking a submitted answer.
          * @event Events.Game.AnswerChecked
@@ -161,7 +179,7 @@ const Events = {
          * @property {string} correctAnswer - The correct answer text.
          * @property {any} submittedAnswer - The answer submitted by the player.
          */
-        AnswerChecked: 'game:answerChecked',
+        AnswerChecked: 'Events.Game.AnswerChecked',
         /**
          * Fired when the player's score is updated. Emitted by the active Game Mode class.
          * @event Events.Game.ScoreUpdated
@@ -169,7 +187,7 @@ const Events = {
          * @property {number} totalScore - The new total score for the player.
          * @property {string} [playerId] - Identifier for the player whose score updated (relevant in MP). If omitted, assumes local player.
          */
-        ScoreUpdated: 'game:scoreUpdated',
+        ScoreUpdated: 'Events.Game.ScoreUpdated',
         /**
          * Fired periodically by a timer during the game.
          * @event Events.Game.TimeTick
@@ -177,28 +195,28 @@ const Events = {
          * @property {number} remainingTime - Remaining time in **milliseconds**.
          * @property {string} [timerId] - Optional identifier if multiple timers exist.
          */
-        TimeTick: 'game:timeTick',
+        TimeTick: 'Events.Game.TimeTick',
          /**
          * Fired when a game timer runs out.
          * @event Events.Game.TimeUp
          * @type {object}
          * @property {string} [timerId] - Optional identifier if multiple timers exist.
          */
-        TimeUp: 'game:timeUp',
+        TimeUp: 'Events.Game.TimeUp',
          /**
          * Fired *by the QuizEngine* when all questions have been answered.
          * @event Events.Game.AllQuestionsAnswered
          * @type {object}
          * @property {number} finalScore - The final score achieved in the quiz round.
          */
-        AllQuestionsAnswered: 'game:allQuestionsAnswered',
+        AllQuestionsAnswered: 'Events.Game.AllQuestionsAnswered',
         /**
          * Fired to initiate the pre-game countdown display.
          * @event Events.Game.CountdownStart
          * @type {object}
-         * @property {number} [duration=3] - Duration of the countdown in seconds.
+         * @property {number} [duration=5] - Duration of the countdown in seconds.
          */
-        CountdownStart: 'game:countdownStart',
+        CountdownStart: 'Events.Game.CountdownStart',
         /**
          * Fired by a multiplayer client game instance when it has finished its quiz.
          * Listened for by GameCoordinator.
@@ -206,7 +224,14 @@ const Events = {
          * @type {object}
          * @property {number} score - The final score achieved by the local client.
          */
-        LocalPlayerFinished: 'game:localPlayerFinished',
+        LocalPlayerFinished: 'Events.Game.LocalPlayerFinished',
+        /**
+         * Fired when a game is prematurely stopped or aborted by the user or system.
+         * @event Events.Game.Aborted
+         * @type {object}
+         * @property {string} reason - Optional reason for the abortion.
+         */
+        Aborted: 'Events.Game.Aborted'
     },
     /**
      * Events specific to multiplayer mode.
@@ -221,7 +246,7 @@ const Events = {
              * @type {object}
              * @property {string} hostId - The 6-digit code used as the host's PeerJS ID.
              */
-            Initialized: 'multiplayer:host:initialized',
+            Initialized: 'Events.Multiplayer.Host.Initialized',
             /**
              * Fired by WebRTCManager on the host when a client successfully connects.
              * @event Events.Multiplayer.Host.ClientConnected
@@ -229,14 +254,14 @@ const Events = {
              * @property {string} peerId - The PeerJS ID of the connected client.
              * @property {string} playerName - The name provided by the client.
              */
-            ClientConnected: 'multiplayer:host:clientConnected',
+            ClientConnected: 'Events.Multiplayer.Host.ClientConnected',
             /**
              * Fired by WebRTCManager on the host when a client disconnects.
              * @event Events.Multiplayer.Host.ClientDisconnected
              * @type {object}
              * @property {string} peerId - The PeerJS ID of the disconnected client.
              */
-            ClientDisconnected: 'multiplayer:host:clientDisconnected',
+            ClientDisconnected: 'Events.Multiplayer.Host.ClientDisconnected',
             /**
              * Fired by the HostLobby component just before initiating the game start process.
              * Typically triggers the creation/start of the MultiplayerGame instance.
@@ -245,7 +270,7 @@ const Events = {
              * @property {object} settings - The final game settings selected by the host.
              * @property {string} playerName - The host's player name.
              */
-            GameStarting: 'mp:host:gameStarting',
+            GameStarting: 'Events.Multiplayer.Host.GameStarting',
             /**
              * Fired by MultiplayerGame (Host) when a valid answer is received from a specific client.
              * This occurs *before* round results are processed.
@@ -256,14 +281,14 @@ const Events = {
              * @property {any} answerData.answer - The submitted answer.
              * @property {number} answerData.questionIndex - The index of the question answered.
              */
-            PlayerAnswered: 'mp:host:playerAnswered',
+            PlayerAnswered: 'Events.Multiplayer.Host.PlayerAnswered',
              /**
              * Fired by MultiplayerGame (Host) when all currently connected players
              * have submitted an answer for the ongoing question round.
              * @event Events.Multiplayer.Host.AllPlayersAnswered
              * @type {object} - Payload is typically empty.
              */
-            AllPlayersAnswered: 'mp:host:allPlayersAnswered',
+            AllPlayersAnswered: 'Events.Multiplayer.Host.AllPlayersAnswered',
              /**
              * Fired by MultiplayerGame (Host) when a host-specific error occurs during game setup or progression.
              * Listened for by host UI components to display targeted error messages.
@@ -273,7 +298,8 @@ const Events = {
              * @property {string} [originalMessage] - The underlying error message, if applicable (e.g., from a catch block).
              * @property {number} [index] - Relevant index if error relates to a specific question (e.g., 'mpHostErrorNextQPrefix').
              */
-            ErrorOccurred: 'mp:host:errorOccurred',
+            ErrorOccurred: 'Events.Multiplayer.Host.ErrorOccurred',
+            RematchReady: 'Events.Multiplayer.Host.RematchReady'
         },
         /** @namespace Events.Multiplayer.Client */
         Client: {
@@ -283,14 +309,14 @@ const Events = {
              * @type {object}
              * @property {string} hostId - The PeerJS ID of the host.
              */
-            ConnectedToHost: 'multiplayer:client:connectedToHost',
+            ConnectedToHost: 'Events.Multiplayer.Client.ConnectedToHost',
              /**
              * Fired by WebRTCManager on the client when disconnected from the host.
              * @event Events.Multiplayer.Client.DisconnectedFromHost
              * @type {object} - Payload might be empty or contain a reason string.
              * @property {string} [reason] - Optional reason for disconnection.
              */
-            DisconnectedFromHost: 'multiplayer:client:disconnectedFromHost',
+            DisconnectedFromHost: 'Events.Multiplayer.Client.DisconnectedFromHost',
              /**
              * Fired on the client when receiving initial game info from the host (before game start).
              * Typically emitted by WebRTCManager upon receiving a specific message type.
@@ -299,7 +325,7 @@ const Events = {
              * @property {object} settings - Game settings chosen by the host.
              * @property {Map<string, object>} players - Map of currently connected players (peerId -> playerData: { name: string, score: number, isFinished: boolean }).
              */
-            GameInfoReceived: 'multiplayer:client:gameInfoReceived',
+            GameInfoReceived: 'Events.Multiplayer.Client.GameInfoReceived',
             /**
              * Fired by the JoinLobby component when the client initiates the connection attempt to the host.
              * Listened for primarily by WebRTCManager to start the PeerJS connection.
@@ -308,7 +334,25 @@ const Events = {
              * @property {string} hostId - The host PeerJS ID the client is attempting to connect to.
              * @property {string} playerName - The name the client is using.
              */
-            Connecting: 'mp:client:connecting',
+            Connecting: 'Events.Multiplayer.Client.Connecting',
+            /**
+             * Fired by the client when it is ready to start the multiplayer game (after confirming join and preparing QuizEngine).
+             * @event Events.Multiplayer.Client.ReadyToStart
+             * @type {object}
+             * @property {string} playerName - The name of the player.
+             * @property {string} hostId - The PeerJS ID of the host.
+             * @property {object} questionsData - The questions data structure ({ sheets: [...] }).
+             * @property {string} difficulty - The selected difficulty.
+             * @property {object} settings - Additional game settings.
+             */
+            ReadyToStart: 'Events.Multiplayer.Client.ReadyToStart',
+            /**
+             * Fired by MultiplayerClientManager when an attempt to initiate a connection fails before connection is established.
+             * @event Events.Multiplayer.Client.JoinFailed
+             * @type {object}
+             * @property {string} reason - Reason for the failure (e.g., 'Connection already active', 'Invalid code format').
+             */
+            JoinFailed: 'Events.Multiplayer.Client.JoinFailed',
         },
         /** @namespace Events.Multiplayer.Common */
         Common: {
@@ -320,7 +364,7 @@ const Events = {
              * @property {string} peerId - The PeerJS ID of the player who joined.
              * @property {object} playerData - Initial data for the joined player (e.g., { name: string }).
              */
-            PlayerJoined: 'multiplayer:common:playerJoined',
+            PlayerJoined: 'Events.Multiplayer.Common.PlayerJoined',
             /**
              * Fired for all peers when a player leaves the session.
              * Typically emitted by WebRTCManager based on disconnection events or messages.
@@ -328,7 +372,7 @@ const Events = {
              * @type {object}
              * @property {string} peerId - The PeerJS ID of the player who left.
              */
-            PlayerLeft: 'multiplayer:common:playerLeft',
+            PlayerLeft: 'Events.Multiplayer.Common.PlayerLeft',
             /**
              * Fired for all peers when a player's data (e.g., score, status) is updated.
              * Typically emitted by WebRTCManager upon receiving a specific message type.
@@ -337,7 +381,7 @@ const Events = {
              * @property {string} peerId - The PeerJS ID of the player whose data changed.
              * @property {object} updatedData - The specific fields that were updated (e.g., { score: 100, isFinished: true }).
              */
-            PlayerUpdated: 'multiplayer:common:playerUpdated',
+            PlayerUpdated: 'Events.Multiplayer.Common.PlayerUpdated',
              /**
              * Fired when the overall list of players needs updating.
              * Often triggered *by UI components* (like PlayerListComponent) listening to PlayerJoined/PlayerLeft/PlayerUpdated.
@@ -345,7 +389,7 @@ const Events = {
              * @type {object}
              * @property {Map<string, object>} players - The complete, current map of players (peerId -> playerData: { name: string, score: number, isFinished: boolean }).
              */
-            PlayerListUpdated: 'multiplayer:common:playerListUpdated',
+            PlayerListUpdated: 'Events.Multiplayer.Common.PlayerListUpdated',
             /**
              * Used for sending potentially large or complete game state snapshots for synchronization.
              * Emitted by the host's MultiplayerGame instance, received by WebRTCManager on clients.
@@ -353,7 +397,7 @@ const Events = {
              * @type {object}
              * @property {object} state - The full or partial game state object to sync.
              */
-            GameStateSync: 'multiplayer:common:gameStateSync',
+            GameStateSync: 'Events.Multiplayer.Common.GameStateSync',
             /**
              * Request sent *to WebRTCManager* to broadcast a message to all connected peers (or specific peers).
              * @event Events.Multiplayer.Common.SendMessage
@@ -361,7 +405,7 @@ const Events = {
              * @property {object} message - The message payload to send.
              * @property {string|string[]} [targetPeerIds] - Optional. If provided, send only to these peer IDs. If omitted, broadcast to all.
              */
-            SendMessage: 'multiplayer:common:sendMessage',
+            SendMessage: 'Events.Multiplayer.Common.SendMessage',
             /**
              * Fired when game data (like state or player updates) is received from another peer.
              * Emitted by WebRTCManager.
@@ -371,7 +415,7 @@ const Events = {
              * @property {string} type - The type of message received (e.g., 'gameState', 'playerUpdate', 'chat').
              * @property {any} payload - The data payload. Structure depends on the message type.
              */
-            DataReceived: 'multiplayer:common:dataReceived',
+            DataReceived: 'Events.Multiplayer.Common.DataReceived',
         },
         /**
          * Fired by MultiplayerGame (Host) when the host finishes their local quiz
@@ -381,41 +425,112 @@ const Events = {
          * @type {object}
          * @property {string} messageKey - Localization key for the waiting message (e.g., 'mpHostWaitOthers').
          */
-        HostWaiting: 'multiplayer:host:waiting'
+        HostWaiting: 'Events.Multiplayer.HostWaiting',
+        /**
+         * Fired when a multiplayer game session is started (typically by the host).
+         * @event Events.Multiplayer.GameStarted
+         * @type {object}
+         * @property {object} gameData - Initial game state/data from the host.
+         */
+        GameStarted: 'Events.Multiplayer.GameStarted',
+        /**
+         * Fired when a participant disconnects or is removed from the multiplayer session.
+         * @event Events.Multiplayer.Disconnected
+         * @type {object}
+         * @property {string} peerId - The ID of the peer who disconnected.
+         * @property {string} [reason] - Optional reason for disconnection (e.g., 'left', 'error', 'timeout').
+         */
+        Disconnected: 'Events.Multiplayer.Disconnected'
     },
     /**
      * Events generated BY UI components interacting with the user.
      * @namespace Events.UI
      */
     UI: {
+        /**
+         * Fired to hide all views and start the ui with a clean slate.
+         * @event Events.UI.HideAllViews
+         */
+        HideAllViews: 'Events.UI.HideAllViews',
         /** @namespace Events.UI.MainMenu */
         MainMenu: {
-            /** Fired when the single player button is clicked. Payload: None */
-            StartSinglePlayerClicked: 'ui:mainMenu:startSinglePlayerClicked',
-            /** Fired when the host multiplayer button is clicked. Payload: None */
-            StartMultiplayerHostClicked: 'ui:mainMenu:startMultiplayerHostClicked',
-            /** Fired when the join multiplayer button is clicked. Payload: None */
-            JoinMultiplayerClicked: 'ui:mainMenu:joinMultiplayerClicked',
-             /** Fired when the practice mode button is clicked. Payload: None */
-             StartPracticeClicked: 'ui:mainMenu:startPracticeClicked',
-             /** Fired when the custom questions button is clicked. Payload: None */
-            CustomQuestionsClicked: 'ui:mainMenu:customQuestionsClicked',
-            /** Fired when the highscores button is clicked. Payload: None */
-            HighscoresClicked: 'ui:mainMenu:highscoresClicked',
-             /** Fired when the about button is clicked. Payload: None */
-            AboutClicked: 'ui:mainMenu:aboutClicked',
+            /**
+             * Fired when the mainmenu needs to be shown.
+             * @event Events.UI.MainMenu.Show
+             */
+            Show: 'Events.UI.MainMenu.Show',
+            /**
+             * Fired when the player clicks the Single Player button in the main menu.
+             * @event Events.UI.MainMenu.StartSinglePlayerClicked
+             */
+            StartSinglePlayerClicked: 'Events.UI.MainMenu.StartSinglePlayerClicked',
+            /**
+             * Fired when the player clicks the Single Player button in the main menu.
+             * @event Events.UI.MainMenu.SinglePlayerClicked
+             */
+            SinglePlayerClicked: 'Events.UI.MainMenu.SinglePlayerClicked',
+            /**
+             * Fired when the player clicks the Practice button in the main menu.
+             * @event Events.UI.MainMenu.StartPracticeClicked
+             */
+            StartPracticeClicked: 'Events.UI.MainMenu.StartPracticeClicked',
+            /**
+             * Fired when the player clicks the Multiplayer button in the main menu.
+             * @event Events.UI.MainMenu.JoinMultiplayerClicked
+             */
+            JoinMultiplayerClicked: 'Events.UI.MainMenu.JoinMultiplayerClicked',
+            /**
+             * Fired when the player clicks the Create Game button in the main menu.
+             * @event Events.UI.MainMenu.CreateGameClicked
+             */
+            HostMultiplayerClicked: 'Events.UI.MainMenu.HostMultiplayerClicked',
+            /**
+             * Fired when the player clicks the Join Game button in the main menu.
+             * @event Events.UI.MainMenu.JoinGameClicked
+             */
+            JoinGameClicked: 'Events.UI.MainMenu.JoinGameClicked',
+            /**
+             * Fired when the player clicks the Highscores button in the main menu.
+             * @event Events.UI.MainMenu.HighscoresClicked
+             */
+            HighscoresClicked: 'Events.UI.MainMenu.HighscoresClicked',
+
+            // Add other main menu button events as needed
+        },
+         /** @namespace Events.UI.GameSetup */
+        GameSetup: {
+            /**
+             * Fired when the player clicks the Start Game button in the game setup screen.
+             * @event Events.UI.GameSetup.StartGameClicked
+             * @type {object}
+             * @property {string} difficulty - Selected difficulty level
+             * @property {number} questionCount - Number of questions for the game
+             * @property {string[]} categories - Selected question categories
+             * @property {string} playerName - Player's name
+             */
+            StartGameClicked: 'Events.UI.GameSetup.StartGameClicked',
+            
+            /**
+             * Fired when the player clicks the Cancel button in the game setup screen.
+             * @event Events.UI.GameSetup.CancelSetupClicked
+             */
+            CancelSetupClicked: 'Events.UI.GameSetup.CancelSetupClicked'
         },
          /** @namespace Events.UI.GameArea */
         GameArea: {
             /**
-             * Fired when the user submits an answer.
+             * Fired when the player submits an answer.
              * @event Events.UI.GameArea.AnswerSubmitted
              * @type {object}
-             * @property {string} answer - The answer text selected/submitted by the user.
+             * @property {string} answer - The answer selected by the player.
              */
-            AnswerSubmitted: 'ui:gameArea:answerSubmitted',
-            /** Fired when the user clicks the button to leave the current game. Payload: None */
-            LeaveGameClicked: 'ui:gameArea:leaveGameClicked',
+            AnswerSubmitted: 'Events.UI.GameArea.AnswerSubmitted',
+            
+            /**
+             * Fired when the player clicks the leave game button.
+             * @event Events.UI.GameArea.LeaveGameClicked
+             */
+            LeaveGameClicked: 'Events.UI.GameArea.LeaveGameClicked'
         },
          /** @namespace Events.UI.Dialog */
         Dialog: {
@@ -425,7 +540,7 @@ const Events = {
              * @type {object}
              * @property {string} name - The entered name.
              */
-            NameConfirmed: 'ui:dialog:nameConfirmed',
+            NameConfirmed: 'Events.UI.Dialog.NameConfirmed',
              /**
              * Fired when a generic confirmation dialog is accepted.
              * @event Events.UI.Dialog.GenericConfirm
@@ -433,14 +548,14 @@ const Events = {
              * @property {string} dialogId - Identifier for the dialog being confirmed.
              * @property {any} [value] - Optional value associated with the confirmation.
              */
-            GenericConfirm: 'ui:dialog:genericConfirm',
+            GenericConfirm: 'Events.UI.Dialog.GenericConfirm',
             /**
              * Fired when a generic confirmation dialog is cancelled.
              * @event Events.UI.Dialog.GenericCancel
              * @type {object}
              * @property {string} dialogId - Identifier for the dialog being cancelled.
              */
-            GenericCancel: 'ui:dialog:genericCancel',
+            GenericCancel: 'Events.UI.Dialog.GenericCancel',
 
             /**
              * Request to show the name prompt dialog.
@@ -449,7 +564,7 @@ const Events = {
              * @event Events.UI.Dialog.NamePromptRequested
              * @type {object} - Payload is typically empty, but could carry context if needed.
              */
-            NamePromptRequested: 'dialog:namePromptRequested',
+            NamePromptRequested: 'Events.UI.Dialog.NamePromptRequested',
 
              /**
               * Fired by SinglePlayerEndDialog when the save button is clicked.
@@ -459,82 +574,97 @@ const Events = {
               * @property {string} name - The player name entered.
               * @property {number} score - The score achieved.
               */
-             SaveScoreClicked: 'ui:dialog:saveScoreClicked',
+             SaveScoreClicked: 'Events.UI.Dialog.SaveScoreClicked',
         },
         /** @namespace Events.UI.MultiplayerChoice */
         MultiplayerChoice: {
             /**
-             * Fired when user chooses to host, after entering name/settings.
+             * Emitted when user clicks Host Game in multiplayer choice.
              * @event Events.UI.MultiplayerChoice.HostClicked
              * @type {object}
-             * @property {string} playerName - The host's chosen name.
-             * @property {object} settings - Selected game settings (e.g., { sheetId: '...', difficulty: '...' }).
+             * @property {string} [playerName] - Player name if already provided.
              */
-            HostClicked: 'ui:mpChoice:hostClicked',
+            HostClicked: 'Events.UI.MultiplayerChoice.HostClicked',
             /**
-             * Fired when user chooses to join, after entering name.
+             * Emitted when user clicks Join Game in multiplayer choice.
              * @event Events.UI.MultiplayerChoice.JoinClicked
              * @type {object}
-             * @property {string} playerName - The joining player's chosen name.
+             * @property {string} [playerName] - Player name if already provided.
              */
-            JoinClicked: 'ui:mpChoice:joinClicked',
-            /** Fired when user clicks back/cancel. Payload: None */
-            BackClicked: 'ui:mpChoice:backClicked',
-        },
-        /** @namespace Events.UI.HostLobby */
-        HostLobby: {
-            /** Fired when the host clicks the button to start the game. Payload: None */
-            StartGameClicked: 'ui:hostLobby:startGameClicked',
-            /** Fired when the host cancels the lobby (clicks back/cancel). Payload: None */
-            CancelClicked: 'ui:hostLobby:cancelClicked',
-            /** Fired when the host clicks the copy link button. Payload: None */
-            CopyLinkClicked: 'ui:hostLobby:copyLinkClicked',
+            JoinClicked: 'Events.UI.MultiplayerChoice.JoinClicked'
         },
         /** @namespace Events.UI.JoinLobby */
         JoinLobby: {
             /**
-             * Fired when the user submits the host connection code.
+             * Emitted when user submits a connection code in the join lobby.
              * @event Events.UI.JoinLobby.SubmitCodeClicked
              * @type {object}
-             * @property {string} code - The submitted connection code.
+             * @property {string} code - The 6-digit connection code.
+             * @property {string} playerName - The player's name.
              */
-            SubmitCodeClicked: 'ui:joinLobby:submitCodeClicked',
-            /** 
-             * Fired when the user confirms joining after seeing game info and entering their name.
+            SubmitCodeClicked: 'Events.UI.JoinLobby.SubmitCodeClicked',
+            /**
+             * Emitted when user confirms joining after seeing game info.
              * @event Events.UI.JoinLobby.ConfirmClicked
              * @type {object}
-             * @property {string} playerName - The name entered by the user.
+             * @property {string} playerName - The player's name, potentially changed in confirmation.
              */
-            ConfirmClicked: 'ui:joinLobby:confirmClicked',
-             /** Fired when the user cancels the joining process (e.g., from confirm view). */
-            CancelClicked: 'ui:joinLobby:cancelClicked',
+            ConfirmClicked: 'Events.UI.JoinLobby.ConfirmClicked',
+            /**
+             * Emitted when user cancels joining from any join lobby view.
+             * @event Events.UI.JoinLobby.CancelClicked
+             */
+            CancelClicked: 'Events.UI.JoinLobby.CancelClicked',
+            /**
+             * Emitted when there's an error during the join process.
+             * @event Events.UI.JoinLobby.Error
+             * @type {object}
+             * @property {string} message - The error message to display.
+             */
+            Error: 'Events.UI.JoinLobby.Error',
+            /**
+             * Emitted by MultiplayerClientCoordinator when the host signals the game is starting.
+             * Listened for by JoinLobbyComponent to trigger navigation to the game area.
+             * @event Events.UI.JoinLobby.HostHasStartedGame
+             * @type {object}
+             * @property {object} gameData - The game data received from the host needed for navigation.
+             */
+            HostHasStartedGame: 'Events.UI.JoinLobby.HostHasStartedGame',
+        },
+         /** @namespace Events.UI.HostLobby */
+        HostLobby: {
+            /**
+             * Emitted when host clicks Start Game in the host lobby.
+             * @event Events.UI.HostLobby.StartGameClicked
+             */
+            StartGameClicked: 'Events.UI.HostLobby.StartGameClicked',
+            /**
+             * Emitted when host cancels hosting from the host lobby.
+             * @event Events.UI.HostLobby.CancelClicked
+             */
+            CancelClicked: 'Events.UI.HostLobby.CancelClicked',
+            /**
+             * Emitted when the host copies the join code.
+             * @event Events.UI.HostLobby.CodeCopied
+             */
+            CodeCopied: 'Events.UI.HostLobby.CodeCopied',
+            /**
+             * Emitted when the host copies the join link.
+             * @event Events.UI.HostLobby.LinkCopied
+             */
+            LinkCopied: 'Events.UI.HostLobby.LinkCopied'
         },
          /** @namespace Events.UI.MultiplayerLobby */
-         MultiplayerLobby: {
+        MultiplayerLobby: {
             /** Fired when the client clicks the "Leave Lobby" button. */
-            LeaveClicked: 'ui:mpLobby:leaveClicked',
+            LeaveClicked: 'Events.UI.MultiplayerLobby.LeaveClicked',
          },
          /** @namespace Events.UI.EndDialog */
         EndDialog: {
-            /** Fired when user clicks Return to Menu in an end-game dialog. Payload: None */
-             ReturnToMenuClicked: 'ui:endDialog:returnToMenuClicked',
-             /**
-              * Fired when user clicks Play Again (or Try Again) in an end-game dialog.
-              * Listened for by GameCoordinator.
-              * @event Events.UI.EndDialog.PlayAgainClicked
-              * @type {object}
-              * @property {'single' | 'practice'} mode - The mode of the game to restart.
-              */
-             PlayAgainClicked: 'ui:endDialog:playAgainClicked',
-             /**
-             * Fired by SinglePlayerEndDialog when the save button is clicked.
-             * Listened for by GameCoordinator (to trigger HighscoreManager).
-             * @event Events.UI.EndDialog.SaveScoreClicked
-             * @type {object}
-             * @property {string} name - The player name entered.
-             * @property {number} score - The score achieved.
-             */
-            SaveScoreClicked: 'ui:endDialog:saveScoreClicked',
+            /** Fired when the user clicks "Play Again" in any end dialog. */
+            PlayAgainClicked: 'Events.UI.EndDialog.PlayAgainClicked',
+            /** Fired when the user clicks "Return to Menu" in any end dialog. */
+            ReturnToMenuClicked: 'Events.UI.EndDialog.ReturnToMenuClicked'
         },
         /** @namespace Events.UI.CustomQuestions */
         CustomQuestions: {
@@ -546,43 +676,111 @@ const Events = {
              * @property {string} name - The name of the sheet.
              * @property {string} questionsText - The raw text from the textarea.
              */
-            SaveClicked: 'ui:customQuestions:saveClicked',
+            SaveClicked: 'Events.UI.CustomQuestions.SaveClicked',
             /**
             * Fired when user clicks delete for a specific custom sheet.
             * @event Events.UI.CustomQuestions.DeleteClicked
             * @type {object}
             * @property {string} sheetId - The ID of the sheet to delete.
             */
-            DeleteClicked: 'ui:customQuestions:deleteClicked',
+            DeleteClicked: 'Events.UI.CustomQuestions.DeleteClicked',
             /**
             * Fired when user clicks edit for a specific custom sheet.
             * @event Events.UI.CustomQuestions.EditClicked
             * @type {object}
             * @property {string} sheetId - The ID of the sheet to edit.
             */
-            EditClicked: 'ui:customQuestions:editClicked',
+            EditClicked: 'Events.UI.CustomQuestions.EditClicked',
+            /**
+            * Fired when user clicks an action button within the sheet list.
+            * @event Events.UI.CustomQuestions.SheetActionClicked
+            * @type {object}
+            * @property {HTMLElement} target - The button element that was clicked.
+            */
+            SheetActionClicked: 'Events.UI.CustomQuestions.SheetActionClicked',
             /** Fired when the user clicks the button to go back to the main menu. */
-            BackClicked: 'ui:customQuestions:backClicked',
+            BackClicked: 'Events.UI.CustomQuestions.BackClicked',
         },
         /** @namespace Events.UI.Highscores */
         Highscores: {
              /** Fired when user clicks back/cancel. Payload: None */
-             BackClicked: 'ui:highscores:backClicked',
+             BackClicked: 'Events.UI.Highscores.BackClicked',
         },
         /** @namespace Events.UI.About */
         About: {
              /** Fired when user clicks back/cancel. Payload: None */
-             BackClicked: 'ui:about:backClicked',
+             BackClicked: 'Events.UI.About.BackClicked',
         },
         MultiplayerEndDialog: {
-            Closed: 'ui:multiplayerEndDialog:closed',
+            Closed: 'Events.UI.MultiplayerEndDialog.Closed',
             /**
              * Fired when user clicks Play Again in the MULTIPLAYER end dialog.
              * Listened for by GameCoordinator.
              * @event Events.UI.MultiplayerEndDialog.PlayAgainClicked
              * @type {object} - Payload might be empty or indicate context.
              */
-            PlayAgainClicked: 'ui:multiplayerEndDialog:playAgainClicked',
+            PlayAgainClicked: 'Events.UI.MultiplayerEndDialog.PlayAgainClicked',
+        },
+        /**
+         * Events related to the name prompt dialog for various actions.
+         * @namespace Events.UI.NamePrompt
+         */
+        NamePrompt: {
+            /**
+             * Request to show the name prompt dialog.
+             * @event Events.UI.NamePrompt.Show
+             * @type {object}
+             * @property {string} [title] - Optional dialog title.
+             * @property {string} [buttonText] - Optional confirm button text.
+             * @property {string} [defaultName] - Optional name to pre-fill.
+             * @property {any} context - Context to be passed back in the Confirmed event (e.g., 'host', 'join').
+             */
+            Show: 'Events.UI.NamePrompt.Show',
+            /**
+             * Fired when the user confirms a name in the dialog.
+             * @event Events.UI.NamePrompt.Confirmed
+             * @type {object}
+             * @property {string} playerName - The name entered by the user.
+             * @property {any} context - The context provided when the dialog was shown.
+             */
+            Confirmed: 'Events.UI.NamePrompt.Confirmed'
+        },
+        /** @namespace Events.UI.Lobby */
+        Lobby: {
+            /**
+             * Fired when the host clicks the Start Game button in the lobby.
+             * @event Events.UI.Lobby.StartGameClicked
+             */
+            StartGameClicked: 'Events.UI.Lobby.StartGameClicked',
+            
+            /**
+             * Fired when the host or client clicks the Cancel/Leave button in the lobby.
+             * @event Events.UI.Lobby.CancelGameClicked
+             */
+            CancelGameClicked: 'Events.UI.Lobby.CancelGameClicked',
+            
+            /**
+             * Fired when a player clicks the Leave Game button in the lobby.
+             * @event Events.UI.Lobby.LeaveGameClicked
+             */
+            LeaveGameClicked: 'Events.UI.Lobby.LeaveGameClicked'
+        },
+        /** @namespace Events.UI.JoinGame */
+        JoinGame: {
+            /**
+             * Fired when the player submits a game code and attempts to connect.
+             * @event Events.UI.JoinGame.ConnectClicked
+             * @type {object}
+             * @property {string} gameCode - The game code entered by the player
+             * @property {string} playerName - The player's name
+             */
+            ConnectClicked: 'Events.UI.JoinGame.ConnectClicked',
+            
+            /**
+             * Fired when the player cancels joining a game.
+             * @event Events.UI.JoinGame.CancelJoinClicked
+             */
+            CancelJoinClicked: 'Events.UI.JoinGame.CancelJoinClicked'
         },
         // ... other UI interaction events could go here, organized by component
     },
@@ -599,7 +797,7 @@ const Events = {
          * @property {object} msg - The parsed message data.
          * @property {string} senderPeerId - The PeerJS ID of the sender.
          */
-        MessageReceived: 'webrtc:messageReceived',
+        MessageReceived: 'Events.WebRTC.MessageReceived',
         /**
          * Fired when a PeerJS connection fails.
          * @event Events.WebRTC.ConnectionFailed
@@ -608,14 +806,14 @@ const Events = {
          * @property {string} [peerId] - The ID of the peer connection that failed, if applicable.
          * @property {'host-init'|'client-connect'|'data-channel'} context - Where the failure occurred.
          */
-        ConnectionFailed: 'webrtc:connectionFailed',
+        ConnectionFailed: 'Events.WebRTC.ConnectionFailed',
         /**
          * Fired when a peer explicitly disconnects or the connection is lost.
          * @event Events.WebRTC.PeerDisconnected
          * @type {object}
          * @property {string} peerId - The ID of the disconnected peer.
          */
-        PeerDisconnected: 'webrtc:peerDisconnected',
+        PeerDisconnected: 'Events.WebRTC.PeerDisconnected',
     },
      /**
      * Events related to specific menu sections like Highscores, Custom Questions.
@@ -630,7 +828,7 @@ const Events = {
              * @event Events.Menu.Highscores.ShowRequested
              * @type {object} - Payload is empty.
              */
-            ShowRequested: 'menu:highscores:showRequested',
+            ShowRequested: 'Events.Menu.Highscores.ShowRequested',
             /**
              * Fired *by HighscoreManager* when high scores have been loaded.
              * Listened for by HighscoresComponent.
@@ -638,7 +836,7 @@ const Events = {
              * @type {object}
              * @property {Array<object>} scores - Array of score objects.
              */
-            Loaded: 'menu:highscores:loaded',
+            Loaded: 'Events.Menu.Highscores.Loaded',
              /**
              * Fired *by HighscoreManager* when high score loading failed.
              * Listened for by HighscoresComponent.
@@ -646,7 +844,7 @@ const Events = {
              * @type {object}
              * @property {string} message - Error message describing the failure.
              */
-            LoadFailed: 'menu:highscores:loadFailed',
+            LoadFailed: 'Events.Menu.Highscores.LoadFailed',
         },
          /** @namespace Events.Menu.CustomQuestions */
         CustomQuestions: {
@@ -658,7 +856,7 @@ const Events = {
              * @property {string} sheetId - The unique ID assigned to the saved sheet.
              * @property {string} name - The name of the saved sheet.
              */
-            SaveSuccess: 'menu:customQuestions:saveSuccess',
+            SaveSuccess: 'Events.Menu.CustomQuestions.SaveSuccess',
             /**
              * Fired *by QuestionsManager* when saving a custom question sheet failed.
              * Listened for by CustomQuestionsComponent for feedback.
@@ -668,7 +866,7 @@ const Events = {
              * @property {string} name - The name of the sheet that failed to save.
              * @property {string} message - Error message describing the failure.
              */
-            SaveFailed: 'menu:customQuestions:saveFailed',
+            SaveFailed: 'Events.Menu.CustomQuestions.SaveFailed',
             /**
             * Fired *by QuestionsManager* (via Coordinator) when a custom sheet was successfully deleted.
             * Listened for by CustomQuestionsComponent for feedback/refresh.
@@ -676,7 +874,7 @@ const Events = {
             * @type {object}
             * @property {string} sheetId - The unique ID of the deleted sheet.
             */
-            DeleteSuccess: 'menu:customQuestions:deleteSuccess',
+            DeleteSuccess: 'Events.Menu.CustomQuestions.DeleteSuccess',
             /**
             * Fired *by QuestionsManager* (via Coordinator) when deleting a custom sheet failed.
             * Listened for by CustomQuestionsComponent for feedback.
@@ -685,7 +883,7 @@ const Events = {
             * @property {string} sheetId - The ID of the sheet that failed to delete.
             * @property {string} message - Error message describing the failure.
             */
-            DeleteFailed: 'menu:customQuestions:deleteFailed',
+            DeleteFailed: 'Events.Menu.CustomQuestions.DeleteFailed',
 
             /**
             * Fired by the Coordinator when sheet data is loaded and ready for editing.
@@ -696,12 +894,12 @@ const Events = {
             * @property {string} name - The name of the sheet.
             * @property {string} questionsText - The raw questions text formatted for the textarea.
             */
-            SheetLoadedForEdit: 'menu:customQuestions:sheetLoadedForEdit',
+            SheetLoadedForEdit: 'Events.Menu.CustomQuestions.SheetLoadedForEdit',
         },
         /** @namespace Events.Menu.About */
         About: {
              /** Request to show the about view. Payload: None */
-             ShowRequested: 'menu:about:showRequested',
+             ShowRequested: 'Events.Menu.About.ShowRequested',
         },
     },
     // Add more domains/actions as needed

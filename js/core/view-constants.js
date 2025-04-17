@@ -17,6 +17,7 @@ const Views = Object.freeze({
     Countdown:          'CountdownComponent',
     PlayerList:         'PlayerListComponent',
     MultiplayerLobby:   'MultiplayerLobbyDialog',
+    
     // Dialogs (used sometimes like views via ShowView)
     SinglePlayerEndDialog: 'SinglePlayerEndDialog',
     MultiplayerEndDialog:  'MultiplayerEndDialog',

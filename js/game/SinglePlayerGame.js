@@ -48,7 +48,9 @@ class SinglePlayerGame extends BaseGameMode {
         console.log(`[SinglePlayerGame] Registered timer listeners.`);
     }
 
-    /** Handles timer ticks, emitting the TimeTick event. @private */
+    /** Handles timer ticks, emitting the TimeTick event. @private 
+     * @event Events.Game.TimeTick
+     */
     _handleTimerTick(remainingTime) {
         eventBus.emit(Events.Game.TimeTick, { remainingTimeMs: remainingTime });
     }
@@ -57,6 +59,8 @@ class SinglePlayerGame extends BaseGameMode {
      * Handles the timer running out for a question.
      * Emits TimeUp, treats as incorrect answer, and moves to next question.
      * @private
+     * @event Events.Game.TimeUp
+     * @event Events.Game.AnswerChecked
      */
     _handleTimeUp() {
         if (this.isFinished) return;
@@ -143,6 +147,7 @@ class SinglePlayerGame extends BaseGameMode {
      * Overrides BaseGameMode.finishGame to handle single-player specific logic
      * (highscore eligibility check) and emit the navigation event for its end dialog.
      * @override
+     * @event Events.Navigation.ShowView
      */
     finishGame() {
         if (this.isFinished) return;

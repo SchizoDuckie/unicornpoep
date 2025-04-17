@@ -1,13 +1,8 @@
 import Events from '../core/event-constants.js';
 import eventBus from '../core/event-bus.js';
-import miscUtils from '../utils/miscUtils.js'; // Import default
-// Assuming PeerJS is loaded globally or correctly imported as 'Peer'
-// import Peer from '../lib/peerjs.min.js'; // Keep if using module
+import miscUtils from '../utils/miscUtils.js'; 
 import { ConnectionStatus, DataConnectionState, DisconnectionReason } from '../core/connection-constants.js'; // Import DisconnectionReason
 import { MSG_TYPE } from '../core/message-types.js'; // ADDED: Import from new location
-
-// Define message types used in communication
-// export const MSG_TYPE = { ... }; // MOVED to v2/core/message-types.js
 
 // Constants for Heartbeat/Timeout
 const HEARTBEAT_INTERVAL_MS = 5000; // Check/Send every 5 seconds
@@ -32,16 +27,10 @@ class WebRTCManager {
         this.connections = new Map();
         /** @type {Map<string, DataConnectionState>} Map<peerId, state> Tracks individual connection states */
         this.connectionStates = new Map();
-        /** @type {Map<string, { name?: string, isHost: boolean }>} Minimal player info needed by WebRTCManager (name from metadata) */
-        this.players = new Map();
-        /** @type {string} The local player's name. */
+        /** @type {string} The local player's name (needed for connection metadata/hello). */
         this.localPlayerName = miscUtils.generateRandomPlayerName();
         /** @type {boolean} Whether this instance is acting as the host. */
         this.isHost = false;
-        /** @type {object | null} Temporary storage for host game settings/data. */
-        this.pendingHostGameData = null;
-        /** @type {string | null} Difficulty setting for the host game. */
-        this.pendingHostDifficulty = null;
         /** @type {ConnectionStatus} Current status of the connection manager. */
         this.status = ConnectionStatus.DISCONNECTED;
         /** @private Stores bound listener functions for easy removal */
@@ -58,14 +47,13 @@ class WebRTCManager {
         this._lastHostContact = null;
         /** @private Stores the actual PeerJS ID of the host */
         this.hostPeerId = null;
-        /** @private Store original onerror */
-        // this._originalOnError = window.onerror; // REMOVED
         /** @private Store our bound error handler */
         this._boundErrorHandler = this._handleGlobalError.bind(this);
 
-        // Setup global error handler using addEventListener
-        // window.onerror = this._boundErrorHandler; // REMOVED
-        window.addEventListener('error', this._boundErrorHandler);
+    
+
+        // Listen for multiplayer send message events (host only)
+        eventBus.on(Events.Multiplayer.Common.SendMessage, this._handleMultiplayerSendMessage.bind(this));
 
         console.info("[WebRTCManager] Initialized.");
     }
@@ -76,20 +64,35 @@ class WebRTCManager {
      * @private
      */
     _handleGlobalError(event) {
-        const error = event.error || new Error(event.message || 'Unknown global error');
-        const context = `global-${event.filename}:${event.lineno}:${event.colno}`;
-        console.error(`[WebRTCManager] Uncaught Global Error (${context}):`, error);
 
-        // Optionally emit a specific event for critical failures
-        eventBus.emit(Events.System.Error, { 
-            error: error, 
-            message: `Unhandled error: ${error.message}`, 
-            context: context,
-            isFatal: false // Decide if this type of error should be considered fatal
-        });
-        
-        // Prevent default browser error handling? Usually false.
-        // event.preventDefault(); 
+        debugger;
+
+    }
+
+    /**
+     * Handles Events.Multiplayer.Common.SendMessage to broadcast or send a message to clients.
+     * Only the host should handle this event.
+     * @param {object} params
+     * @param {string} params.type - The message type (e.g., MSG_TYPE.GAME_START)
+     * @param {object} params.payload - The message payload
+     * @param {string|string[]} [params.recipient] - Optional recipient peerId(s)
+     * @param {string|string[]} [params.targetPeerIds] - Optional recipient peerId(s) (alias)
+     */
+    _handleMultiplayerSendMessage(params) {
+        if (!this.isHost) return;
+        const { type, payload, recipient, targetPeerIds } = params;
+        if (recipient || targetPeerIds) {
+            // Send to specific peer(s)
+            const targets = recipient || targetPeerIds;
+            if (Array.isArray(targets)) {
+                targets.forEach(peerId => this.sendToPeer(peerId, type, payload));
+            } else {
+                this.sendToPeer(targets, type, payload);
+            }
+        } else {
+            // Broadcast to all clients
+            this.broadcastMessage(type, payload);
+        }
     }
 
     // --- Host Functionality ---
@@ -97,12 +100,10 @@ class WebRTCManager {
     /**
      * Initializes this peer as the host, using a generated 6-digit code as the Peer ID.
      * @param {string} playerName - The host's chosen name.
-     * @param {object} questionsData - The structured question data object from QuestionsManager.
-     * @param {string} difficulty - The selected game difficulty.
      * @throws {Error} If PeerJS initialization fails or another game is active.
      */
-    startHost(playerName, questionsData, difficulty) {
-        console.log(`[WebRTCManager] Attempting to start Host with 6-digit ID. Player: ${playerName}, Difficulty: ${difficulty}`);
+    startHost(playerName) {
+        console.log(`[WebRTCManager] Attempting to start Host with 6-digit ID. Player: ${playerName}`);
         if (this.status !== ConnectionStatus.DISCONNECTED && this.status !== ConnectionStatus.ERROR) {
              const message = `[WebRTCManager] Cannot start host, current status is ${this.status}. Call closeConnection() first.`;
              console.error(message);
@@ -112,9 +113,7 @@ class WebRTCManager {
         this.status = ConnectionStatus.INITIALIZING_PEER;
         this.isHost = true;
         this.localPlayerName = playerName;
-        this.pendingHostGameData = questionsData || { sheets: [] }; // Store questions data
-        this.pendingHostDifficulty = difficulty || 'normal'; // Store difficulty
-
+        
         try {
             if (typeof Peer === 'undefined') {
                 throw new Error(miscUtils.getTextTemplate('rtcErrorPeerJSLoad'));
@@ -148,8 +147,7 @@ class WebRTCManager {
             this.resetState();
         }
 
-        // Add global error listener now that Peer is active
-        window.addEventListener('error', this._boundErrorHandler);
+        
         console.debug("[WebRTCManager] Added global error listener (host).");
     }
 
@@ -171,8 +169,8 @@ class WebRTCManager {
         console.log(`[WebRTCManager] Host PeerJS established. Assigned ID (6-digit): ${this.myPeerId}, Actual PeerJS ID used: ${this.hostPeerId}`);
         
         this.status = ConnectionStatus.AWAITING_CONNECTIONS;
-        this._updatePlayer(this.myPeerId, { name: this.localPlayerName, isHost: true });
 
+        // Emit Initialized event with IDs for HostManager
         eventBus.emit(Events.Multiplayer.Host.Initialized, {
             hostId: this.myPeerId,
             hostPeerId: this.hostPeerId
@@ -180,9 +178,6 @@ class WebRTCManager {
 
         this._startHostHeartbeatBroadcast();
         this._startClientTimeoutCheck();
-
-        // Add global error listener now that Peer is active
-        window.addEventListener('error', this._boundErrorHandler);
         console.debug("[WebRTCManager] Added global error listener (host).");
     }
 
@@ -192,101 +187,89 @@ class WebRTCManager {
      */
     _handleClientConnection(connection) {
         const peerId = connection.peer;
+        console.log(`[WebRTCManager] Incoming connection request from: ${peerId}`);
 
-        // --- FIX: Safely handle potentially undefined metadata ---
-        // Assign a temporary name. The actual name will come via 'client_hello'.
-        const clientName = `Client_${peerId.slice(-4)}`; // Use placeholder initially
-        console.log(`[WebRTCManager] Incoming connection request from: ${peerId} (Temp Name: ${clientName})`);
-        // --- END FIX ---
-
-        // Prevent duplicate connections (logic remains the same)
         if (this.connections.has(peerId)) {
             console.warn(`[WebRTCManager] Duplicate connection attempt from ${peerId}. Closing new attempt.`);
             connection.close();
             return;
         }
 
-        // Store connection immediately (logic remains the same)
         this.connections.set(peerId, connection);
         this.connectionStates.set(peerId, DataConnectionState.OPENING);
 
-        // Store bound listeners for this specific connection
+        // --- REVISED LOGIC: Delay ClientConnected until hello --- 
+        let helloReceived = false;
+        const helloTimeoutDuration = 3000; // Wait 3 seconds for hello
+
+        const helloTimeout = setTimeout(() => {
+            if (!helloReceived) {
+                console.warn(`[WebRTCManager] Client ${peerId} did not send client_hello within ${helloTimeoutDuration}ms. Disconnecting.`);
+                this._handleClientDisconnection(peerId, DisconnectionReason.NO_HELLO);
+            }
+        }, helloTimeoutDuration);
+
         const connListeners = {
             open: () => {
-                console.log(`[WebRTCManager] Data connection opened with client: ${peerId}`); // Log with PeerID initially
-                // Connection is fully open
-                this.connectionStates.set(peerId, DataConnectionState.OPEN);
-
-                // Initialize last contact time for timeout check
-                this._clientLastContact.set(peerId, Date.now());
-
-                // Emit ClientConnected event WITHOUT name, as it's not confirmed yet.
-                eventBus.emit(Events.Multiplayer.Host.ClientConnected, { peerId });
-
+                console.log(`[WebRTCManager] Data connection opened with client: ${peerId}. Waiting for client_hello.`);
+                this.connectionStates.set(peerId, DataConnectionState.OPEN); // Mark as open, but waiting for hello
+                // DO NOT emit ClientConnected here yet.
             },
             data: (rawData) => {
-                // Wrap the entire handler content in a try-catch for robustness
                 try {
-                const peerId = connection.peer; // Capture peerId for this handler context
-                    // +++ ADD RAW LOG +++
-                    console.log(`%c[WebRTC RAW Host] Received data from ${peerId}:`, 'color: orange; font-weight: bold;', rawData); // Added color for visibility
-                    // +++ END RAW LOG +++
-
-                let messageData;
-                    // Parsing logic (moved inside the main try-catch)
-                try {
-                    if (typeof rawData === 'string') {
-                        messageData = JSON.parse(rawData);
-                    } else if (typeof rawData === 'object' && rawData !== null) {
-                        messageData = rawData;
-                    } else {
-                        console.error(`[WebRTCManager Host] Received unexpected data type from ${peerId}: ${typeof rawData}`, rawData);
-                        return; // Ignore unexpected types
+                    const peerId = connection.peer;
+                    console.log(`%c[WebRTC RAW Host] Received data from ${peerId}:`, 'color: orange; font-weight: bold;', rawData);
+                    let messageData;
+                    try {
+                        if (typeof rawData === 'string') {
+                            messageData = JSON.parse(rawData);
+                        } else if (typeof rawData === 'object' && rawData !== null) {
+                            messageData = rawData;
+                        } else {
+                            console.error(`[WebRTCManager Host] Received unexpected data type from ${peerId}: ${typeof rawData}`, rawData);
+                            return;
                         }
                     } catch (parseError) {
-                        console.error(`[WebRTCManager Host] Failed to parse message JSON string in 'data' handler from ${peerId}:`, parseError, rawData);
+                        console.error(`[WebRTCManager Host] Failed to parse message JSON string from ${peerId}:`, parseError, rawData);
                         this._handleClientDisconnection(peerId, 'message_parse_error');
-                        return; // Stop processing if string parsing fails
-                    }
-
-                    // --- Add strict check for message type ---
-                    if (!messageData || typeof messageData.type !== 'string') {
-                        console.warn(`[WebRTCManager Host] Received message without a valid 'type' string from ${peerId}. Ignoring.`, messageData);
                         return;
                     }
-                    // --- End check ---
-
-                    // Update last contact time AFTER successful parsing and type check
+                    if (!messageData || typeof messageData.type !== 'string') {
+                        console.warn(`[WebRTCManager Host] Received message without valid 'type' string from ${peerId}. Ignoring.`, messageData);
+                        return;
+                    }
                     this._clientLastContact.set(peerId, Date.now());
 
-                    // --- ADD Handling for client_hello ---
                     if (messageData.type === 'client_hello' && messageData.payload) {
-                        const playerName = messageData.payload.name || `Player_${peerId.slice(-4)}`;
-                         console.log(`[WebRTCManager Host] Received client_hello from ${peerId}. Setting name to: ${playerName}`);
-                         // Update the player list internally in WebRTCManager
-                        this._updatePlayer(peerId, { name: playerName, isHost: false });
+                        if (helloReceived) {
+                            console.warn(`[WebRTCManager Host] Received duplicate client_hello from ${peerId}. Ignoring.`);
+                            return;
+                        }
+                        helloReceived = true;
+                        clearTimeout(helloTimeout); // Clear the timeout
 
-                         // --- FIX: Send Game Info AFTER hello ---
-                         if (this.isHost) {
-                            this._sendGameInfoToClient(connection);
-                         }
-                         // --- END FIX ---
+                        const playerName = messageData.payload.name || miscUtils.generateRandomPlayerName(); // Use util for default
+                        console.log(`[WebRTCManager Host] Received client_hello from ${peerId}. Name: ${playerName}`);
+                        
+                        // --- EMIT ClientConnected HERE --- 
+                        console.log(`[WebRTCManager Host] Emitting ClientConnected for ${peerId} with name ${playerName}.`);
+                        eventBus.emit(Events.Multiplayer.Host.ClientConnected, { peerId, playerName });
+                        // --- END EMIT --- 
 
-                         // Emit the updated list (HostLobbyComponent and others listen for this)
-                        eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: this.players });
-                         // Also emit PlayerJoined now that we have the name
-                         eventBus.emit(Events.Multiplayer.Common.PlayerJoined, { peerId, playerData: { name: playerName, isHost: false } });
-
-                         // Do not emit MessageReceived further for this internal message type
+                        // Do not process client_hello further
+                        return; 
+                    }
+                    
+                    // Only emit other messages if hello has been received (prevents data before init)
+                    if (!helloReceived) {
+                         console.warn(`[WebRTCManager Host] Received message type '${messageData.type}' from ${peerId} before client_hello. Ignoring.`);
                          return;
                     }
-                    // --- END Handling for client_hello ---
-
+                    
                     // Pass other validated messages to the emit handler
-                        this._emitMessageReceived(messageData, peerId);
-
+                    this._emitMessageReceived(messageData, peerId);
                 } catch (outerError) {
-                     const currentPeerId = connection?.peer || 'unknown';
+                     const currentPeerId = connection.peer || 'unknown';
                      console.error(`[WebRTCManager Host] Unexpected error in 'data' handler for peer ${currentPeerId}:`, outerError);
                      if (currentPeerId !== 'unknown') {
                           this._handleClientDisconnection(currentPeerId, 'data_handler_unexpected_error');
@@ -294,16 +277,17 @@ class WebRTCManager {
                 }
             },
             close: () => {
-                 console.warn(`[WebRTCManager] Data connection closed for client: ${peerId}`);
-                 this.connectionStates.set(peerId, DataConnectionState.CLOSED);
-                 this._handleClientDisconnection(peerId, DisconnectionReason.CLOSED_BY_REMOTE);
+                clearTimeout(helloTimeout); // Clear timeout on close
+                console.warn(`[WebRTCManager] Data connection closed for client: ${peerId}`);
+                this.connectionStates.set(peerId, DataConnectionState.CLOSED);
+                this._handleClientDisconnection(peerId, DisconnectionReason.CLOSED_BY_REMOTE);
             },
             error: (err) => {
-                 console.error(`[WebRTCManager] Data connection error for client ${peerId}:`, err);
-                 this.connectionStates.set(peerId, DataConnectionState.CLOSED);
-                 this._handleClientDisconnection(peerId, DisconnectionReason.CONNECTION_ERROR);
-                 // Optionally emit a specific error event?
-                 eventBus.emit(Events.WebRTC.ConnectionFailed, { error: err, context: 'data-connection', peerId: peerId });
+                clearTimeout(helloTimeout); // Clear timeout on error
+                console.error(`[WebRTCManager] Data connection error for client ${peerId}:`, err);
+                this.connectionStates.set(peerId, DataConnectionState.CLOSED);
+                this._handleClientDisconnection(peerId, DisconnectionReason.CONNECTION_ERROR);
+                eventBus.emit(Events.WebRTC.ConnectionFailed, { error: err, context: 'data-connection', peerId: peerId });
             }
         };
         this._connectionListeners.set(peerId, connListeners);
@@ -315,84 +299,30 @@ class WebRTCManager {
     }
 
     /**
-     * Sends current game settings and player list to a specific new client.
-     * @param {Peer.DataConnection} connection - The connection to the new client.
-     * @private
-     */
-    _sendGameInfoToClient(connection) {
-        if (!this.isHost || !connection || !connection.open) return;
-        
-        // Construct payload with full questions data and difficulty
-        const gameInfoPayload = {
-            questions: this.pendingHostGameData, // Send the full questions data structure
-            difficulty: this.pendingHostDifficulty, // Send the difficulty
-            players: Object.fromEntries(this.players), // Send current player list as object
-            hostId: this.myPeerId
-        };
-        console.log(`[WebRTCManager] Sending GAME_INFO to client ${connection.peer}`); // Don't log full payload for brevity
-        // console.debug('[WebRTCManager] Game Info Payload:', gameInfoPayload); // Optional full log
-        this.sendMessage(connection, MSG_TYPE.GAME_INFO, gameInfoPayload);
-    }
-
-    /**
-     * [Host Only] Closes connection to a specific client.
-     * @param {string} peerId The ID of the client to disconnect.
-     */
-    closeClientConnection(peerId) {
-        if (!this.isHost) return;
-        console.log(`[WebRTCManager] Host manually closing connection with client: ${peerId}`);
-        this._safelyCloseDataConnection(peerId, DisconnectionReason.MANUAL_HOST_DISCONNECT);
-    }
-
-    /**
      * @private Handles cleanup when a client connection is lost or closed.
-     * This is triggered BY on('close') or on('error') events, or potentially after a safe close attempt.
-     * It should NOT attempt to call connection.close() itself again.
+     * Emits ClientDisconnected.
      * @param {string} peerId Client's PeerJS ID.
      * @param {string} [reason='unknown'] - Reason for disconnection.
      */
     _handleClientDisconnection(peerId, reason = DisconnectionReason.UNKNOWN) {
-        // Prevent handling if already disconnected or cleanup in progress
-        if (!this.players.has(peerId) || !this.connections.has(peerId)) {
-            // console.warn(`[WebRTCManager] Attempted to handle disconnection for already removed/unknown peer: ${peerId}. Reason: ${reason}`);
+        // Check if connection exists before proceeding
+        if (!this.connections.has(peerId)) {
             return;
         }
         const wasOpen = this.connectionStates.get(peerId) === DataConnectionState.OPEN;
-        const playerName = this.players.get(peerId)?.name || 'Unknown';
+        
+        console.log(`[WebRTCManager] Cleaning up connection for peer ${peerId}. Reason: ${reason}`);
 
-        console.log(`[WebRTCManager] Cleaning up connection for ${playerName} (${peerId}). Reason: ${reason}`);
-
-        // Clean up internal state
-        this._removePeerListeners(this.connections.get(peerId)); // Remove listeners first
-        this._connectionListeners.delete(peerId); // Remove stored bound listeners
+        // Clean up internal connection state
+        this._removePeerListeners(this.connections.get(peerId)); 
+        this._connectionListeners.delete(peerId);
         this.connections.delete(peerId);
-        this.connectionStates.set(peerId, DataConnectionState.CLOSED);
+        this.connectionStates.set(peerId, DataConnectionState.CLOSED); // Ensure state is Closed
         this._clientLastContact.delete(peerId);
-        this._removePlayer(peerId); // Removes from this.players and emits PlayerListUpdated
 
-        // Emit specific disconnect event if connection was fully open
+        // Emit specific disconnect event for HostManager
         if (wasOpen || reason === DisconnectionReason.TIMEOUT) {
              eventBus.emit(Events.Multiplayer.Host.ClientDisconnected, { peerId, reason });
-        }
-
-        // Provide clearer user feedback via event
-        let feedbackKey = 'mpClientDisconnectedGeneric'; // Default key
-        let feedbackLevel = 'warn';
-        if (reason === DisconnectionReason.TIMEOUT) {
-            feedbackKey = 'mpClientDisconnectedTimeout';
-        } else if (reason === DisconnectionReason.LEFT_VOLUNTARILY) {
-            feedbackKey = 'mpClientDisconnectedLeft';
-            feedbackLevel = 'info'; // Use info level for voluntary leave
-        } else if (reason === DisconnectionReason.SHUTDOWN) {
-            // Don't show feedback if host is shutting down normally
-            return;
-        } else if (reason === DisconnectionReason.SHUTDOWN_CLOSE_ERROR) {
-             // Don't show feedback for shutdown errors either (host initiated)
-             return;
-        }
-        const feedbackMessage = miscUtils.getTextTemplate(feedbackKey, { playerName: playerName });
-        if (feedbackMessage) {
-            eventBus.emit(Events.System.ShowFeedback, { message: feedbackMessage, level: feedbackLevel });
         }
     }
     
@@ -491,8 +421,7 @@ class WebRTCManager {
             this.status = ConnectionStatus.ERROR; // Use constant
             this.resetState();
         }
-        // Add global error listener now that Peer is active
-        window.addEventListener('error', this._boundErrorHandler);
+        
         console.debug("[WebRTCManager] Added global error listener (client).");
     }
 
@@ -515,7 +444,6 @@ class WebRTCManager {
         
         console.log(`[WebRTCManager] Client PeerJS established. Client ID: ${id}`);
         this.myPeerId = id; // Assign the received client ID
-        this._updatePlayer(this.myPeerId, { name: this.localPlayerName, isHost: false });
 
         // Now that our peer is open, attempt to connect to the target host ID
                      if (!this.hostId) {
@@ -569,8 +497,6 @@ class WebRTCManager {
         // Don't reset peer, allow potential reconnect attempts by UI/Coordinator
         // Emit DisconnectedFromHost first
         eventBus.emit(Events.Multiplayer.Client.DisconnectedFromHost, { hostId: hostPeerId, reason });
-        // Then emit PlayerLeft for game logic
-        eventBus.emit(Events.Multiplayer.Common.PlayerLeft, { peerId: hostPeerId });
     }
 
     // --- Common Functionality ---
@@ -621,24 +547,14 @@ class WebRTCManager {
         this.myPeerId = null;
         this.connections.clear();
         this.connectionStates.clear();
-        this.players.clear();
         this.localPlayerName = miscUtils.generateRandomPlayerName();
         this.isHost = false;
-        this.pendingHostGameData = null;
-        this.pendingHostDifficulty = null;
         this.status = ConnectionStatus.DISCONNECTED;
          this._peerListeners = {};
          this._connectionListeners.clear();
         this._removePeerListeners(); // Remove listeners before potentially destroying peer
         this._clearHeartbeatIntervals(); // Stop pinging and timeout checks
         this.hostPeerId = null; // Reset the hostPeerId
-
-        // Restore original window.onerror handler - REMOVED logic
-        // if (window.onerror === this._boundErrorHandler) {
-        //     window.onerror = this._originalOnError;
-        //      console.info("[WebRTCManager] Restored original window.onerror handler.");
-        // }
-        // this._originalOnError = null; // Clear reference
 
         // Remove our specific event listener
         window.removeEventListener('error', this._boundErrorHandler);
@@ -696,29 +612,6 @@ class WebRTCManager {
          // DO NOT call closeConnection here. Let the listener (GameCoordinator) handle cleanup.
     }
 
-
-    // --- Player List Management ---
-
-    /** @private Adds or updates a player in the local list. */
-    _updatePlayer(peerId, playerData) {
-        if (!peerId) return;
-        // Ensure basic structure
-        const dataToSet = {
-            name: playerData.name || this.players.get(peerId).name || 'Unknown', // Preserve name if not provided
-            isHost: typeof playerData.isHost === 'boolean' ? playerData.isHost : (this.players.get(peerId).isHost ?? false) // Preserve isHost
-        };
-        this.players.set(peerId, dataToSet);
-         console.debug(`[WebRTCManager] Player updated: ${peerId}`, this.players.get(peerId));
-    }
-
-     /** @private Removes a player from the local list. */
-    _removePlayer(peerId) {
-        if (this.players.has(peerId)) {
-            this.players.delete(peerId);
-            console.debug(`[WebRTCManager] Player removed: ${peerId}`);
-        }
-    }
-
     // --- Messaging ---
 
     /**
@@ -736,25 +629,19 @@ class WebRTCManager {
         if (messageData.type === MSG_TYPE.PING) {
             // console.log(`[WebRTCManager] Received PING from ${senderPeerId}`);
             if (this.isHost) {
-                // Host updates last contact time for this client
                 const oldTime = this._clientLastContact.get(senderPeerId);
                 this._clientLastContact.set(senderPeerId, Date.now());
-                console.log(`[WebRTC DEBUG Host] Updated last contact for ${senderPeerId} due to PING (Old: ${oldTime ? new Date(oldTime).toLocaleTimeString() : 'None'}, New: ${new Date(Date.now()).toLocaleTimeString()})`);
-                // *** ADD PONG RESPONSE ***
+
                 const connection = this.connections.get(senderPeerId); 
                 if (connection) { 
                     this.sendMessage(connection, MSG_TYPE.PONG, {}); 
                 } else {
                     console.warn(`[WebRTC PONG] Could not send PONG to ${senderPeerId}, connection not found.`);
                 }
-                // *** END PONG RESPONSE ***
             } else {
-                // Client received PING from host, update last contact time
                  const oldTime = this._lastHostContact;
                  this._lastHostContact = Date.now();
-                 console.log(`[WebRTC DEBUG Client] Updated last contact from host ${senderPeerId} due to PING (Old: ${oldTime ? new Date(oldTime).toLocaleTimeString() : 'None'}, New: ${new Date(Date.now()).toLocaleTimeString()})`);
-                // Client could optionally send PONG back
-                // this.sendToHost(MSG_TYPE.PONG, {});
+                this.sendToHost(MSG_TYPE.PONG, {});
             }
             return; // Don't emit PING messages further
         }
@@ -763,18 +650,18 @@ class WebRTCManager {
             if (this.isHost) {
                  const oldTime = this._clientLastContact.get(senderPeerId);
                  this._clientLastContact.set(senderPeerId, Date.now());
-                 console.log(`[WebRTC DEBUG Host] Updated last contact for ${senderPeerId} due to PONG (Old: ${oldTime ? new Date(oldTime).toLocaleTimeString() : 'None'}, New: ${new Date(Date.now()).toLocaleTimeString()})`);
+                 
             } else {
                  const oldTime = this._lastHostContact;
                  this._lastHostContact = Date.now();
-                 console.log(`[WebRTC DEBUG Client] Updated last contact from host ${senderPeerId} due to PONG (Old: ${oldTime ? new Date(oldTime).toLocaleTimeString() : 'None'}, New: ${new Date(Date.now()).toLocaleTimeString()})`);
+                 
             }
             return; // Don't emit PONG messages further
         }
         // --- End Heartbeat Interception ---
 
         // --- ADD DEBUG LOG ---
-        console.log(`[WebRTCManager._emitMessageReceived] Preparing to emit message from ${senderPeerId}. Type: ${messageData?.type}`);
+        console.log(`[WebRTCManager._emitMessageReceived] Preparing to emit message from ${senderPeerId}. Type: ${messageData.type}`);
         // --- END DEBUG LOG ---
 
         // --- Update Last Contact on ANY message ---
@@ -788,14 +675,14 @@ class WebRTCManager {
              // Only update if PING/PONG didn't already (or if it wasn't updated in 'data' handler - safety)
              if (messageData.type !== MSG_TYPE.PING && messageData.type !== MSG_TYPE.PONG) {
                  this._clientLastContact.set(senderPeerId, Date.now());
-                 console.log(`[WebRTC DEBUG Host - emit] Updated last contact for ${senderPeerId} due to MSG Type '${messageData?.type}' (Old: ${oldTime ? new Date(oldTime).toLocaleTimeString() : 'None'}, New: ${new Date(Date.now()).toLocaleTimeString()})`);
+                 console.log(`[WebRTC DEBUG Host - emit] Updated last contact for ${senderPeerId} due to MSG Type '${messageData.type}' (Old: ${oldTime ? new Date(oldTime).toLocaleTimeString() : 'None'}, New: ${new Date(Date.now()).toLocaleTimeString()})`);
              }
         } else if (senderPeerId === this.hostId) { // Only update for messages from the host
              const oldTime = this._lastHostContact;
              // Only update if PING/PONG didn't already
              if (messageData.type !== MSG_TYPE.PING && messageData.type !== MSG_TYPE.PONG) {
                 this._lastHostContact = Date.now();
-                console.log(`[WebRTC DEBUG Client - emit] Updated last contact from host ${senderPeerId} due to MSG Type '${messageData?.type}' (Old: ${oldTime ? new Date(oldTime).toLocaleTimeString() : 'None'}, New: ${new Date(Date.now()).toLocaleTimeString()})`);
+                console.log(`[WebRTC DEBUG Client - emit] Updated last contact from host ${senderPeerId} due to MSG Type '${messageData.type}' (Old: ${oldTime ? new Date(oldTime).toLocaleTimeString() : 'None'}, New: ${new Date(Date.now()).toLocaleTimeString()})`);
              }
         }
         // --- End Last Contact Update ---
@@ -821,20 +708,10 @@ class WebRTCManager {
          if (connection.open) {
             const message = { type, payload };
             // Debug specific message types
-            if (type === MSG_TYPE.PING) {
-                 console.log(`[WebRTC Send PING] Attempting to send PING to ${connection.peer}`);
-            } else if (type === MSG_TYPE.CLIENT_READY) {
-                 console.log(`[WebRTC Send CLIENT_READY] Sending CLIENT_READY to ${connection.peer} with payload:`, payload);
-            }
             
             try {
-                 // PeerJS handles serialization, but stringify explicitly for safety/consistency
                  connection.send(message); // Send the object directly
-                 
-                 // Log confirmation for important messages
-                 if (type === MSG_TYPE.CLIENT_READY) {
-                     console.log(`[WebRTC Send CLIENT_READY] Successfully sent CLIENT_READY message to ${connection.peer}`);
-                 }
+            
             } catch (error) {
                  console.error(`[WebRTCManager] Error sending message to ${connection.peer}:`, error, message);
                   // --- Resilience Check for Broken Connection State --- 
@@ -910,10 +787,6 @@ class WebRTCManager {
     }
 
     // --- Getters ---
-    getPlayerList() {
-        return new Map(this.players); // Return a copy
-    }
-
     getMyPeerId() {
         return this.myPeerId;
     }
@@ -936,14 +809,6 @@ class WebRTCManager {
      getConnectedPeerIds() {
          return Array.from(this.connections.keys());
      }
-
-    /**
-     * DEBUG: Logs detailed information about the current player list
-     * and connection state. Useful for troubleshooting issues.
-     */
-    getConnectedPlayers() {
-        return new Map(this.players);
-    }
 
     // --- Heartbeat and Timeout Methods ---
 
@@ -1090,7 +955,7 @@ class WebRTCManager {
             if (connection && connection.open) { 
             this.sendMessage(connection, type, payload);
         } else {
-                console.warn(`[WebRTCManager] sendToPeer: Connection to ${targetPeerId} not open or ready. State: ${connection?.readyState}. Ignoring send.`);
+                console.warn(`[WebRTCManager] sendToPeer: Connection to ${targetPeerId} not open or ready. State: ${connection.readyState}. Ignoring send.`);
                 // Optionally trigger cleanup if connection is unexpectedly closed
                 if (connection && connection.readyState !== 'connecting' && connection.readyState !== 'open') {
                     this._handleClientDisconnection(targetPeerId, 'send_fail_not_open');
@@ -1186,7 +1051,7 @@ class WebRTCManager {
                           }
                            // Update last contact time immediately after receiving/parsing any valid data structure
                            this._lastHostContact = Date.now();
-                           console.log(`[WebRTC DEBUG Client] Updated last contact for host ${senderPeerId} at start of data handler (Time: ${new Date().toLocaleTimeString()})`);
+                           
 
                            // Pass the PARSED/validated data to the emit handler
                            this._emitMessageReceived(messageData, senderPeerId);
@@ -1200,8 +1065,9 @@ class WebRTCManager {
                       console.warn(`[WebRTCManager] Connection error with host ${targetHostId}:`, err);
                        // Specific error for unavailable peer ID
                       if (err.type === 'peer-unavailable') {
-                           console.error(`[WebRTCManager] Host ID ${targetHostId} not found on PeerServer.`);
-                           eventBus.emit(Events.WebRTC.ConnectionFailed, { error: err, peerId: targetHostId, context: 'client-connect-not-found', message: miscUtils.getTextTemplate('rtcErrorHostNotFound') });
+                           console.error(`[WebRTCManager Host] Client connection failed: Peer ID ${targetHostId} not found.`);
+                           // Notify coordinator or UI about specific failure
+                           eventBus.emit(Events.WebRTC.ConnectionFailed, { error: err, peerId: targetHostId, context: 'client-connect-not-found', message: miscUtils.getTextTemplate('errorDialogHostUnavailable') });
                            this._handleHostDisconnection(DisconnectionReason.PEER_UNAVAILABLE);
                       } else {
                            eventBus.emit(Events.WebRTC.ConnectionFailed, { error: err, peerId: targetHostId, context: 'client-conn-error', message: err.message });
@@ -1221,6 +1087,28 @@ class WebRTCManager {
               eventBus.emit(Events.WebRTC.ConnectionFailed, { error, peerId: targetHostId, context: 'client-connect-initiate', message: error.message });
               this.status = ConnectionStatus.ERROR;
          }
+    }
+
+    /**
+     * Sets up listeners for relevant events.
+     * @private
+     */
+    listen() {
+        // Listen for data coming FROM the host (via WebRTCManager) - REMOVED FROM HERE
+        // eventBus.on(Events.WebRTC.MessageReceived, this._boundHandleDataReceived);
+
+        // Listen for the client successfully connecting TO the host
+        eventBus.on(Events.Multiplayer.Client.ConnectedToHost, this.handleConnectedToHost.bind(this));
+
+        // Listen for disconnection FROM the host
+        eventBus.on(Events.Multiplayer.Client.DisconnectedFromHost, this.handleDisconnectedFromHost.bind(this));
+
+        // Listen for game start/finish to manage the AnswerSubmitted listener
+        eventBus.on(Events.Game.Started, this._handleGameStarted.bind(this));
+        eventBus.on(Events.Game.Finished, this._handleGameFinished.bind(this));
+
+        // DO NOT listen for AnswerSubmitted here initially
+        // eventBus.on(Events.UI.GameArea.AnswerSubmitted, this.handleAnswerSubmitted.bind(this));
     }
 }
 

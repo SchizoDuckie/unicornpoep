@@ -5,36 +5,59 @@ import QuizEngine from '../services/QuizEngine.js';
 import BaseGameMode from './BaseGameMode.js';
 
 /**
- * Manages the state and logic for a practice game session.
- * Extends BaseGameMode, providing the specific behavior for practice mode
- * (e.g., no scoring).
+ * Class PracticeGame.
+ * 
+ * Manages the state and logic for a practice game session. Extends BaseGameMode, 
+ * providing the specific behavior for practice mode where players can practice
+ * questions without time pressure or scoring.
+ * 
+ * Practice mode focuses exclusively on learning, allowing users to see correct answers
+ * without the pressure of points or time limits. The game emits navigation events
+ * to display appropriate UI dialogs when finished.
+ * 
+ * @property {string} mode Always 'practice'
+ * @property {Object} settings Game configuration settings
+ * @property {QuizEngine} quizEngine Instance handling questions and answers
+ * @property {string} playerName Name of the player
  */
 class PracticeGame extends BaseGameMode {
     /**
      * Creates a practice game instance.
+     * 
      * @param {object} settings - Game settings.
      * @param {QuizEngine} quizEngineInstance - The QuizEngine instance to use.
      * @param {string} playerName - The name of the player
      */
-     constructor(settings, quizEngineInstance, playerName) {
+    constructor(settings, quizEngineInstance, playerName) {
         // Pass the QuizEngine instance AND correct mode to BaseGameMode constructor
         super('practice', settings, quizEngineInstance, playerName);
         console.log(`[PracticeGame] Initialized.`);
     }
 
     /**
-     * Override the timer hooks. we don't need them for practice mode.
+     * Override the timer hooks. We don't need them for practice mode.
      */
     _beforeNextQuestion() { }
+    
+    /**
+     * Override the timer hooks. We don't need them for practice mode.
+     */
     _afterQuestionPresented() { }
+    
+    /**
+     * Override the timer hooks. We don't need them for practice mode.
+     */
     _beforeAnswerCheck() { }
+    
+    /**
+     * Override the timer hooks. We don't need them for practice mode.
+     */
     _beforeFinish() { }
-
-
 
     /**
      * Practice mode does not award points.
      * This overrides the base implementation in BaseGameMode.
+     * 
      * @override
      * @param {boolean} isCorrect - Whether the answer was correct.
      * @returns {number} Always returns 0.
@@ -46,7 +69,11 @@ class PracticeGame extends BaseGameMode {
 
     /**
      * Finishes the practice game and triggers the appropriate end dialog.
+     * Emits navigation event to show the practice end dialog before
+     * calling the base class finishGame method for cleanup.
+     * 
      * @override
+     * @event Events.Navigation.ShowView
      */
     finishGame() {
         if (this.isFinished) return;

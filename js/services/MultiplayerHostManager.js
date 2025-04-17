@@ -1,14 +1,14 @@
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 // Use the default export (singleton instance)
-import quizEngine from './QuizEngine.js'; 
+import QuizEngine from './QuizEngine.js'; 
 import webRTCManager from './WebRTCManager.js';
 import { getTextTemplate } from '../utils/miscUtils.js';
 // Import MSG_TYPE constants
 import { MSG_TYPE } from '../core/message-types.js'; 
 
-// Define a fallback constant for client_ready in case the import fails
-const CLIENT_READY = 'client_ready';
+// Added: Import MultiplayerHostGame
+import MultiplayerHostGame from '../game/MultiplayerHostGame.js';
 
 /**
  * Manages the host-side logic for the **lobby phase** of a multiplayer game session.
@@ -20,78 +20,123 @@ const CLIENT_READY = 'client_ready';
 class MultiplayerHostManager {
     /**
      * @param {string} hostName The name of the host player.
-     * @param {string[]} sheetIds Selected sheet IDs for the quiz.
-     * @param {string} difficulty Selected difficulty level.
+     * @param {object} settings Game settings (e.g., { sheetIds: [...], difficulty: '...' }).
      * @param {string} hostId The PeerJS ID assigned to this host.
      */
-    constructor(hostName, sheetIds, difficulty, hostId) {
+    constructor(hostName, settings, hostId) {
         console.log(`[${this.constructor.name}] Initializing with Host ID: ${hostId}`);
         this.hostName = hostName;
         this.hostId = hostId; // The host's own PeerJS ID
-        this.settings = { sheetIds, difficulty, hostId }; // Store settings
+        this.settings = settings; // Store settings
         this.isHosting = false; // Is the lobby active?
         this.gameHasStarted = false; // Added this flag
+        this.questionsData = null; // ADDED: Store loaded questions data
+        this.difficulty = settings.difficulty; // ADDED: Store difficulty from settings
+        this.activeGame = null; // ADDED: Reference to the active game instance
 
         // Use the imported singleton instance
-        this.quizEngine = quizEngine.getInstance(); // Get the singleton instance
+        this.quizEngine = QuizEngine.getInstance(); // Get the singleton instance
+
+        // Define fallback constant here if needed, or rely on MSG_TYPE
+        // this.CLIENT_READY = MSG_TYPE.CLIENT_READY || 'client_ready';
 
         // Player Management for lobby
-        /** @type {Map<string, { name: string, isReady: boolean }>} */
+        /** @type {Map<string, { name: string, isReady: boolean, isHost: boolean }>} */
         this.players = new Map();
         /** @type {Set<string>} Peers who have requested a rematch */
         this._rematchRequestedPeers = new Set(); 
 
         // Add host immediately, marked as ready
-        this.addPlayer(this.hostId, this.hostName, true); 
-
-        // Bind methods for listeners
-        this._boundHandleClientConnected = this.handleClientConnected.bind(this);
-        this._boundHandleClientDisconnected = this.handleClientDisconnected.bind(this);
-        this._boundHandleDataReceived = this.handleDataReceived.bind(this);
-        this._boundHandlePlayerListUpdate = this._handlePlayerListUpdate.bind(this);
+        this.addPlayer(this.hostId, this.hostName, true, true);
     }
 
     /**
      * Asynchronously loads necessary data via QuizEngine *before* hosting starts.
-     * (Required by GameCoordinator before calling startHosting).
+     * Stores the loaded data locally.
      * @throws {Error} If QuizEngine fails to load questions.
      */
     async initialize() {
-        console.log(`[${this.constructor.name}] Initializing QuizEngine via loadQuestions...`);
-        try {
-            // Use loadQuestions with stored settings
-            await this.quizEngine.loadQuestionsFromManager(this.settings.sheetIds, this.settings.difficulty);
-            console.log(`[${this.constructor.name}] QuizEngine questions loaded successfully.`);
-            // Use getQuestionCount
-            if (this.quizEngine.getQuestionCount() === 0) {
-                 console.error(`[${this.constructor.name}] Initialization failed: No questions found for the selected sheets.`);
-                 throw new Error(getTextTemplate('mpHostErrorNoQuestions'));
-            }
-        } catch (error) {
-            console.error(`[${this.constructor.name}] Error loading questions via QuizEngine:`, error);
-            // Rethrow a user-friendly error or a specific error type
-            throw new Error(getTextTemplate('mpHostErrorQuizEngineInitFail', { '%MSG%': error.message }));
+        // Use the instance stored in this.quizEngine
+        // BUGFIX: loadQuestionsFromManager doesn't return questions data, 
+        // it modifies the QuizEngine instance internally.
+        // We need to track success instead of expecting a return value
+        await this.quizEngine.loadQuestionsFromManager(this.settings.sheetIds, this.settings.difficulty);
+        
+        // If we get here without an error being thrown, questions were loaded successfully
+        // Set questionsData to a non-null value to indicate successful initialization
+        this.questionsData = this.quizEngine.getQuestionCount() > 0;
+        
+        if (!this.questionsData) {
+            console.error(`[${this.constructor.name}] Failed to load questions or no questions loaded`);
+            throw new Error("Failed to load questions. No questions available.");
         }
+        
+        console.log(`[${this.constructor.name}] Successfully loaded ${this.quizEngine.getQuestionCount()} questions`);
     }
 
     /**
      * Starts the lobby hosting phase.
-     * Listens for client connections and lobby-related messages.
+     * Sets up listeners for client connections and messages.
+     * Requires initialize() to have been called successfully first.
      */
     startHosting() {
         if (this.isHosting) {
             console.warn(`[${this.constructor.name}] Already hosting.`);
             return;
         }
-        console.log(`[${this.constructor.name}] Starting hosting (Lobby Phase)... Listening for clients.`);
+        if (!this.questionsData) { // Ensure initialize was called
+            console.error(`[${this.constructor.name}] Cannot start hosting, initialize() must be called first to load questions.`);
+            throw new Error("Host manager not initialized. Call initialize() first.");
+        }
+
+        console.log(`[${this.constructor.name}] Starting hosting (Lobby Phase)...`);
         this.isHosting = true;
-        // Listen for direct connection events from WebRTCManager
-        eventBus.on(Events.Multiplayer.Host.ClientConnected, this._boundHandleClientConnected);
-        eventBus.on(Events.Multiplayer.Host.ClientDisconnected, this._boundHandleClientDisconnected);
-        // Listen for messages (join requests, ready signals)
-        eventBus.on(Events.WebRTC.MessageReceived, this._boundHandleDataReceived); 
-        // Listen for player list updates from WebRTCManager (handles name changes etc.)
-        eventBus.on(Events.Multiplayer.Common.PlayerListUpdated, this._boundHandlePlayerListUpdate);
+
+        try {
+            // REMOVED: Don't call webRTCManager.startHost() again as it's already been called
+            // by MultiplayerHostCoordinator.handleGameStartRequested
+            console.log(`[${this.constructor.name}] Setting up event listeners for hosting...`);
+
+            // Listen for direct connection events from WebRTCManager
+            eventBus.on(Events.Multiplayer.Host.ClientConnected, this.handleClientConnected);
+            eventBus.on(Events.Multiplayer.Host.ClientDisconnected, this.handleClientDisconnected);
+            // Listen for messages (join requests, ready signals)
+            eventBus.on(Events.WebRTC.MessageReceived, this.handleDataReceived); 
+            // Listen for player list updates from WebRTCManager (handles name changes etc.)
+            eventBus.on(Events.Multiplayer.Common.PlayerListUpdated, this._handlePlayerListUpdate);
+            console.log(`[${this.constructor.name}] Event listeners registered.`);
+
+            // ADDED: Create the MultiplayerHostGame instance now
+            try {
+                console.log(`[${this.constructor.name}] Creating MultiplayerHostGame instance...`);
+                this.activeGame = new MultiplayerHostGame(
+                    this.settings,
+                    this.quizEngine, // Pass the singleton instance
+                    this.hostName,
+                    this.hostId
+                );
+                // The game instance initializes itself via its constructor
+                console.log(`[${this.constructor.name}] MultiplayerHostGame instance created.`);
+
+                // ADDED: Listen for the host UI signal to start the game
+                eventBus.on(Events.UI.HostLobby.StartGameClicked, this.handleStartGameClicked);
+                console.log(`[${this.constructor.name}] Listening for StartGameClicked.`);
+
+            } catch (gameError) {
+                console.error(`[${this.constructor.name}] Error creating MultiplayerHostGame:`, gameError);
+                eventBus.emit(Events.System.ErrorOccurred, { message: `Failed to prepare host game: ${gameError.message}`, error: gameError, context: 'host-manager-game-create' });
+                this.stopHosting(); // Clean up listeners
+                this.isHosting = false;
+                // Optionally rethrow or handle differently
+                throw gameError; // Rethrow to signal failure
+            }
+
+        } catch (error) {
+             console.error(`[${this.constructor.name}] Error setting up host manager:`, error);
+             eventBus.emit(Events.System.ErrorOccurred, { message: `Failed to set up host manager: ${error.message}`, error, context: 'host-manager-setup' });
+             this.stopHosting(); // Clean up listeners if startHost throws
+             this.isHosting = false;
+        }
     }
 
     /**
@@ -105,12 +150,40 @@ class MultiplayerHostManager {
         console.log(`[${this.constructor.name}] Stopping hosting (Lobby Phase)...`);
         this.isHosting = false;
         // Remove listeners
-        eventBus.off(Events.Multiplayer.Host.ClientConnected, this._boundHandleClientConnected);
-        eventBus.off(Events.Multiplayer.Host.ClientDisconnected, this._boundHandleClientDisconnected);
-        eventBus.off(Events.WebRTC.MessageReceived, this._boundHandleDataReceived);
-        eventBus.off(Events.Multiplayer.Common.PlayerListUpdated, this._boundHandlePlayerListUpdate);
+        eventBus.off(Events.Multiplayer.Host.ClientConnected, this.handleClientConnected);
+        eventBus.off(Events.Multiplayer.Host.ClientDisconnected, this.handleClientDisconnected);
+        eventBus.off(Events.WebRTC.MessageReceived, this.handleDataReceived);
+        eventBus.off(Events.Multiplayer.Common.PlayerListUpdated, this._handlePlayerListUpdate);
         // Optionally, clear player list or keep it? Let's clear for a clean stop.
         // this.players.clear(); 
+
+        // ADDED: Remove StartGameClicked listener
+        eventBus.off(Events.UI.HostLobby.StartGameClicked, this.handleStartGameClicked);
+
+        // ADDED: Clean up active game instance if it exists
+        if (this.activeGame) {
+             if (typeof this.activeGame.destroy === 'function') {
+                 this.activeGame.destroy();
+             }
+             this.activeGame = null;
+         }
+    }
+
+    /**
+     * Resets the internal state, including stored questions data.
+     * Intended to be called before starting a new hosting session.
+     */
+    resetState() {
+        console.log(`[${this.constructor.name}] Resetting state.`);
+        this.isHosting = false;
+        this.gameHasStarted = false;
+        this.players.clear();
+        this._rematchRequestedPeers.clear();
+        // Reset added properties
+        this.questionsData = null; 
+        this.difficulty = this.settings.difficulty; // Reset difficulty from initial settings
+        // Add host again after clearing
+        this.addPlayer(this.hostId, this.hostName, true, true); 
     }
 
     /**
@@ -119,9 +192,10 @@ class MultiplayerHostManager {
      * @param {string} peerId The PeerJS ID of the player.
      * @param {string} name The player's name.
      * @param {boolean} isReady Initial ready state.
+     * @param {boolean} isHost Whether the player is the host.
      * @private
      */
-    addPlayer(peerId, name, isReady = false) {
+    addPlayer(peerId, name, isReady = false, isHost = false) {
         const defaultName = name || getTextTemplate('mcDefaultPlayerName');
         const playerExists = this.players.has(peerId);
         const existingPlayer = playerExists ? this.players.get(peerId) : null;
@@ -132,9 +206,10 @@ class MultiplayerHostManager {
             // Add new player
             this.players.set(peerId, {
                 name: defaultName,
-                isReady: isReady // Store only lobby-relevant state
+                isReady: isReady,
+                isHost: isHost
             });
-            console.log(`[${this.constructor.name} Lobby] Player added: ${defaultName} (${peerId}), Ready: ${isReady}`);
+            console.log(`[${this.constructor.name} Lobby] Player added: ${defaultName} (${peerId}), Ready: ${isReady}, Host: ${isHost}`);
             changed = true;
         } else {
             // Update existing player if necessary
@@ -150,6 +225,11 @@ class MultiplayerHostManager {
                 existingPlayer.isReady = isReady;
                 updated = true;
             }
+            if (existingPlayer.isHost !== isHost) {
+                console.log(`[${this.constructor.name} Lobby] Player ${peerId} updated host status to: ${isHost}`);
+                existingPlayer.isHost = isHost;
+                updated = true;
+            }
             if (updated) {
                 changed = true;
             }
@@ -160,7 +240,7 @@ class MultiplayerHostManager {
             console.log(`[${this.constructor.name} Lobby] Player list changed, broadcasting update.`);
             this._broadcastPlayerListUpdate();
             // Also emit locally for host UI
-            eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: this.players });
+            eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: Object.fromEntries(this.players) });
         } else if (changed) {
              console.log(`[${this.constructor.name} Lobby] Player list changed, but not broadcasting (hosting not active).`);
         }
@@ -180,22 +260,28 @@ class MultiplayerHostManager {
              if (this.isHosting) {
                  this._broadcastPlayerListUpdate();
                  // Also emit locally for host UI
-                 eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: this.players });
+                 eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: Object.fromEntries(this.players) });
             }
         }
     }
 
     /**
-     * Handles a client successfully connecting (via WebRTCManager event).
-     * Adds player to lobby list (as not ready initially).
+     * Handles the WebRTC event indicating a client has connected.
+     * Adds the player to the internal list.
      * @param {object} payload
      * @param {string} payload.peerId Client's PeerJS ID.
-     * @param {string} payload.playerName Client's reported name.
+     * @param {string} payload.playerName Client's chosen name.
+     * @event Events.WebRTC.ClientConnected
      */
-    handleClientConnected({ peerId, playerName }) {
-        console.log(`[${this.constructor.name} Lobby] Client connected event: ${playerName} (${peerId})`);
-        // Add player as not ready. addPlayer handles broadcast.
-        this.addPlayer(peerId, playerName, false); 
+    handleClientConnected = ({ peerId, playerName }) => {
+        console.log(`[${this.constructor.name} Lobby] Client connected: ${peerId}, Name: ${playerName}`);
+        // Add player as not ready initially.
+        this.addPlayer(peerId, playerName, false, false); 
+        
+        // --- FIX: Send game info immediately upon connection --- 
+        console.log(`[${this.constructor.name} Lobby] Sending initial game info to newly connected client: ${peerId}`);
+        this.sendGameInfoToClient(peerId);
+        // --- END FIX ---
     }
 
     /**
@@ -203,10 +289,11 @@ class MultiplayerHostManager {
      * Removes player from lobby list.
      * @param {object} payload
      * @param {string} payload.peerId Client's PeerJS ID.
+     * @event Events.WebRTC.ClientDisconnected
      */
-    handleClientDisconnected({ peerId }) {
+    handleClientDisconnected = ({ peerId }) => {
         console.log(`[${this.constructor.name} Lobby] Client disconnected: ${peerId}`);
-        const playerName = this.players.get(peerId)?.name || 'Unknown';
+        const playerName = this.players.get(peerId).name || 'Unknown';
         this.removePlayer(peerId);
         this._rematchRequestedPeers.delete(peerId); // <<< Clear rematch request on disconnect
 
@@ -215,13 +302,62 @@ class MultiplayerHostManager {
     }
 
     /**
+     * Sends game info (questions, difficulty, players) to a specific client using the internal send method.
+     * @param {string} clientPeerId The PeerJS ID of the client.
+     * @private
+     */
+    sendGameInfoToClient(clientPeerId) {
+        // Ensure quizEngine instance and questions exist
+        if (!this.isHosting || !this.quizEngine || !this.quizEngine.questions || this.quizEngine.questions.length === 0 || !clientPeerId) {
+            console.warn(`[${this.constructor.name}] Cannot send game info: hosting inactive, quiz engine not ready/no questions, or invalid client ID.`);
+            return;
+        }
+
+        console.log(`[${this.constructor.name}] Sending game info to client ${clientPeerId}...`);
+
+        // Group questions by sheetId
+        const questionsForClient = this.quizEngine.questions;
+        const sheetsMap = new Map();
+        questionsForClient.forEach(q => {
+            if (!q.sheetId) return;
+            if (!sheetsMap.has(q.sheetId)) {
+                sheetsMap.set(q.sheetId, []);
+            }
+            sheetsMap.get(q.sheetId).push({ question: q.question, answer: q.answer });
+        });
+
+        // Get sheet metadata (id, name)
+        const availableSheets = (typeof questionsManager !== 'undefined' && questionsManager.getAvailableSheets) ? questionsManager.getAvailableSheets() : [];
+        const sheets = Array.from(sheetsMap.entries()).map(([sheetId, questions]) => {
+            const meta = availableSheets.find(s => s.id === sheetId) || { id: sheetId, name: sheetId, isCustom: false };
+            return {
+                id: sheetId,
+                name: meta.name || sheetId,
+                isCustom: meta.isCustom || false,
+                questions
+            };
+        });
+
+        const gameInfoPayload = {
+            questionsData: { sheets },
+            difficulty: this.difficulty,
+            players: Object.fromEntries(this.players),
+            settings: this.settings
+        };
+
+        this._sendMessageToClient(clientPeerId, MSG_TYPE.GAME_INFO, gameInfoPayload);
+        console.log(`[${this.constructor.name}] Game info sent to client ${clientPeerId}`, gameInfoPayload);
+    }
+
+    /**
      * Handles data messages received from any connected client *during the lobby phase*.
      * Primarily handles 'c_requestJoin' and 'client_ready'.
      * @param {object} eventData - Payload from Events.WebRTC.MessageReceived.
      * @param {any} eventData.msg - The received message data { type: string, payload: any }.
      * @param {string} eventData.sender - The PeerJS ID of the client who sent the message.
+     * @event Events.WebRTC.MessageReceived
      */
-    handleDataReceived({ msg, sender }) {
+    handleDataReceived = ({ msg, sender }) => {
         // Ignore if lobby isn't active or sender is host/unknown
         if (!this.isHosting || !this.players.has(sender) || sender === this.hostId) {
             console.warn(`[${this.constructor.name}] Ignoring message (hosting: ${this.isHosting}, sender known: ${this.players.has(sender)}, is host: ${sender === this.hostId})`, msg);
@@ -230,12 +366,9 @@ class MultiplayerHostManager {
 
         const type = msg.type;
         const payload = msg.payload;
-        const playerName = this.players.get(sender)?.name || sender;
+        const playerName = this.players.get(sender).name || sender;
 
-        // Only process lobby-relevant messages
-        // Create a combined list of accepted types, accounting for potential undefined values
-        const clientReadyType = MSG_TYPE.CLIENT_READY || CLIENT_READY;
-        const acceptedTypes = [MSG_TYPE.C_REQUEST_JOIN, clientReadyType, MSG_TYPE.C_REQUEST_REMATCH];
+        const acceptedTypes = [MSG_TYPE.C_REQUEST_JOIN, MSG_TYPE.C_UPDATE_NAME, clientReadyType, MSG_TYPE.C_REQUEST_REMATCH];
         if (!acceptedTypes.includes(type)) {
              console.log(`[${this.constructor.name} Lobby] Ignoring non-lobby message type '${type}' from ${playerName} (${sender})`);
              return;
@@ -245,18 +378,26 @@ class MultiplayerHostManager {
 
         switch (type) {
             case MSG_TYPE.C_REQUEST_JOIN: 
-                 const requestedName = payload?.name;
+                 const requestedName = payload.name;
                  if (requestedName) {
                      console.log(`[${this.constructor.name} Lobby] Processing join request for ${sender} with name: ${requestedName}`);
                      // Update player name if needed, keep ready status false until confirmed
-                     this.addPlayer(sender, requestedName, false); 
+                     this.addPlayer(sender, requestedName, false, false); 
                  } else {
                       console.warn(`[${this.constructor.name} Lobby] Received c_requestJoin from ${sender} without a name.`);
                  }
                  break;
-            // Use both possible type values for CLIENT_READY
-            case clientReadyType:
-            case CLIENT_READY: // Explicit fallback
+            case MSG_TYPE.C_UPDATE_NAME:
+                 const newName = payload.name;
+                 if (newName && this.players.has(sender)) {
+                     console.log(`[${this.constructor.name} Lobby] Processing name update for ${sender}: ${newName}`);
+                     const player = this.players.get(sender);
+                     this.addPlayer(sender, newName, player.isReady, player.isHost);
+                 } else {
+                     console.warn(`[${this.constructor.name} Lobby] Received c_updateName from ${sender} without a name or unknown sender.`);
+                 }
+                 break;
+            case MSG_TYPE.CLIENT_READY: // Explicit fallback
                  console.log(`[${this.constructor.name} Lobby] Processing CLIENT_READY message from ${playerName} (${sender})`, payload);
                  const player = this.players.get(sender);
                  if (player) {
@@ -269,18 +410,23 @@ class MultiplayerHostManager {
                          console.log(`[${this.constructor.name} Lobby] isReady value from payload: ${isReady}`);
                          
                          // Force isReady to true regardless of message payload structure
-                         this.addPlayer(sender, player.name, isReady);
+                         this.addPlayer(sender, player.name, isReady, player.isHost);
+                         
+                         // Send game info to the client immediately when they become ready
+                         this.sendGameInfoToClient(sender);
                          
                          // Force broadcast the player list update to ensure all clients receive it
                          this._broadcastPlayerListUpdate();
                          
                          // Also force emit locally for host UI to ensure it updates
-                         eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: this.players });
+                         eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: Object.fromEntries(this.players) });
                          
                          // Manually log the player list after update to verify
                          console.log(`[${this.constructor.name} Lobby] Player list after update:`, Object.fromEntries(this.players));
                      } else {
                           console.log(`[${this.constructor.name} Lobby] Player ${playerName} (${sender}) already marked as ready.`);
+                          // Re-send game info even if already ready (might be reconnecting)
+                          this.sendGameInfoToClient(sender);
                      }
                  } else {
                       console.warn(`[${this.constructor.name} Lobby] Received client_ready from unknown peer ${sender}`);
@@ -304,37 +450,59 @@ class MultiplayerHostManager {
     }
 
     /**
-     * Sends a message to all connected clients *in the lobby*.
-     * @param {string} type - The message type identifier.
-     * @param {object} payload - The data payload for the message.
-     * @param {string[]} [excludePeerIds=[]] - Optional array of PeerJS IDs to exclude.
-     * @private
-     */
-    _broadcast(type, payload, excludePeerIds = []) {
-        if (!this.isHosting) return;
-        console.log(`[${this.constructor.name} Lobby] Broadcasting: Type=${type} to clients (exclude: ${excludePeerIds.join(',') || 'none'})`, payload); 
-        const allClients = Array.from(this.players.keys()).filter(id => id !== this.hostId);
-        const excludedSet = new Set(excludePeerIds);
-
-        let sentCount = 0;
-        allClients.forEach(peerId => {
-             if (!excludedSet.has(peerId)) {
-                 webRTCManager.sendToPeer(peerId, type, payload); 
-                 sentCount++;
-            } 
-        });
-         console.log(`[${this.constructor.name} Lobby] Broadcast complete: Sent type '${type}' to ${sentCount}/${allClients.length} potential clients.`);
-    }
-
-    /**
-     * Specifically broadcasts the current lobby player list to all clients.
+     * Broadcasts the current player list to all connected clients.
      * @private
      */
     _broadcastPlayerListUpdate() {
-         if (!this.isHosting) return;
-         const playersObject = Object.fromEntries(this.players);
-         console.debug(`[${this.constructor.name} Lobby] Broadcasting player_list_update. List:`, playersObject);
-         this._broadcast('player_list_update', { players: playersObject }, []); 
+        const playersObject = Object.fromEntries(this.players);
+        this._broadcastToClients(MSG_TYPE.PLAYER_LIST_UPDATE, { players: playersObject });
+    }
+
+    /**
+     * Sends a message to a specific client via WebRTCManager.
+     * @param {string} peerId The recipient PeerJS ID.
+     * @param {string} type The message type.
+     * @param {object} payload The message payload.
+     * @private
+     */
+    _sendMessageToClient(peerId, type, payload) {
+        if (!this.isHosting) {
+            console.warn(`[${this.constructor.name} Lobby] Cannot send message to ${peerId}, hosting not active.`);
+            return;
+        }
+        if (!this.players.has(peerId) || peerId === this.hostId) {
+            console.warn(`[${this.constructor.name} Lobby] Cannot send message to ${peerId}, not a valid connected client.`);
+            return;
+        }
+        webRTCManager.sendToPeer(peerId, type, payload);
+    }
+
+    /**
+     * Broadcasts a message to all connected clients (excluding host), optionally excluding others.
+     * Uses WebRTCManager for the actual broadcast mechanism.
+     * @param {string} type Message type identifier.
+     * @param {object} payload Message data.
+     * @param {string[]} [excludePeerIds=[]] List of peer IDs to exclude from broadcast.
+     * @private
+     */
+    _broadcastToClients(type, payload, excludePeerIds = []) {
+        if (!this.isHosting) {
+            console.warn(`[${this.constructor.name} Lobby] Cannot broadcast, hosting not active.`);
+            return;
+        }
+
+        const allClientIds = Array.from(this.players.keys()).filter(id => id !== this.hostId);
+        const broadcastList = allClientIds.filter(id => !excludePeerIds.includes(id));
+
+        if (broadcastList.length === 0) {
+            // Log even if list is empty, useful for debugging state issues
+            console.log(`[${this.constructor.name} Lobby] No clients available or targeted for broadcast type '${type}'. (Total clients: ${allClientIds.length}, Excluded: ${excludePeerIds.length})`);
+            return;
+        }
+
+        console.log(`[${this.constructor.name} Lobby] Broadcasting: Type=${type} to ${broadcastList.length} clients (Excluded: ${excludePeerIds.join(', ') || 'none'})`, payload);
+        // Use the correct method: broadcastMessage, which handles filtering internally
+        webRTCManager.broadcastMessage(type, payload); 
     }
 
     /**
@@ -345,7 +513,7 @@ class MultiplayerHostManager {
         console.log(`[${this.constructor.name}] Host is leaving lobby.`);
         if (this.isHosting) {
              // Inform clients lobby is closing
-             this._broadcast('feedback', { message: getTextTemplate('mpHostLobbyCancelled'), level: 'warn' }, []);
+             this._broadcastToClients('feedback', { message: getTextTemplate('mpHostLobbyCancelled'), level: 'warn' }, []);
              // Short delay to allow message delivery?
              // setTimeout(() => {
                   this.stopHosting(); // Remove listeners
@@ -376,43 +544,23 @@ class MultiplayerHostManager {
      * @param {Map<string, { name: string, isHost: boolean }>} payload.players The authoritative player list from WebRTCManager.
      * @private
      */
-    _handlePlayerListUpdate({ players }) {
+    _handlePlayerListUpdate = ({ players }) => {
         if (!this.isHosting) return; // Only process if lobby is active
-
+        // Convert object to Map if needed
+        const playersMap = players instanceof Map ? players : new Map(Object.entries(players));
         console.log(`[${this.constructor.name} Lobby] Received PlayerListUpdated event from WebRTCManager. Synchronizing...`);
-        
-        // Iterate through the authoritative list from WebRTCManager
-        players.forEach((playerData, peerId) => {
+        playersMap.forEach((playerData, peerId) => {
             if (peerId === this.hostId) return; // Ignore the host entry (managed separately)
-
             const existingPlayer = this.players.get(peerId);
             const webRTCName = playerData.name || getTextTemplate('mcDefaultPlayerName'); // Ensure a name exists
-            
             if (!existingPlayer) {
-                // Player is in WebRTC list but not ours? Add them (should be rare if ClientConnected worked)
                 console.warn(`[${this.constructor.name} Lobby Sync] Adding missing player ${webRTCName} (${peerId})`);
-                this.addPlayer(peerId, webRTCName, false); // Add as not ready initially
+                this.addPlayer(peerId, webRTCName, false, false); // Add as not ready initially
             } else if (existingPlayer.name !== webRTCName) {
-                // Name mismatch? Update our record using addPlayer logic
-                 console.log(`[${this.constructor.name} Lobby Sync] Updating name for ${peerId} from '${existingPlayer.name}' to '${webRTCName}'`);
-                // Use addPlayer to ensure consistency and trigger broadcasts if needed
-                // Keep existing ready status
-                this.addPlayer(peerId, webRTCName, existingPlayer.isReady); 
+                console.log(`[${this.constructor.name} Lobby Sync] Updating name for ${peerId} from '${existingPlayer.name}' to '${webRTCName}'`);
+                this.addPlayer(peerId, webRTCName, existingPlayer.isReady, existingPlayer.isHost); 
             }
-            // Note: We don't sync 'isReady' from this event, as that's managed by explicit 'client_ready' messages.
         });
-
-        // Optional: Check for players in our list that are NO LONGER in the WebRTC list?
-        // This shouldn't happen if disconnect events are working correctly.
-        // const localPeerIds = new Set(this.players.keys());
-        // localPeerIds.delete(this.hostId); // Don't check host
-        // const webRTCPeerIds = new Set(players.keys());
-        // localPeerIds.forEach(localPeerId => {
-        //     if (!webRTCPeerIds.has(localPeerId)) {
-        //         console.warn(`[${this.constructor.name} Lobby Sync] Player ${localPeerId} exists locally but not in WebRTC update. Removing.`);
-        //         this.removePlayer(localPeerId);
-        //     }
-        // });
     }
 
     /**
@@ -441,7 +589,7 @@ class MultiplayerHostManager {
 
         // 2. Broadcast GAME_START to all connected clients
         console.log(`[${this.constructor.name}] Broadcasting GAME_START.`);
-        this._broadcast(MSG_TYPE.GAME_START, {
+        this._broadcastToClients(MSG_TYPE.GAME_START, {
              // Payload might include final confirmed player list or initial game state if needed
              players: Object.fromEntries(this.players)
         });
@@ -471,7 +619,7 @@ class MultiplayerHostManager {
             console.log(`[${this.constructor.name} Rematch Check] All ${connectedClientIds.length} client(s) ready for rematch! Initiating...`);
             
             // 1. Notify clients rematch is accepted/starting (Optional but good UX)
-            this._broadcast(MSG_TYPE.H_REMATCH_ACCEPTED, {}, []); 
+            this._broadcastToClients(MSG_TYPE.H_REMATCH_ACCEPTED, {}, []); 
 
             // 2. Trigger the game start sequence (broadcasts GAME_START)
             this.initiateGameStart();
@@ -491,6 +639,7 @@ class MultiplayerHostManager {
              console.log(`[${this.constructor.name} Rematch Check] Waiting for rematch requests (${readyCount}/${connectedClientIds.length} ready).`);
         }
     }
+
 }
 
 export default MultiplayerHostManager; 

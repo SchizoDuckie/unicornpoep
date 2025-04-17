@@ -1,7 +1,8 @@
 import Events from '../core/event-constants.js';
 import eventBus from '../core/event-bus.js';
-// Import BaseComponent if needed for type hints, or specific components later
-import BaseComponent from '../components/base-component.js';
+// Import RefactoredBaseComponent instead of BaseComponent
+import RefactoredBaseComponent from '../components/RefactoredBaseComponent.js';
+
 
 // --- Import View Component Classes (from components folder) ---
 import MainMenuComponent from '../components/main-menu-component.js';
@@ -41,85 +42,205 @@ import WaitingDialog from '../dialogs/waiting-dialog.js'; // <-- Add this import
 import MultiplayerLobbyDialog from '../dialogs/multiplayer-lobby-dialog.js'; // <-- ADDED
 import Views from '../core/view-constants.js'; // Ensure Views is imported
 
-// --- Import Services ---
-import highscoreManager from '../services/HighscoreManager.js'; // Import HighscoreManager
-
 /**
  * Manages the overall UI state, including:
  * - Instantiating and holding references to all major UI view components and dialogs.
  * - Handling view transitions based on Navigation events.
  * - Showing/hiding view components as needed (Dialogs manage their own visibility).
  */
-class UIManager {
-    constructor() {
-        console.info("[UIManager] Initializing...");
-        /** @type {Map<string, BaseComponent | BaseDialog>} */ 
-        this.components = new Map();
-        this.activeViewName = null;
+class UIManager extends RefactoredBaseComponent {
+    /**
+     * Selector and view name needed for RefactoredBaseComponent
+     */
+    static SELECTOR = 'body'; // Using body as the container for all UI components
+    static VIEW_NAME = 'UIManager';
+    
+    static SELECTORS = {
+        // No DOM elements to directly interact with 
+    };
 
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log("[UIManager] DOM Content Loaded. Initializing components...");
-            this.initializeComponents();
-            this.registerListeners();
-            // Check initial hash on load
-            this.checkInitialHash(); 
-            console.info("[UIManager] Initialization complete.");
+    constructor() {
+        super();
+        this.components = new Map();
+    }
+
+    /**
+     * Hides all registered VIEW components (BaseComponent instances).
+     * Does not affect Dialogs (BaseDialog instances).
+     * @param {boolean} [skipLoading=false] - If true, does not hide the Loading component.
+     * @private
+     */
+    _hideAllViews(skipLoading = false) {
+        this.components.forEach((component, name) => {
+            component.hide(); 
         });
+        console.debug('[UIManager] All views hidden (except potentially Loading).');
+        this.activeViewName = null; // No view is active after hiding all
+    }
+
+    /**
+     * Initialize the UI Manager with event listeners and component configurations
+     * @returns {Object} Configuration object with events, domEvents, and setup
+     */
+    initialize() {
+        
+        return {
+            events: [
+                // Navigation Handler
+                { 
+                    eventName: Events.Navigation.ShowView,
+                    callback: this._handleShowView 
+                },
+                {
+                    eventName: Events.UI.HideAllViews,
+                    callback: this._hideAllViews
+                },
+                // Game State Handlers (Direct View Navigation)
+                {
+                    eventName: Events.Game.Started,
+                    callback: (e) => {
+                        // Initialize answer list component if not already created
+                        this._lazyInitializeGameComponents();
+                        this._handleShowView({ viewName: Views.GameArea });
+                    }
+                },
+                {
+                    eventName: Events.System.ValidJoinCodeDetected,
+                    callback: (e) => {
+                        // Lazily initialize components needed for joining
+                        this._lazyInitializeGameComponents(); // Keep this if needed
+                        // Correctly navigate to the Join Lobby view, using the correct constant
+                        this._handleShowView({ viewName: Views.JoinLobby, data: e }); 
+                    }
+                },
+                // Ensure SheetSelectionComponent is initialized when MultiplayerChoice.HostClicked is triggered
+                {
+                    eventName: Events.UI.MultiplayerChoice.HostClicked,
+                    callback: () => {
+                        this._lazyInitializeGameComponents();
+                    }
+                },
+                // End Dialog Handler
+                {
+                    eventName: Events.UI.EndDialog.ReturnToMenuClicked,
+                    callback: (e) => this._handleShowView({ viewName: Views.MainMenu })
+                },
+                // Listen for the event to show the waiting dialog
+                {
+                    eventName: Events.System.ShowWaitingDialog,
+                    callback: (payload) => {
+                        console.log(`[UIManager] ShowWaitingDialog event received with payload:`, payload);
+                        const waitingDialog = this.components.get(WaitingDialog.VIEW_NAME);
+                        if (waitingDialog) {
+                            if (payload && payload.message) {
+                                waitingDialog.show(payload.message);
+                            } else {
+                                waitingDialog.show(); // Uses default message
+                            }
+                            console.log(`[UIManager] WaitingDialog shown successfully.`);
+                        } else {
+                            console.error(`[UIManager] WaitingDialog component not found!`);
+                        }
+                    }
+                },
+                // Listen for the event to hide the waiting dialog
+                {
+                    eventName: Events.System.HideWaitingDialog,
+                    callback: () => {
+                        console.log(`[UIManager] HideWaitingDialog event received.`);
+                        const waitingDialog = this.components.get(WaitingDialog.VIEW_NAME);
+                        if (waitingDialog) {
+                            waitingDialog.hide();
+                            console.log(`[UIManager] WaitingDialog hidden successfully.`);
+                        } else {
+                            console.error(`[UIManager] WaitingDialog component not found!`);
+                        }
+                    }
+                }
+                // Note: MainMenu navigation events handled by MainMenuComponent
+                // Note: NamePrompt events handled by component interactions
+            ],
+            
+            domEvents: [], // UIManager doesn't directly handle DOM events
+            
+            domElements: [], // No direct DOM elements to query
+            
+        };
     }
 
     /**
      * Instantiates all the necessary UI components and dialogs.
-     * @private
      */
     initializeComponents() {
-        console.log("[UIManager] Instantiating UI components...");
-        try {
-            // --- Instantiate View Components (extend BaseComponent) --- 
-            this.registerComponent(new MainMenuComponent());
-            this.registerComponent(new MultiplayerChoiceComponent());
-            this.registerComponent(new HostLobbyComponent());
-            this.registerComponent(new JoinLobbyComponent());
-            this.registerComponent(new GameAreaComponent());
-            this.registerComponent(new HighscoresComponent());
-            this.registerComponent(new CustomQuestionsComponent());
-            this.registerComponent(new AboutComponent());
-            this.registerComponent(new SheetSelectionComponent()); // If used
+        
+        // --- Instantiate View Components (extend BaseComponent) --- 
+        this._registerComponent(new MainMenuComponent());
+        this._registerComponent(new MultiplayerChoiceComponent());
+        this._registerComponent(new HostLobbyComponent());
+        this._registerComponent(new JoinLobbyComponent());
+        this._registerComponent(new GameAreaComponent());
+        this._registerComponent(new CustomQuestionsComponent());
+        this._registerComponent(new HighscoresComponent());
+        this._registerComponent(new AboutComponent());
 
-            // --- Instantiate Utility/Overlay Components (extend BaseComponent) ---
-            this.registerComponent(new LoadingComponent());
-            this.registerComponent(new ToastComponent());
-            this.registerComponent(new CountdownComponent());
-            
-            // --- Instantiate Game Area Components ---
-            // Note: These are part of the 'GameArea' view but are registered
-            // individually to manage their specific elements. GameAreaComponent
-            // might just be a container or removed if not needed.
-            this.registerComponent(new QuestionDisplayComponent()); // Assumes #question selector internally
-            this.registerComponent(new AnswerListComponent());       // Assumes #answerList selector internally
-            this.registerComponent(new TimerDisplayComponent());     // Assumes #timerDisplay selector internally
-            this.registerComponent(new ProgressDisplayComponent());  // Assumes #progressDisplay selector internally
-            this.registerComponent(new ScoreDisplayComponent());     // Assumes #scoreDisplay selector internally
-            this.registerComponent(new GameFeedbackComponent());   // Assumes #gameFeedback selector internally
-            this.registerComponent(new PlayerListComponent());     // Assumes #playerList selector internally
-            this.registerComponent(new GameNavigationComponent()); // Assumes #gameNavigation/#stopGame selectors internally
+        // --- Instantiate Utility/Overlay Components (extend BaseComponent) ---
+        this._registerComponent(new LoadingComponent());
+        this._registerComponent(new CountdownComponent());
+        
+        // --- Instantiate Game Area Components ---
+        this._registerComponent(new QuestionDisplayComponent());
+        this._registerComponent(new TimerDisplayComponent());
+        this._registerComponent(new ProgressDisplayComponent());
+        this._registerComponent(new ScoreDisplayComponent());
+        this._registerComponent(new GameFeedbackComponent());
+        this._registerComponent(new PlayerListComponent());
+        this._registerComponent(new GameNavigationComponent());
+        this._registerComponent(new SheetSelectionComponent());
+        this._registerComponent(new LoadingComponent());
+        this._registerComponent(new ToastComponent());
 
-            // --- Instantiate Dialog Components (extend BaseDialog) ---
-            this.registerComponent(new SinglePlayerEndDialog());
-            this.registerComponent(new MultiplayerEndDialog());
-            this.registerComponent(new PracticeEndDialog());
-            this.registerComponent(new NamePromptDialog());
-            this.registerComponent(new DisconnectionDialog());
-            this.registerComponent(new ErrorDialog());
-            this.registerComponent(new ConfirmationDialog()); // Register the new dialog
-            this.registerComponent(new WaitingDialog()); // <-- Add this registration
-            this.registerComponent(new MultiplayerLobbyDialog()); // <-- ADDED
-            
-            // Ensure all VIEW components are initially hidden (BaseComponent handles this partly)
-            this.hideAllViews(true); // Pass flag to skip hiding Loading component initially
-            console.log("[UIManager] View components hidden initially (except Loading). Dialogs start closed.");
+        // --- Instantiate Dialog Components (extend BaseDialog) ---
+        this._registerComponent(new SinglePlayerEndDialog());
+        this._registerComponent(new MultiplayerEndDialog());
+        this._registerComponent(new PracticeEndDialog());
+        this._registerComponent(new NamePromptDialog());
+        this._registerComponent(new DisconnectionDialog());
+        this._registerComponent(new ErrorDialog());
+        this._registerComponent(new ConfirmationDialog());
+        this._registerComponent(new WaitingDialog());
+        this._registerComponent(new MultiplayerLobbyDialog());
+        
+    }
 
-        } catch (error) {
-            console.error("[UIManager] Error initializing components:", error);
+    /**
+     * Lazily initializes game components that require the game view to be rendered first.
+     * This ensures components like AnswerListComponent don't try to find DOM elements
+     * that don't exist yet.
+     * @private
+     */
+    _lazyInitializeGameComponents() {
+        // Only initialize AnswerListComponent if it doesn't already exist
+        if (!this.components.has('AnswerListComponent')) {
+            console.log('[UIManager] Lazily initializing AnswerListComponent...');
+            this._registerComponent(new AnswerListComponent());
+        }
+
+        // Only initialize SheetSelectionComponent if it doesn't already exist
+        if (!this.components.has('SheetSelectionComponent')) {
+            console.log('[UIManager] Lazily initializing SheetSelectionComponent...');
+            this._registerComponent(new SheetSelectionComponent());
+        }
+
+        // Only initialize ToastComponent if it doesn't already exist
+        if (!this.components.has('ToastComponent')) {
+            console.log('[UIManager] Lazily initializing ToastComponent...');
+            this._registerComponent(new ToastComponent());
+        }
+
+        // Only initialize CustomQuestionsComponent if it doesn't already exist
+        if (!this.components.has('CustomQuestionsComponent')) {
+            console.log('[UIManager] Lazily initializing CustomQuestionsComponent...');
+            this._registerComponent(new CustomQuestionsComponent());
         }
     }
 
@@ -129,92 +250,36 @@ class UIManager {
      * @param {BaseComponent | BaseDialog} componentInstance
      * @private
      */
-    registerComponent(componentInstance) {
+    _registerComponent(componentInstance) {
+        console.info(`[UIManager] Registering '${componentInstance.name}'.`);
+
         if (!componentInstance || !componentInstance.name) {
             console.error("[UIManager] Cannot register invalid component instance:", componentInstance);
             return;
         }
-         // Check if it extends BaseComponent or BaseDialog
-        if (!(componentInstance instanceof BaseComponent)) { 
-             console.warn(`[UIManager] Component '${componentInstance.name}' does not extend BaseComponent or BaseDialog.`);
+        
+        // Check if it extends RefactoredBaseComponent or BaseDialog
+        if (!(componentInstance instanceof RefactoredBaseComponent || componentInstance instanceof BaseDialog)) { 
+            console.warn(`[UIManager] Component '${componentInstance.name}' does not extend RefactoredBaseComponent or BaseDialog.`);
         }
+        
         if (this.components.has(componentInstance.name)) {
             console.warn(`[UIManager] Component '${componentInstance.name}' already registered. Overwriting.`);
         }
-        // --- DEBUG LOGGING --- 
-        console.log(`[UIManager DEBUG] Attempting to set component with name: "${componentInstance.name}"`, componentInstance);
-        // --- END DEBUG LOGGING --- 
+        
         this.components.set(componentInstance.name, componentInstance);
-        console.debug(`[UIManager] Registered component: '${componentInstance.name}'`);
-    }
-
-    /**
-     * Registers listeners for navigation events AND handles hash changes.
-     * @private
-     */
-    registerListeners() {
-        console.log("[UIManager] Registering UIManager event listeners...");
-        eventBus.on(Events.Navigation.ShowView, this.handleShowView.bind(this));
-         // Listen for requests to go back to the main menu from dialogs
-        eventBus.on(Events.UI.EndDialog.ReturnToMenuClicked, () => {
-            console.log("[UIManager] ReturnToMenuClicked received, showing MainMenu.");
-             // Ensure any active game is cleaned up first (GameCoordinator should handle this)
-            this.handleShowView({ viewName: Views.MainMenu });
-        });
-
-        // --- Listen for Game State Changes ---
-        eventBus.on(Events.Game.Started, () => {
-            console.log("[UIManager] Game.Started received, showing GameArea.");
-            this.handleShowView({ viewName: Views.GameArea });
-        });
-
-        // --- Listen for Highscore Actions ---
-        // Listen for the request to view highscores (from Main Menu)
-        eventBus.on(Events.UI.MainMenu.HighscoresClicked, () => {
-            console.log("[UIManager] HighscoresClicked received. Loading scores and showing view.");
-            // Navigate to the view first (it will show a loading state or empty list initially)
-            this.handleShowView({ viewName: Views.Highscores });
-            // Tell the manager to load and emit the scores
-            highscoreManager.loadAndEmitAllScores();
-        });
-
-        // --- ADDED: Listen for About Actions ---
-        eventBus.on(Events.UI.MainMenu.AboutClicked, () => {
-            console.log("[UIManager] AboutClicked received, showing AboutComponent.");
-            this.handleShowView({ viewName: Views.About }); // Use the view constant
-        });
     }
 
     /**
      * Checks the initial URL state (query parameters) on page load 
-     * and triggers the appropriate initial view or action.
-     * Priority: ?join= > default view
-     * @private
+     * @public - Called by UnicornPoepApp
      */
-    checkInitialHash() {
-        console.log(`[UIManager DEBUG] checkInitialHash running. URL: ${window.location.href}`);
+    detectJoinCode() {
+        const joinCode = (new URLSearchParams(window.location.search)).get('join');
 
-        // --- MINIMAL ADDITION V3: Check for ?join= parameter ---
-        const urlParams = new URLSearchParams(window.location.search);
-        const joinCode = urlParams.get('join');
-
-        if (joinCode) {
-            if (/^[0-9]{6}$/.test(joinCode)) {
-                // Valid Join Code Found - Emit event and return true
-                console.log(`[UIManager] Initial URL has valid join code: ${joinCode}. Emitting event.`);
-                eventBus.emit(Events.System.ValidJoinCodeDetected, { joinCode: joinCode });
-                return true; // Indicate that initial navigation was handled
-            } else {
-                // Invalid Join Code Found - Warn, clean URL, and fall through to return false
-                console.warn(`[UIManager] Invalid join code format in URL parameter: ?join=${joinCode}. Ignoring join, proceeding with default.`);
-                const cleanUrl = window.location.pathname + window.location.search.replace(/[?&]join=[^&]+/, '').replace(/^&/, '?'); // Remove join param
-                window.history.replaceState({ path: cleanUrl }, '', cleanUrl); // Clean invalid param
-                // Let execution fall through to return false
-            }
+        if (joinCode && /^[0-9]{6}$/.test(joinCode)) {
+            return joinCode;
         }
-        // --- END MINIMAL ADDITION V3 ---
-
-        // --- No valid join code found or handled, return false --- 
         return false;
     }
 
@@ -226,99 +291,22 @@ class UIManager {
      * @param {any} [payload.data] - Optional data to pass to the component.
      * @private
      */
-    handleShowView({ viewName, data }) {
-        console.log(`[UIManager] Received ShowView event for: '${viewName}'`, data ? `with data:` : '', data || '');
-
-        // <<< ADD: Ensure WaitingDialog is hidden when navigating TO MainMenu >>>
-        if (viewName === Views.MainMenu) {
-            const waitingDialog = this.getComponent('WaitingDialog');
-            if (waitingDialog && waitingDialog.isOpen) {
-                console.log("[UIManager] Hiding WaitingDialog because MainMenu is being shown.");
-                waitingDialog.hide();
-            }
-        }
-    
-
-        // --- DEBUGGING --- 
-        // Check if we are trying to navigate back to MainMenu unexpectedly
-        // Let's assume a property like `this.isGameActive` is set by GameCoordinator or MultiplayerGame
-        // For now, let's use a simple check based on currently visible component
-        const gameAreaComp = this.getComponent('GameAreaComponent');
-        const isGameAreaVisible = gameAreaComp && gameAreaComp.isVisible;
-        
-        if (viewName === Views.MainMenu && isGameAreaVisible) {
-             console.warn(`[UIManager DEBUG] !!! Unexpected navigation to MainMenu while GameArea was visible!`);
-             console.trace("Navigation Trace"); // Log stack trace to see who called showView
-            // debugger; // Uncomment this line to pause execution here in browser DevTools
-        }
-        // --- END DEBUGGING ---
+    _handleShowView({ viewName, data }) {
+        console.log('[UIManager] _handleShowView', viewName, data);
 
         const targetComponent = this.components.get(viewName);
-
+        
         if (!targetComponent) {
-            console.error(`[UIManager] UI Error: View component named '${viewName}' not found.`);
-            eventBus.emit(Events.System.ShowFeedback, {
-                message: `Error navigating: View '${viewName}' does not exist.`,
-                level: 'error'
-            });
-            // Optionally navigate to a default/error view or just log
-            return; 
+            debugger;
+            return;
         }
 
-        // --- Ensure Loading component is hidden --- 
-        const loadingComponent = this.components.get(Views.Loading);
-        if (loadingComponent && viewName !== Views.Loading) {
-            loadingComponent.hide(); // Hide loading if showing any other view
-        }
-        // --- End Loading check ---
+        this._hideAllViews();
+        
 
-        // Hide the previously active view if there was one
-        if (this.activeViewName && this.activeViewName !== viewName) {
-            const previousComponent = this.components.get(this.activeViewName);
-            if (previousComponent && typeof previousComponent.hide === 'function') {
-                previousComponent.hide();
-            }
-        }
-
-        // Show the target view
-        if (typeof targetComponent.show === 'function') {
-            targetComponent.show(data); // Pass data if the show method accepts it
-            this.activeViewName = viewName;
-             // Emit state change event
-             eventBus.emit(Events.System.StateChange, { newState: viewName, oldState: this.activeViewName });
-
-            console.log(`[UIManager] Switched view to: '${viewName}'`);
-        } else {
-            console.error(`[UIManager] Target component '${viewName}' does not have a show() method.`);
-        }
-
-        // Update hash for bookmarking/back button (simple approach)
-        // Avoid changing hash if it was triggered BY hashchange itself
-        // A more robust router would handle this better.
-        // if (window.location.hash !== `#${viewName}`) {
-        //     window.location.hash = `#${viewName}`;
-        // }
-    }
-
-    /**
-     * Hides all registered VIEW components (BaseComponent instances).
-     * Does not affect Dialogs (BaseDialog instances).
-     * @param {boolean} [skipLoading=false] - If true, does not hide the Loading component.
-     * @private
-     */
-    hideAllViews(skipLoading = false) {
-        this.components.forEach((component, name) => {
-            // Only hide BaseComponent instances (views), not BaseDialog instances
-             if (component instanceof BaseComponent && !(component instanceof BaseDialog)) {
-                 if (skipLoading && name === 'Loading') {
-                     return; // Skip hiding loading component if requested
-                 }
-                component.hide();
-             }
-        });
-        if (!skipLoading || this.activeViewName === 'Loading') {
-             this.activeViewName = null;
-        }
+        // Show new view
+        targetComponent.show(data);
+        this.activeViewName = viewName;
     }
 
     /**
@@ -328,6 +316,50 @@ class UIManager {
      */
     getComponent(componentName) {
         return this.components.get(componentName);
+    }
+
+    /**
+     * Shows a specific dialog component by its registered name.
+     * Does not hide other components or dialogs.
+     * 
+     * @param {string} dialogName The VIEW_NAME of the dialog component to show.
+     * @param {*} [data] Optional data to pass to the dialog's show method.
+     */
+    showDialog(dialogName, data = null) {
+        const dialogComponent = this.components.get(dialogName);
+
+        if (dialogComponent && dialogComponent instanceof BaseDialog) {
+            console.log(`[${this.name}] Showing dialog: ${dialogName}`);
+            // Pass data to the dialog's show method if provided
+            if (data !== null) {
+                dialogComponent.show(data); 
+            } else {
+                dialogComponent.show();
+            }
+        } else if (dialogComponent) {
+            console.error(`[${this.name}] Attempted to show non-dialog component '${dialogName}' using showDialog.`);
+        } else {
+            console.error(`[${this.name}] Dialog component '${dialogName}' not found.`);
+        }
+    }
+
+    /**
+     * Hides a specific dialog component by its registered name.
+     * 
+     * @param {string} dialogName The VIEW_NAME of the dialog component to hide.
+     */
+    hideDialog(dialogName) {
+        const dialogComponent = this.components.get(dialogName);
+
+        if (dialogComponent && dialogComponent instanceof BaseDialog) {
+            console.log(`[${this.name}] Hiding dialog: ${dialogName}`);
+            dialogComponent.hide(); // Call the dialog's instance hide method
+        } else if (dialogComponent) {
+            console.error(`[${this.name}] Attempted to hide non-dialog component '${dialogName}' using hideDialog.`);
+        } else {
+            // Don't log error if not found, might already be hidden/gone
+            // console.warn(`[${this.name}] Dialog component '${dialogName}' not found for hiding.`); 
+        }
     }
 }
 

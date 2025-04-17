@@ -1,6 +1,7 @@
 ---
 description: If see or createing docblocks, use this rule
 globs: 
+alwaysApply: false
 ---
 ---
 description: If see or create docblocks, use this rule
@@ -155,3 +156,5 @@ public function store(StoreActivityRequest $request, Project $project): JsonResp
 ✅ Use proper PHPDoc syntax  
 ✅ Document special cases/constraints  
 ✅ Include @see references for related classes
+✅ Include @event references to indicate what events the function responds to
+

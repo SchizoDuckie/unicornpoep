@@ -1,4 +1,4 @@
-import BaseComponent from './base-component.js';
+import RefactoredBaseComponent from './RefactoredBaseComponent.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js'; // Import Views constants
@@ -6,122 +6,147 @@ import questionsManager from '../services/QuestionsManager.js'; // Assuming we m
 import { getTextTemplate } from '../utils/miscUtils.js'; // Import the utility
 
 /**
- * @class SheetSelectionComponent
- * @extends BaseComponent
- * Manages the sheet selection view (#sheetSelection), allowing users to pick question sheets
- * and difficulty levels, triggering game start, and managing the sheet navigation visibility.
+ * Class SheetSelectionComponent.
+ * 
+ * Manages the sheet selection view, allowing users to pick question sheets
+ * and difficulty levels for different game modes. Handles sheet list population,
+ * selection validation, and game start requests.
+ *
+ * @property {Object} elements Cached DOM elements for the component
+ * @property {HTMLElement} elements.sheetsContainer Container for sheet checkboxes
+ * @property {HTMLElement} elements.difficultyContainer Container for difficulty options
+ * @property {NodeList} elements.difficultyRadios Collection of difficulty radio buttons
+ * @property {HTMLElement} elements.startButton Button to start the game
+ * @property {HTMLElement} elements.backButton Button to return to main menu
+ * @property {HTMLElement} elements.sheetNavigationContainer Container for navigation controls
+ * @property {Set<string>} selectedSheets Set of selected sheet IDs
+ * @property {string} selectedDifficulty Currently selected difficulty level
+ * @property {string|null} gameMode Current game mode (single, practice, multiplayer-host)
+ * @property {string|null} playerName Name of the player (for multiplayer)
  */
-class SheetSelectionComponent extends BaseComponent {
+class SheetSelectionComponent extends RefactoredBaseComponent {
     static SELECTOR = '#sheetSelection';
     static VIEW_NAME = 'SheetSelectionComponent';
+    
+    // Define element selectors as constants
+    static SELECTORS = {
+        SHEETS_CONTAINER: '#sheetsCheckboxes',
+        DIFFICULTY_CONTAINER: '#difficultyCol',
+        DIFFICULTY_RADIOS: 'input[name="difficulty"]',
+        START_BUTTON: '#startGame',
+        BACK_BUTTON: '#sheetSelectBack',
+        SHEET_NAVIGATION: '#sheetNavigation'
+    };
+
+    // Initial state
+    selectedSheets = new Set();
+    selectedDifficulty = 'medium';
+    gameMode = null;
+    playerName = null;
 
     /**
-     * Initializes the SheetSelectionComponent.
+     * Initializes the component using the declarative pattern.
+     * 
+     * @return Object Configuration object with events, domEvents, domElements
      */
-    constructor() {
-        super(); // Call BaseComponent constructor
-        console.log("[SheetSelectionComponent] Constructed (via BaseComponent).");
-    }
-
-    // Initialize elements here
     initialize() {
-        this.sheetsContainer = this.rootElement.querySelector('#sheetsCheckboxes');
-        this.difficultyContainer = this.rootElement.querySelector('#difficultyCol');
-        this.difficultyRadios = this.rootElement.querySelectorAll('input[name="difficulty"]');
-        this.startButton = this.rootElement.querySelector('#startGame');
-        this.backButton = this.rootElement.querySelector('#sheetSelectBack');
-        this.sheetNavigationContainer = this.rootElement.querySelector('#sheetNavigation');
-
-        // Check for essential elements
-        if (!this.sheetsContainer || !this.difficultyContainer || !this.startButton || !this.backButton || !this.sheetNavigationContainer) {
-            // Log details about missing elements
-            console.error(`[${this.name}] Missing one or more required child elements. Check IDs: #sheetsCheckboxes, #difficultyCol, #startGame, #sheetSelectBack, #sheetNavigation`);
-            // Optionally throw error if critical
-            // throw new Error(`[${this.name}] Missing required elements.`);
-        }
-
-        this.selectedSheets = new Set();
-        this.selectedDifficulty = 'medium';
-        this.gameMode = null;
-        this.playerName = null;
-        
-        console.log(`[${this.name}] Initialized.`);
-    }
-
-    /** 
-     * Registers DOM and eventBus event listeners.
-     * Called by BaseComponent constructor.
-     */
-    registerListeners() {
-        console.log(`[${this.name}] Registering listeners.`);
-        
-        // Bind methods before adding listeners
-        this._handleSheetSelectionChange = this._handleSheetSelectionChange.bind(this);
-        this._handleDifficultyChange = this._handleDifficultyChange.bind(this);
-        this._handleStartClick = this._handleStartClick.bind(this);
-        this._handleBackClick = this._handleBackClick.bind(this);
-        this.handleShowView = this.handleShowView.bind(this); // Bind show view handler
-        
-        // Add DOM Listeners
-        if (this.sheetsContainer) this.sheetsContainer.addEventListener('change', this._handleSheetSelectionChange);
-        if (this.difficultyRadios) {
-            this.difficultyRadios.forEach(radio => {
-                radio.addEventListener('change', this._handleDifficultyChange);
-            });
-        }
-        if (this.startButton) this.startButton.addEventListener('click', this._handleStartClick);
-        if (this.backButton) this.backButton.addEventListener('click', this._handleBackClick);
-        
-        // Add eventBus Listeners
-        this.listen(Events.Navigation.ShowView, this.handleShowView);
+        return {
+            events: [
+                {
+                    eventName: Events.Navigation.ShowView,
+                    callback: this.handleShowView
+                }
+            ],
+            domEvents: [
+                {
+                    selector: 'input[type="checkbox"]',  // Select checkboxes directly
+                    event: 'change',
+                    handler: this._handleSheetSelectionChange
+                },
+                {
+                    selector: '#difficultyCol input[name="difficulty"]',
+                    event: 'change',
+                    handler: this._handleDifficultyChange
+                },
+                {
+                    selector: SheetSelectionComponent.SELECTORS.START_BUTTON,
+                    event: 'click',
+                    handler: this._handleStartClick
+                },
+                {
+                    selector: SheetSelectionComponent.SELECTORS.BACK_BUTTON,
+                    event: 'click',
+                    handler: this._handleBackClick
+                }
+            ],
+            domElements: [
+                {
+                    name: 'sheetsContainer',
+                    selector: SheetSelectionComponent.SELECTORS.SHEETS_CONTAINER
+                },
+                {
+                    name: 'difficultyContainer',
+                    selector: SheetSelectionComponent.SELECTORS.DIFFICULTY_CONTAINER
+                },
+                {
+                    name: 'startButton',
+                    selector: SheetSelectionComponent.SELECTORS.START_BUTTON
+                },
+                {
+                    name: 'backButton',
+                    selector: SheetSelectionComponent.SELECTORS.BACK_BUTTON
+                },
+                {
+                    name: 'sheetNavigationContainer',
+                    selector: SheetSelectionComponent.SELECTORS.SHEET_NAVIGATION
+                }
+            ],
+            setup: () => {
+                // Get difficultyRadios with querySelectorAll (needs special handling)
+                this.difficultyRadios = this.rootElement.querySelectorAll(SheetSelectionComponent.SELECTORS.DIFFICULTY_RADIOS);
+            }
+        };
     }
 
     /**
      * Handles the ShowView event to potentially load sheets and set mode.
-     * Also ensures the sheet navigation is initially hidden if no sheets are pre-selected.
-     * @param {object} payload
-     * @param {string} payload.viewName
-     * @param {object} [payload.data] - Optional data passed, e.g., { mode: 'practice' | 'single' | 'multiplayer-host', playerName?: string }
+     * 
+     * @param Object $payload Event payload
+     * @param string $payload.viewName Name of the view to show
+     * @param Object $payload.data Optional data with mode and player name
+     * @return void
      */
     handleShowView({ viewName, data }) {
-        if (viewName === this.name) { // Use component name as view identifier
-            console.log(`[${this.name}] Showing view. Data:`, data);
-            // Determine game mode, default to 'single' if not provided
+        if (viewName === this.name) {
             this.gameMode = data.mode || 'single'; 
-            // Store player name if provided (relevant for multiplayer-host)
             this.playerName = data.playerName || null; 
             
-            console.log(`[${this.name}] Mode set to: ${this.gameMode}, Player Name: ${this.playerName}`);
-
             this.updateDifficultyVisibility();
-            this._populateSheetList(); // This also calls _updateStartButtonState
-            // Ensure navigation state matches initial sheet state after populating
+            this._populateSheetList();
             this._updateStartButtonState();
-            this.show(); // BaseComponent show
+            this.show();
         } else {
-             // Ensure navigation is hidden if this view itself becomes hidden
-            this.hideSheetNavigation(); // Corrected method call
-            this.hide(); // BaseComponent hide
+            this.hideSheetNavigation();
+            this.hide();
         }
     }
 
     /**
      * Populates the checkbox list with available sheets from QuestionsManager.
+     * 
+     * @return void
      * @private
      */
     _populateSheetList() {
-        this.sheetsContainer.innerHTML = ''; // Clear previous list
-        this.selectedSheets.clear(); // Use correct set name
+        this.elements.sheetsContainer.innerHTML = '';
+        this.selectedSheets.clear();
 
         try {
-            // Get sheets synchronously from the manager
             const allSheets = questionsManager.getAvailableSheets(); 
-            console.log(`[${this.name}] Populating with sheets:`, allSheets);
 
             if (!Array.isArray(allSheets) || allSheets.length === 0) {
-                // Use template for empty list message
-                this.sheetsContainer.innerHTML = `<p><i>${getTextTemplate('sheetSelectNoneAvailable')}</i></p>`;
-                this._updateStartButtonState(); // Ensure button is disabled
+                this.elements.sheetsContainer.innerHTML = `<p><i>${getTextTemplate('sheetSelectNoneAvailable')}</i></p>`;
+                this._updateStartButtonState();
                 return;
             }
 
@@ -131,154 +156,173 @@ class SheetSelectionComponent extends BaseComponent {
                 const checkbox = document.createElement('input');
                 
                 checkbox.type = 'checkbox';
-                checkbox.value = sheet.id; // Use sheet ID as value
+                checkbox.value = sheet.id;
                 checkbox.id = `sheet-${sheet.id}`;
-                checkbox.dataset.sheetName = sheet.name; // Store name for potential use
-                // Checkbox is initially unchecked
+                checkbox.dataset.sheetName = sheet.name;
+                
+                // Add direct event listener to ensure it works
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        this.selectedSheets.add(sheet.id);
+                    } else {
+                        this.selectedSheets.delete(sheet.id);
+                    }
+                    this._updateStartButtonState();
+                });
 
                 label.appendChild(checkbox);
-                label.appendChild(document.createTextNode(` ${sheet.name || sheet.id}`)); // Use name, fallback to ID
+                label.appendChild(document.createTextNode(` ${sheet.name || sheet.id}`));
                 label.htmlFor = checkbox.id;
                 
                 fragment.appendChild(label);
-                
             });
 
-            this.sheetsContainer.appendChild(fragment);
+            this.elements.sheetsContainer.appendChild(fragment);
         } catch (error) {
             console.error(`[${this.name}] Error populating sheet list:`, error);
-            // Use template for error message
-            this.sheetsContainer.innerHTML = `<p><i>${getTextTemplate('sheetSelectLoadError')}</i></p>`;
+            this.elements.sheetsContainer.innerHTML = `<p><i>${getTextTemplate('sheetSelectLoadError')}</i></p>`;
         }
-        this._updateStartButtonState(); // Update button state after populating
+        this._updateStartButtonState();
     }
 
-    /** Updates visibility of the difficulty selection based on game mode. @private */
+    /** 
+     * Updates visibility of the difficulty selection based on game mode.
+     * 
+     * @return void
+     * @private 
+     */
     updateDifficultyVisibility() {
         if (this.gameMode === 'practice') {
-            this.difficultyContainer.classList.add('hidden');
+            this.elements.difficultyContainer.classList.add('hidden');
         } else {
-            this.difficultyContainer.classList.remove('hidden');
+            this.elements.difficultyContainer.classList.remove('hidden');
         }
     }
 
-    /** Handles changes to sheet selection checkboxes. @private */
-    _handleSheetSelectionChange(event) { // Use arrow function
-        // *** Check if target is within the expected container ***
-        if (!this.sheetsContainer.contains(event.target)) return;
-
-        if (event.target.type === 'checkbox') { // No need to check name if delegated from sheetsContainer
-            const sheetId = event.target.value;
-            if (event.target.checked) {
-                if (!this.selectedSheets.has(sheetId)) {
-                    this.selectedSheets.add(sheetId);
-                }
-            } else {
-                this.selectedSheets.delete(sheetId);
+    /** 
+     * Handles changes to sheet selection checkboxes.
+     * 
+     * @param Event $event The change event
+     * @return void
+     * @private 
+     */
+    _handleSheetSelectionChange(event) {
+        
+        // Find the target checkbox that was clicked (might be the event.target or a child)
+        const checkbox = event.target.type === 'checkbox' ? event.target : event.target.querySelector('input[type="checkbox"]');
+        
+        if (!checkbox || checkbox.type !== 'checkbox') {
+            return;
+        }
+            
+        const sheetId = checkbox.value;
+        
+        if (checkbox.checked) {
+            if (!this.selectedSheets.has(sheetId)) {
+                this.selectedSheets.add(sheetId);
             }
-            console.log(`[${this.name}] Selected sheets changed:`, this.selectedSheets);
-            this._updateStartButtonState(); // This will now handle the prompt visibility
+        } else {
+            this.selectedSheets.delete(sheetId);
         }
+        
+        this._updateStartButtonState();
     }
 
-    /** Handles changes to difficulty radio buttons. @private */
-    _handleDifficultyChange(event) { // Use arrow function
+    /** 
+     * Handles changes to difficulty radio buttons.
+     * 
+     * @param Event $event The change event
+     * @return void
+     * @private 
+     */
+    _handleDifficultyChange(event) {
         if (event.target.type === 'radio' && event.target.name === 'difficulty') {
             this.selectedDifficulty = event.target.value;
-            console.log(`[${this.name}] Difficulty changed:`, this.selectedDifficulty);
         }
     }
 
     /**
-     * Enables/disables the start button based on selection and shows/hides the sheet navigation container.
+     * Enables/disables the start button based on selection and toggles active state
+     * of the sheet navigation container.
+     * 
+     * @return void
      * @private
      */
     _updateStartButtonState() {
-        if (!this.startButton) return; // Nothing to update if button doesn't exist
-
         const canStart = this.selectedSheets.size > 0;
-
-        // Update the button's disabled state
-        this.startButton.disabled = !canStart;
-        console.log(`[${this.name}] Start button ${canStart ? 'enabled' : 'disabled'}.`);
-
-        // *** CORRECTED: Directly control the navigation container's classes ***
-        if (this.sheetNavigationContainer) {
-            if (canStart) {
-                // Show the navigation
-                this.sheetNavigationContainer.classList.add('active'); // Add active for animation
-                 console.log(`[${this.name}] Showing sheet navigation.`);
-            } else {
-                // Hide the navigation
-                this.hideSheetNavigation(); // Use corrected helper name
-            }
+        
+        
+        if (canStart) {
+            this.elements.startButton.disabled = false;
+            
+            this.elements.sheetNavigationContainer.classList.add('active');
+        } else {
+            this.elements.startButton.disabled = true;
+            this.elements.sheetNavigationContainer.classList.remove('active');
         }
-    }
-
-    /** Handles the start button click. @private */
-    _handleStartClick() { // Use arrow function
-        if (this.selectedSheets.size === 0) {
-            console.warn(`[${this.name}] Start clicked but no sheets selected.`);
-            return;
-        }
-
-        // --- FIX: Clean sheet IDs before emitting --- 
-        const cleanedSheetIds = [...this.selectedSheets].map(id => {
-            const parts = id.split('_');
-            return parts.length > 1 ? parts.slice(1).join('_') : id;
-        });
-        // --- End Fix ---
-
-        const settings = {
-            sheetIds: cleanedSheetIds, 
-            // Difficulty is only relevant for 'single' or 'multiplayer-host' modes
-            // For 'practice', difficulty is implicitly null/irrelevant based on current logic
-            difficulty: (this.gameMode === 'single' || this.gameMode === 'multiplayer-host') ? this.selectedDifficulty : null,
-        };
-
-        console.log(`[${this.name}] Start button clicked. Mode: ${this.gameMode}, Player: ${this.playerName}, Settings:`, settings);
-
-        // Emit the generic Game.StartRequested event
-        // GameCoordinator will pick this up and decide the next step based on the mode
-        eventBus.emit(Events.Game.StartRequested, {
-            mode: this.gameMode, // 'practice', 'single', or 'multiplayer-host'
-            settings: settings,
-            // Include playerName, crucial for multiplayer-host mode
-            playerName: this.playerName 
-        });
-    }
-
-    /** Handles the back button click. @private */
-    _handleBackClick() {
-        console.log(`[${this.name}] Back button clicked.`);
-        // Don't emit BackClicked if UIManager handles navigation based on ShowView
-        // eventBus.emit(Events.UI.SheetSelection.BackClicked);
-        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu }); // Use imported constant
-        // this.hide(); // hide() is called by handleShowView when another view is shown
+        console.log(this.elements.sheetNavigationContainer);
     }
 
     /**
-     * Helper method to explicitly hide the sheet navigation.
+     * Handles the start button click.
+     * Triggers Events.Game.StartRequested with the selected settings.
+     * 
+     * @return void
+     * @event Events.Game.StartRequested
      * @private
      */
-    hideSheetNavigation() { // Renamed method
-        if (this.sheetNavigationContainer) {
-            this.sheetNavigationContainer.classList.remove('active'); // Remove active first for exit animation
-            console.log(`[${this.name}] Hiding sheet navigation.`);
+    _handleStartClick() {
+        debugger;
+        if (this.selectedSheets.size === 0) {
+            return;
         }
+
+        const sheetIds = Array.from(this.selectedSheets);
+        let gameMode = this.gameMode || 'single';
+        
+        const settings = {
+            sheetIds: sheetIds,
+            difficulty: this.selectedDifficulty
+        };
+        
+        eventBus.emit(Events.Game.StartRequested, {
+            mode: gameMode,
+            settings: settings,
+            playerName: this.playerName
+        });
     }
 
-    /** Hides the component's root element and ensures the sheet navigation is hidden. */
+    /**
+     * Handles the back button click, returning to the main menu.
+     * 
+     * @return void
+     * @event Events.Navigation.ShowView
+     * @private
+     */
+    _handleBackClick() {
+        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+    }
+
+    /**
+     * Hides the sheet navigation container.
+     * Used when navigating away from this view.
+     * 
+     * @return void
+     * @private
+     */
+    hideSheetNavigation() {
+        this.elements.sheetNavigationContainer.classList.remove('active');
+    }
+
+    /**
+     * Overrides the base hide method to also hide the sheet navigation.
+     * 
+     * @override
+     * @return void
+     */
     hide() {
-        // Ensure navigation is hidden when the whole component hides
-        this.hideSheetNavigation(); // Use corrected method name
-        super.hide(); // Call BaseComponent hide
-    }
-
-    // Override destroy to clean up listeners
-    destroy() {
-        console.log(`[${this.name}] Destroying...`);
-        super.destroy();
+        this.hideSheetNavigation();
+        super.hide();
     }
 }
 

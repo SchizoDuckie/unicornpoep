@@ -4,57 +4,77 @@ import Events from '../core/event-constants.js';
 
 
 /**
- * @class PracticeEndDialog
+ * Class PracticeEndDialog.
+ * 
+ * Dialog displayed at the end of a practice game session, providing options
+ * to try again or return to the main menu.
+ * 
  * @extends BaseDialog
- * Dialog displayed at the end of a practice game.
  */
 class PracticeEndDialog extends BaseDialog {
     static SELECTOR = '#practiceEndDialog';
     static VIEW_NAME = 'PracticeEndDialog';
+    
+    static SELECTORS = {
+        RESTART_BUTTON: '#practiceTryAgainButton',
+        MENU_BUTTON: '#practiceMenuButton'
+    };
 
-    /** Initializes component elements. */
+    /**
+     * Initializes component with event handlers and DOM elements.
+     * 
+     * @return {Object} Configuration for event listeners, DOM events, and DOM elements
+     */
     initialize() {
-        // this.scoreDisplay = this.rootElement.querySelector('#practiceFinalScore'); // Removed, no matching element
-        this.restartButton = this.rootElement.querySelector('#practiceTryAgainButton'); // Corrected ID
-        this.backToMenuButton = this.rootElement.querySelector('#practiceMenuButton'); // Corrected ID
-
-        // if (!this.scoreDisplay) console.error(`[${this.name}] Missing #practiceFinalScore.`); // Removed check
-        if (!this.restartButton) console.error(`[${this.name}] Missing #practiceTryAgainButton.`); // Corrected ID
-        if (!this.backToMenuButton) console.error(`[${this.name}] Missing #practiceMenuButton.`); // Corrected ID
-
-        this._bindMethods();
-        // Listeners added by registerListeners
-        console.log(`[${this.name}] Initialized.`);
+        return {
+            domEvents: [
+                { 
+                    selector: PracticeEndDialog.SELECTORS.RESTART_BUTTON, 
+                    event: 'click', 
+                    handler: this._handleRestart 
+                },
+                { 
+                    selector: PracticeEndDialog.SELECTORS.MENU_BUTTON, 
+                    event: 'click', 
+                    handler: this._handleBackToMenu 
+                }
+            ],
+            domElements: [
+                {
+                    name: 'restartButton',
+                    selector: PracticeEndDialog.SELECTORS.RESTART_BUTTON
+                },
+                {
+                    name: 'menuButton',
+                    selector: PracticeEndDialog.SELECTORS.MENU_BUTTON
+                }
+            ]
+        };
     }
 
-    _bindMethods() {
-        this.handleRestart = this.handleRestart.bind(this);
-        this.handleBackToMenu = this.handleBackToMenu.bind(this);
-    }
-
-    /** Registers DOM listeners. */
-    registerListeners() {
-        console.log(`[${this.name}] Registering DOM listeners.`);
-        if (this.restartButton) this.restartButton.addEventListener('click', this.handleRestart);
-        if (this.backToMenuButton) this.backToMenuButton.addEventListener('click', this.handleBackToMenu);
-    }
-
-    /** Unregisters DOM listeners. */
-    unregisterListeners() {
-        console.log(`[${this.name}] Unregistering DOM listeners.`);
-        if (this.restartButton) this.restartButton.removeEventListener('click', this.handleRestart);
-        if (this.backToMenuButton) this.backToMenuButton.removeEventListener('click', this.handleBackToMenu);
-    }
-
-    /** Handles the restart button click */
-    handleRestart() {
+    /**
+     * Handles restart button click.
+     * Emits event and hides dialog.
+     * 
+     * @return void
+     * @event Events.UI.EndDialog.RestartPracticeClicked
+     * @private
+     */
+    _handleRestart() {
         console.log("[PracticeEndDialog] Restart clicked.");
         eventBus.emit(Events.UI.EndDialog.RestartPracticeClicked);
         this.hide();
     }
 
-    /** Handles the back to menu button click */
-    handleBackToMenu() {
+    /**
+     * Handles back to menu button click.
+     * Emits event and hides dialog.
+     * 
+     * @return void
+     * @event Events.UI.EndDialog.ReturnToMenuClicked
+     * @private
+     */
+    _handleBackToMenu() {
         console.log("[PracticeEndDialog] Back to menu clicked.");
         eventBus.emit(Events.UI.EndDialog.ReturnToMenuClicked);
         this.hide();
@@ -62,21 +82,13 @@ class PracticeEndDialog extends BaseDialog {
 
     /**
      * Shows the dialog.
-     * @param {object} results - The game results (score is ignored).
+     * 
+     * @param {Object} results The game results
+     * @return void
      */
     show(results) {
-        // Score display removed as element doesn't exist
-        // if (this.scoreDisplay) {
-        //     this.scoreDisplay.textContent = `Your Score: ${results.score}`; 
-        // }
-        super.show();
-    }
-
-    // Override destroy to ensure listeners are removed
-    destroy() {
-         console.log(`[${this.name}] Destroying...`);
-        this.unregisterListeners();
-         super.destroy();
+        // No need to display score in practice mode
+        super.show(results);
     }
 }
 

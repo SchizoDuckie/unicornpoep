@@ -3,71 +3,111 @@ import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import { getTextTemplate } from '../utils/miscUtils.js';
 
-
 /**
- * Dialog shown when a multiplayer connection is lost or intentionally closed by the peer.
- * @extends BaseDialog
+ * DisconnectionDialog class.
+ * 
+ * Shows a dialog when a multiplayer game disconnection occurs.
+ * Provides reason-specific messages and allows users to return to the main menu.
+ * 
+ * @property {HTMLElement} elements.messageContainer Element to display the disconnection message
+ * @property {HTMLElement} elements.okButton Button to dismiss the dialog and return to menu
  */
 class DisconnectionDialog extends BaseDialog {
     static SELECTOR = '#disconnectionDialog';
     static VIEW_NAME = 'DisconnectionDialog';
-
-    /** Initializes component elements. */
-    initialize() {
-        this.messageElement = this.rootElement.querySelector('.dialog-message'); // Generic message class
-        this.okButton = this.rootElement.querySelector('#disconnectionOkButton'); // Specific OK button
-
-        if (!this.messageElement) console.error(`[${this.name}] Missing required child element .dialog-message.`);
-        if (!this.okButton) console.error(`[${this.name}] Missing required child element #disconnectionOkButton.`);
-
-        this._bindMethods();
-        // Listeners added by registerListeners
-        console.log(`[${this.name}] Initialized.`);
-    }
-
-    _bindMethods() {
-        this.handleOk = this.handleOk.bind(this);
-    }
-
-    /** Registers DOM listeners. */
-    registerListeners() {
-        console.log(`[${this.name}] Registering DOM listeners.`);
-        if (this.okButton) {
-             this.okButton.addEventListener('click', this.handleOk);
-        } else {
-             console.warn(`[${this.name}] OK button not found, cannot add listener.`);
-        }
-    }
-
-    /** Unregisters DOM listeners. */
-    unregisterListeners() {
-        console.log(`[${this.name}] Unregistering DOM listeners.`);
-        if (this.okButton) {
-             this.okButton.removeEventListener('click', this.handleOk);
-        }
-    }
-
-    /** Handles the OK button click */
-    handleOk() {
-        console.debug(`[${this.name}] OK button clicked.`);
-        this.hide();
-        // Optionally emit an event to navigate back to the main menu
-        eventBus.emit(Events.UI.Dialog.ReturnToMenuClicked);
-    }
-
-    /** Shows the dialog with a specific message */
-    show(message = 'You have been disconnected.') { // Provide a default message
-        if (this.messageElement) {
-            this.messageElement.textContent = message;
-        }
-        super.show(); // Call BaseDialog show
-    }
     
-    // Override destroy to ensure listeners are removed
-    destroy() {
-        console.log(`[${this.name}] Destroying...`);
-        this.unregisterListeners(); // Ensure DOM listeners are removed
-        super.destroy();
+    // Element selectors as constants
+    static SELECTORS = {
+        MESSAGE_CONTAINER: '.dialog-message',
+        OK_BUTTON: '#disconnectionOkButton'
+    };
+
+    /**
+     * Initializes the dialog using the declarative pattern.
+     * 
+     * @return {Object} Configuration object with events, domEvents, domElements
+     */
+    initialize() {
+        return {
+            events: [
+                {
+                    eventName: Events.Multiplayer.Disconnected,
+                    callback: this.handleDisconnection
+                }
+            ],
+            domEvents: [
+                {
+                    selector: DisconnectionDialog.SELECTORS.OK_BUTTON,
+                    event: 'click',
+                    handler: this.handleOkClick
+                }
+            ],
+            domElements: [
+                {
+                    name: 'messageContainer',
+                    selector: DisconnectionDialog.SELECTORS.MESSAGE_CONTAINER
+                },
+                {
+                    name: 'okButton',
+                    selector: DisconnectionDialog.SELECTORS.OK_BUTTON
+                }
+            ]
+        };
+    }
+
+    /**
+     * Handles disconnection events by showing the dialog with an appropriate message.
+     * 
+     * @param {Object} data Disconnection data
+     * @param {string} data.reason The reason for disconnection
+     */
+    handleDisconnection(data) {
+        const reason = data.reason || 'unknown';
+        this.showDisconnectionMessage(reason);
+        this.show();
+    }
+
+    /**
+     * Displays a disconnection message based on the reason provided.
+     * 
+     * @param {string} reason The reason for disconnection
+     */
+    showDisconnectionMessage(reason) {
+        if (!this.elements.messageContainer) return;
+        
+        let message = '';
+        
+        switch (reason) {
+            case 'host-left':
+                message = getTextTemplate('disconnectionHostLeft', 'The game host has left the game.');
+                break;
+            case 'host-disconnect':
+                message = getTextTemplate('disconnectionHostDisconnect', 'You have been disconnected from the host.');
+                break;
+            case 'player-left':
+                message = getTextTemplate('disconnectionPlayerLeft', 'A player has left the game.');
+                break;
+            case 'connection-error':
+                message = getTextTemplate('disconnectionConnectionError', 'A connection error occurred.');
+                break;
+            case 'server-shutdown':
+                message = getTextTemplate('disconnectionServerShutdown', 'The game server has been shut down.');
+                break;
+            default:
+                message = getTextTemplate('disconnectionUnknown', 'You have been disconnected from the game.');
+                break;
+        }
+        
+        this.elements.messageContainer.textContent = message;
+    }
+
+    /**
+     * Handles the OK button click.
+     * Emits an event to return to the main menu and hides the dialog.
+     */
+    handleOkClick() {
+        eventBus.emit(Events.UI.Navigation.ReturnToMenu);
+        this.hide();
     }
 }
 

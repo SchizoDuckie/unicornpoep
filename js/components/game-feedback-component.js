@@ -1,4 +1,4 @@
-import BaseComponent from './base-component.js';
+import RefactoredBaseComponent from './RefactoredBaseComponent.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
@@ -8,55 +8,32 @@ import Views from '../core/view-constants.js';
  * Handles global visual feedback during the game, such as confetti on correct answers
  * or brief body style changes.
  * Does not manage a specific DOM element directly.
- * @extends BaseComponent
+ * @extends RefactoredBaseComponent
  */
-class GameFeedbackComponent extends BaseComponent {
+class GameFeedbackComponent extends RefactoredBaseComponent {
     static SELECTOR = '#gameFeedback';
     static VIEW_NAME = 'GameFeedback';
+    
+    // State properties
+    hideTimeout = null;
 
-    /**
-     * Creates an instance of GameFeedbackComponent.
+    /** 
+     * Initializes the component using the declarative pattern
+     * @returns {Object} Configuration object with events and domEvents
      */
-    constructor() {
-        super(GameFeedbackComponent.SELECTOR, GameFeedbackComponent.VIEW_NAME);
-
-        if (!this.rootElement) {
-            console.warn(`[${this.name}] Root element ${GameFeedbackComponent.SELECTOR} not found. Component initialized but might not have a visual container.`);
-        }
-
-        this._bindMethods();
-        this.initialize();
-    }
-
-    /** Binds methods */
-    _bindMethods() {
-        this.handleAnswerChecked = this.handleAnswerChecked.bind(this);
-        this.triggerConfetti = this.triggerConfetti.bind(this);
-        this.triggerIncorrectFeedback = this.triggerIncorrectFeedback.bind(this);
-        this.handleGameFinished = this.handleGameFinished.bind(this);
-    }
-
-    /** Initializes component elements. */
     initialize() {
-        this.hideTimeout = null;
-        this.listenForEvents();
-        this.hide(); // Start hidden
-        console.log(`[${this.name}] Initialized.`);
-    }
-
-    /** Registers DOM listeners (none needed). */
-    registerListeners() {
-        console.log(`[${this.name}] Registering DOM listeners (none).`);
-    }
-    /** Unregisters DOM listeners (none needed). */
-    unregisterListeners() {
-        console.log(`[${this.name}] Unregistering DOM listeners (none).`);
-    }
-
-    /** Listens for global game events */
-    listenForEvents() {
-        this.listen(Events.Game.AnswerChecked, this.handleAnswerChecked);
-        this.listen(Events.Game.Finished, this.handleGameFinished); // Hide on finish
+        return {
+            events: [
+                {
+                    eventName: Events.Game.AnswerChecked,
+                    callback: this._handleAnswerChecked
+                },
+                {
+                    eventName: Events.Game.Finished,
+                    callback: this._handleGameFinished
+                }
+            ]
+        };
     }
 
     /**
@@ -65,12 +42,10 @@ class GameFeedbackComponent extends BaseComponent {
      * @param {boolean} payload.isCorrect
      * @private
      */
-    handleAnswerChecked({ isCorrect }) {
+    _handleAnswerChecked({ isCorrect }) {
         if (isCorrect) {
-            console.debug(`[${this.name}] Triggering positive feedback.`);
             this.triggerConfetti();
         } else {
-            console.debug(`[${this.name}] Triggering negative feedback.`);
             this.triggerIncorrectFeedback();
         }
     }
@@ -79,8 +54,7 @@ class GameFeedbackComponent extends BaseComponent {
      * Handles the game finished event. Hides the component.
      * @private
      */
-    handleGameFinished() {
-        console.debug(`[${this.name}] Game finished, hiding feedback component if visible.`);
+    _handleGameFinished() {
         this.hide(); // Hide the component
     }
 
@@ -97,29 +71,24 @@ class GameFeedbackComponent extends BaseComponent {
         }, durationMs);
     }
 
-    /** Triggers a confetti effect using the global function. */
+    /** 
+     * Triggers a confetti effect using the global function. 
+     */
     triggerConfetti() {
         if (typeof confetti === 'function') {
-            console.debug(`[${this.name}] 🎉 Firing confetti! 🎉`);
             confetti({
                 particleCount: 30,
                 spread: 70,
                 origin: { y: 0.6 }
             });
-        } else {
-            console.warn(`[${this.name}] Global confetti function not found. Skipping effect.`);
         }
     }
 
-    /** Triggers visual feedback for an incorrect answer (e.g., body shake). */
+    /** 
+     * Triggers visual feedback for an incorrect answer (e.g., body shake). 
+     */
     triggerIncorrectFeedback() {
         this._applyBodyClassTemporarily('incorrect-answer-shake', 500);
-    }
-
-    /** Cleans up listeners before destruction (handled by BaseComponent). */
-    destroy() {
-        console.log(`[${this.name}] Destroying...`);
-        super.destroy();
     }
 }
 

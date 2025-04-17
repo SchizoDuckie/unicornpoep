@@ -4,78 +4,113 @@ import Events from '../core/event-constants.js';
 import { getTextTemplate } from '../utils/miscUtils.js';
 
 /**
- * Generic confirmation dialog (Yes/No).
+ * Class ConfirmationDialog.
+ * 
+ * Generic confirmation dialog with customizable title, message, and buttons.
+ * Emits events when confirmed or canceled.
+ * 
+ * @extends BaseDialog
  */
 class ConfirmationDialog extends BaseDialog {
     static SELECTOR = '#confirmationDialog';
     static VIEW_NAME = 'ConfirmationDialog';
+    
+    static SELECTORS = {
+        TITLE_ELEMENT: '#confirmationTitle',
+        MESSAGE_ELEMENT: '.dialog-message',
+        CONFIRM_BUTTON: '#confirmButton',
+        CANCEL_BUTTON: '#cancelButton'
+    };
+    
+    // State properties
+    confirmCallback = null;
+    cancelCallback = null;
+    _dialogContext = null;
 
-    /** Initializes component elements. */
+    /**
+     * Initialize the component with configuration.
+     * 
+     * @return {Object} Configuration object for the component
+     */
     initialize() {
-        this.messageElement = this.rootElement.querySelector('.dialog-message');
-        this.confirmButton = this.rootElement.querySelector('#confirmButton');
-        this.cancelButton = this.rootElement.querySelector('#cancelButton');
-
-        if (!this.messageElement || !this.confirmButton || !this.cancelButton) {
-            console.error(`[${this.name}] Missing required elements.`);
-        }
-
-        this.confirmCallback = null;
-        this.cancelCallback = null;
-
-        this._bindMethods();
-        // Listeners added by registerListeners
-        console.log(`[${this.name}] Initialized.`);
+        return {
+            domEvents: [
+                { 
+                    selector: ConfirmationDialog.SELECTORS.CONFIRM_BUTTON, 
+                    event: 'click', 
+                    handler: this._handleConfirm
+                },
+                { 
+                    selector: ConfirmationDialog.SELECTORS.CANCEL_BUTTON, 
+                    event: 'click', 
+                    handler: this._handleCancel
+                }
+            ],
+            domElements: [
+                {
+                    name: 'titleElement',
+                    selector: ConfirmationDialog.SELECTORS.TITLE_ELEMENT
+                },
+                {
+                    name: 'messageElement',
+                    selector: ConfirmationDialog.SELECTORS.MESSAGE_ELEMENT
+                },
+                {
+                    name: 'confirmButton',
+                    selector: ConfirmationDialog.SELECTORS.CONFIRM_BUTTON
+                },
+                {
+                    name: 'cancelButton',
+                    selector: ConfirmationDialog.SELECTORS.CANCEL_BUTTON
+                }
+            ]
+        };
     }
 
-    _bindMethods() {
-        this.handleConfirm = this.handleConfirm.bind(this);
-        this.handleCancel = this.handleCancel.bind(this);
-    }
-
-    /** Registers DOM listeners. */
-    registerListeners() {
-        console.log(`[${this.name}] Registering DOM listeners.`);
-        if (this.confirmButton) this.confirmButton.addEventListener('click', this.handleConfirm);
-        if (this.cancelButton) this.cancelButton.addEventListener('click', this.handleCancel);
-        // BaseDialog handles ESC close
-    }
-
-    /** Unregisters DOM listeners. */
-    unregisterListeners() {
-        console.log(`[${this.name}] Unregistering DOM listeners.`);
-        if (this.confirmButton) this.confirmButton.removeEventListener('click', this.handleConfirm);
-        if (this.cancelButton) this.cancelButton.removeEventListener('click', this.handleCancel);
-    }
-
-    /** Handles the confirm button click */
-    handleConfirm() {
-            this.hide();
+    /**
+     * Handles confirm button click.
+     * Hides dialog, calls callback, and emits event.
+     * 
+     * @return void
+     * @event Events.UI.Dialog.GenericConfirm
+     * @private
+     */
+    _handleConfirm() {
+        this.hide();
         if (this.confirmCallback) {
             this.confirmCallback(this._dialogContext);
-            }
-            eventBus.emit(Events.UI.Dialog.GenericConfirm, { dialogId: this.name, context: this._dialogContext });
+        }
+        eventBus.emit(Events.UI.Dialog.GenericConfirm, { dialogId: this.name, context: this._dialogContext });
     }
 
-    /** Handles the cancel button click */
-    handleCancel() {
-            this.hide();
+    /**
+     * Handles cancel button click.
+     * Hides dialog, calls callback, and emits event.
+     * 
+     * @return void
+     * @event Events.UI.Dialog.GenericCancel
+     * @private
+     */
+    _handleCancel() {
+        this.hide();
         if (this.cancelCallback) {
             this.cancelCallback(this._dialogContext);
-                }
-                 eventBus.emit(Events.UI.Dialog.GenericCancel, { dialogId: this.name, context: this._dialogContext });
+        }
+        eventBus.emit(Events.UI.Dialog.GenericCancel, { dialogId: this.name, context: this._dialogContext });
     }
 
     /**
      * Shows the confirmation dialog with custom text and callbacks.
-     * @param {object} options
-     * @param {string} [options.title] - Dialog title text (defaults to template).
-     * @param {string} options.message - The main confirmation message.
-     * @param {string} [options.okText] - Text for the OK button (defaults to template).
-     * @param {string} [options.cancelText] - Text for the Cancel button (defaults to template).
-     * @param {Function} [options.onConfirm] - Callback function if confirmed.
-     * @param {Function} [options.onCancel] - Callback function if cancelled.
-     * @param {any} [options.context] - Optional data to pass to callbacks and events.
+     * 
+     * @param {Object} options Configuration options
+     * @param {string} options.title Dialog title text (defaults to template)
+     * @param {string} options.message The main confirmation message
+     * @param {string} options.okText Text for the OK button (defaults to template)
+     * @param {string} options.cancelText Text for the Cancel button (defaults to template)
+     * @param {Function} options.onConfirm Callback function if confirmed
+     * @param {Function} options.onCancel Callback function if cancelled
+     * @param {any} options.context Optional data to pass to callbacks and events
+     * @return void
      */
     show({ 
         title = getTextTemplate('confirmDefaultTitle'), 
@@ -91,17 +126,17 @@ class ConfirmationDialog extends BaseDialog {
             return;
         }
 
-        this.titleElement.textContent = title;
-        this.messageElement.textContent = message;
-        this.okButton.textContent = okText;
-        this.cancelButton.textContent = cancelText;
+        this.elements.titleElement.textContent = title;
+        this.elements.messageElement.textContent = message;
+        this.elements.confirmButton.textContent = okText;
+        this.elements.cancelButton.textContent = cancelText;
 
         this.confirmCallback = onConfirm;
         this.cancelCallback = onCancel;
         this._dialogContext = context;
 
-        super.show(); // Show the modal
-        this.cancelButton.focus(); // Focus cancel by default
+        super.show({ context }); // Show the modal and pass context to Component.Shown event
+        this.elements.cancelButton.focus(); // Focus cancel by default
     }
 }
 

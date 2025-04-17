@@ -1,12 +1,7 @@
-import BaseComponent from './base-component.js';
+import RefactoredBaseComponent from './RefactoredBaseComponent.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
-
-const ANSWER_BUTTON_CLASS = 'answer-button';
-const CORRECT_CLASS = 'correct-answer';
-const INCORRECT_CLASS = 'wrong-answer';
-const SELECTED_CLASS = 'selected'; // Used for immediate feedback
 
 /**
  * Manages the display and interaction of the answer list/buttons in the game area.
@@ -14,66 +9,59 @@ const SELECTED_CLASS = 'selected'; // Used for immediate feedback
  * Emits an event when an answer is selected by the user.
  * Uses BUTTON elements directly.
  *
- * @extends BaseComponent
+ * @extends RefactoredBaseComponent
  */
-class AnswerListComponent extends BaseComponent {
-    static SELECTOR = '#answers';
+class AnswerListComponent extends RefactoredBaseComponent {
+    static SELECTOR = '#answers'; // Restored: Required by BaseComponent
     static VIEW_NAME = 'AnswerListComponent';
-
-    /** Initializes component elements. */
-    constructor() {
-        super(); // Call BaseComponent constructor
-        console.log("[AnswerListComponent] Constructed (via BaseComponent).");
-    }
+    
+    // CSS Classes
+    static ANSWER_BUTTON_CLASS = 'answer-button';
+    static CORRECT_CLASS = 'correct-answer';
+    static INCORRECT_CLASS = 'wrong-answer';
+    static SELECTED_CLASS = 'selected';
+    
+    // State properties
+    isAnswerable = false;
 
     /**
-     * Initializes the component, setting up the root element and binding methods.
+     * Initializes the component using the declarative pattern
+     * @returns {Object} Configuration object with events and domEvents
      */
     initialize() {
-        console.log(`[${this.name}] Initializing...`);
-        this.listElement = this.rootElement; 
-        if (!this.listElement) {
-             throw new Error(`[${this.name}] Root element not found with selector: ${this.selector}`);
-        }
-        this._clearAnswers(); // Initial state
-        
-        // --- BIND ALL METHODS HERE --- 
-        console.log(`[${this.name}] Binding methods in initialize...`);
-        this._handleQuestionNew = this._handleQuestionNew.bind(this);
-        
-        // --- Ensure exact name match for the failing bind --- 
-        this._handleAnswerClick = this._handleAnswerClick.bind(this); 
-        // --- End exact name check --- 
-
-        this._handleTimeUp = this._handleTimeUp.bind(this);
-        this._handleFeedback = this._handleFeedback.bind(this); 
-        this._handleGameFinished = this._handleGameFinished.bind(this);
-        this._handleKeyDown = this._handleKeyDown.bind(this);
-        console.log(`[${this.name}] Methods bound in initialize.`);
-        
-        console.log(`[${this.name}] Initialized.`);
-    }
-
-    /**
-     * Registers DOM listeners and eventBus listeners using pre-bound methods.
-     */
-    registerListeners() {
-        console.log(`[${this.name}] Registering listeners.`);
-        
-        // DOM Listeners (Event delegation on root)
-        if (this.listElement) {
-             this.listElement.addEventListener('click', this._handleAnswerClick); // Uses bound method
-             this.listElement.addEventListener('keydown', this._handleKeyDown);   // Uses bound method
-        }
-        
-        // eventBus Listeners (Uses bound methods via this.listen)
-        this.listen(Events.Game.QuestionNew, this._handleQuestionNew);
-        this.listen(Events.Game.AnswerChecked, this._handleFeedback);
-        this.listen(Events.Multiplayer.Client.AnswerResult, this._handleFeedback);
-        this.listen(Events.Game.TimeUp, this._handleTimeUp);
-        this.listen(Events.Game.Finished, this._handleGameFinished);
-        
-        console.log(`[${this.name}] Listeners registered.`);
+        return {
+            events: [
+                {
+                    eventName: Events.Game.QuestionNew,
+                    callback: this._handleQuestionNew
+                },
+                {
+                    eventName: Events.Game.AnswerChecked,
+                    callback: this._handleFeedback
+                },
+                {
+                    eventName: Events.Game.TimeUp,
+                    callback: this._handleTimeUp
+                },
+                {
+                    eventName: Events.Game.Finished,
+                    callback: this._handleGameFinished
+                }
+            ],
+            
+            domEvents: [
+                {
+                    selector: this.selector, // Reverted to use component's root selector
+                    event: 'click',
+                    handler: this._handleAnswerClick
+                },
+                {
+                    selector: this.selector, // Reverted to use component's root selector
+                    event: 'keydown',
+                    handler: this._handleKeyDown
+                }
+            ]
+        };
     }
 
     /**
@@ -86,17 +74,16 @@ class AnswerListComponent extends BaseComponent {
     _handleKeyDown(event) {
         if (!this.isAnswerable) return; 
 
-        // *** CHANGE: Target buttons instead of li items ***
-        const items = Array.from(this.rootElement.querySelectorAll(`button.${ANSWER_BUTTON_CLASS}:not([disabled])`)); 
+        // Target buttons instead of li items
+        const items = Array.from(this.rootElement.querySelectorAll(`button.${AnswerListComponent.ANSWER_BUTTON_CLASS}:not([disabled])`)); 
         if (items.length === 0) return; 
 
         const currentItem = document.activeElement;
         // Check if the focused element is one of our buttons
         let currentIndex = -1;
-        if (currentItem && currentItem.matches(`button.${ANSWER_BUTTON_CLASS}`)) {
+        if (currentItem && currentItem.matches(`button.${AnswerListComponent.ANSWER_BUTTON_CLASS}`)) {
              currentIndex = items.indexOf(currentItem);
         }
-
 
         switch (event.key) {
             case 'ArrowUp':
@@ -114,8 +101,8 @@ class AnswerListComponent extends BaseComponent {
             case 'Enter':
             case ' ': // Space bar
                 event.preventDefault();
-                 // *** CHANGE: Check if currentItem is a button ***
-                if (currentItem && currentItem.matches(`button.${ANSWER_BUTTON_CLASS}`) && !currentItem.disabled) {
+                // Check if currentItem is a button
+                if (currentItem && currentItem.matches(`button.${AnswerListComponent.ANSWER_BUTTON_CLASS}`) && !currentItem.disabled) {
                     this._submitAnswer(currentItem); // Pass the button element
                 }
                 break;
@@ -129,9 +116,9 @@ class AnswerListComponent extends BaseComponent {
      *
      * @param {Event} event - The click event object.
      */
-    _handleAnswerClick(event) { // <<< Ensure name matches exactly
+    _handleAnswerClick(event) {
         if (!this.isAnswerable) return; 
-        const answerButton = event.target.closest(`button.${ANSWER_BUTTON_CLASS}`); 
+        const answerButton = event.target.closest(`button.${AnswerListComponent.ANSWER_BUTTON_CLASS}`); 
         if (!answerButton || answerButton.disabled) return;
         this._submitAnswer(answerButton);
     }
@@ -141,17 +128,17 @@ class AnswerListComponent extends BaseComponent {
      * Adapted for BUTTON elements.
      *
      * @param {HTMLButtonElement} answerButton - The selected button element.
+     * @event Events.UI.GameArea.AnswerSubmitted
      * @private
      */
     _submitAnswer(answerButton) {
         const selectedAnswer = answerButton.dataset.answer;
-        console.debug(`[${this.name}] Answer selected:`, selectedAnswer);
 
         this.isAnswerable = false; // Disable further answers
         this.disableInteraction(); // Disable all buttons visually/functionally
 
         // Add a 'selected' class immediately for visual feedback
-        answerButton.classList.add(SELECTED_CLASS);
+        answerButton.classList.add(AnswerListComponent.SELECTED_CLASS);
         
         eventBus.emit(Events.UI.GameArea.AnswerSubmitted, { answer: selectedAnswer });
     }
@@ -164,22 +151,17 @@ class AnswerListComponent extends BaseComponent {
      * @param {string[]} payload.questionData.answers - Array of answer strings.
      */
     _handleQuestionNew({ questionData }) {
-        // --- REPLACE Template Logic with Button Creation ---
-        console.debug(`[${this.name}] Displaying new answer buttons.`);
         this._clearAnswers(); // Clear previous buttons
-        
-        if (!this.rootElement) return; 
 
         if (!questionData.answers || !Array.isArray(questionData.answers)) {
-             console.warn(`[${this.name}] Invalid or missing answers in QuestionNew payload.`);
              this.isAnswerable = false;
              return;
         }
 
         questionData.answers.forEach(answerText => {
-            // *** CORE CHANGE: Create button instead of cloning template ***
+            // Create button instead of cloning template
             const button = document.createElement('button');
-            button.classList.add(ANSWER_BUTTON_CLASS); 
+            button.classList.add(AnswerListComponent.ANSWER_BUTTON_CLASS); 
             button.dataset.answer = answerText; 
             button.textContent = answerText;   
             button.disabled = false; // Start enabled
@@ -187,132 +169,84 @@ class AnswerListComponent extends BaseComponent {
 
             this.rootElement.appendChild(button); 
         });
-        // --- END REPLACE ---
 
         this.isAnswerable = true; // Enable clicks/keys for the new set of answers
         this.show(); // Ensure component is visible
 
         // Focus the first answer button for keyboard users
-        const firstButton = this.rootElement.querySelector(`button.${ANSWER_BUTTON_CLASS}`);
+        const firstButton = this.rootElement.querySelector(`button.${AnswerListComponent.ANSWER_BUTTON_CLASS}`);
         if (firstButton) {
-            // Use try-catch for focus as element might be hidden transiently
             try {
-                 firstButton.focus();
+                firstButton.focus();
             } catch (e) {
-                console.warn(`[${this.name}] Could not focus first answer button.`, e)
+                // Focus may fail if element is hidden
             }
-        }
-    }
-    
-    /**
-     * Clears existing answer buttons.
-     * @protected
-     */
-    _clearAnswers() {
-        if (this.rootElement) {
-            this.rootElement.innerHTML = ''; 
-            this.rootElement.classList.remove('answered', 'feedback-shown'); 
         }
     }
 
     /**
-     * Unified handler for providing visual feedback on answer buttons.
-     * Handles payloads from both Events.Game.AnswerChecked and multiplayer:client:answerResult.
+     * Clears all answer buttons from the container.
+     */
+    _clearAnswers() {
+        this.rootElement.innerHTML = ''; // Reverted: Remove guard clause
+    }
+
+    /**
+     * Handles feedback after answer submission.
+     * Adds visual classes to indicate correctness.
      *
      * @param {object} payload - The event payload.
      * @param {boolean} payload.isCorrect - Whether the submitted answer was correct.
      * @param {string} payload.correctAnswer - The correct answer text.
-     * @param {any} [payload.submittedAnswer] - The answer submitted (may not be present in MP payload).
-     * @private
+     * @param {string} payload.submittedAnswer - The submitted answer text.
      */
     _handleFeedback({ isCorrect, correctAnswer, submittedAnswer }) {
-        // submittedAnswer might be undefined in the MP event, but we don't strictly need it
-        // if we rely on the 'selected' class added during _submitAnswer.
-
-        if (!this.rootElement) return;
+        const buttons = this.rootElement.querySelectorAll(`button.${AnswerListComponent.ANSWER_BUTTON_CLASS}`);
         
-        // Use submittedAnswer from payload if available, otherwise find the 'selected' button
-        let submittedButton = null;
-        if (submittedAnswer !== undefined) {
-             // Use strict comparison, ensuring consistent types (string)
-             submittedButton = this.rootElement.querySelector(`button.${ANSWER_BUTTON_CLASS}[data-answer="${String(submittedAnswer)}"]`);
-        } else {
-             submittedButton = this.rootElement.querySelector(`button.${ANSWER_BUTTON_CLASS}.${SELECTED_CLASS}`);
-        }
-
-        console.debug(`[${this.name}] Handling feedback. Correct: ${isCorrect}, Correct Ans: ${correctAnswer}, Submitted Ans: ${submittedAnswer}`);
-        this.rootElement.classList.add('feedback-shown'); 
-
-        const buttons = this.rootElement.querySelectorAll(`button.${ANSWER_BUTTON_CLASS}`);
+        // Apply respective classes to correct and incorrect answers
         buttons.forEach(button => {
-            const buttonAnswer = button.dataset.answer; // This is always a string
-            button.disabled = true; 
-            button.classList.remove(SELECTED_CLASS); // Remove selection highlight after processing
-
-            // Use strict comparison for correct answer (convert correctAnswer to string if needed)
-            const isButtonCorrectAnswer = String(buttonAnswer) === String(correctAnswer);
-
-            if (button === submittedButton) {
-                // This is the button the user clicked (or the one from the payload)
-                 button.classList.add(isCorrect ? CORRECT_CLASS : INCORRECT_CLASS);
-                 console.log(`Button ${buttonAnswer} was submitted. Correct: ${isCorrect}. Added class: ${isCorrect ? CORRECT_CLASS : INCORRECT_CLASS}`);
+            const buttonAnswer = button.dataset.answer;
+            
+            if (buttonAnswer === correctAnswer) {
+                button.classList.add(AnswerListComponent.CORRECT_CLASS);
+            } else if (buttonAnswer === submittedAnswer) {
+                button.classList.add(AnswerListComponent.INCORRECT_CLASS);
             }
             
-            // Always highlight the correct answer green, even if submitted was wrong
-            if (isButtonCorrectAnswer) {
-                button.classList.add(CORRECT_CLASS);
-                // Avoid adding 'incorrect' if it happened to be the correct one submitted incorrectly
-                 button.classList.remove(INCORRECT_CLASS); 
-                 console.log(`Button ${buttonAnswer} is the correct answer. Added class: ${CORRECT_CLASS}`);
-            }
+            // Remove the temporary 'selected' class if present
+            button.classList.remove(AnswerListComponent.SELECTED_CLASS);
         });
         
-        this.isAnswerable = false; 
+        // Disable further interaction
+        this.disableInteraction();
     }
 
     /**
-     * Disables all answer buttons.
+     * Disables interaction with answer buttons.
      */
     disableInteraction() {
-        if (!this.rootElement) return;
-        const buttons = this.rootElement.querySelectorAll(`button.${ANSWER_BUTTON_CLASS}`);
-        buttons.forEach(button => button.disabled = true);
+        const buttons = this.rootElement.querySelectorAll(`button.${AnswerListComponent.ANSWER_BUTTON_CLASS}`);
+        buttons.forEach(button => {
+            button.disabled = true;
+        });
+        this.isAnswerable = false;
     }
 
     /**
-     * Overrides base destroy method to remove specific DOM listeners.
-     */
-    destroy() {
-        // Ensure specific DOM listeners are removed if added directly (like keydown)
-        // BaseComponent handles listeners added via this.listen() and addEventListener in registerListeners
-        if (this.listElement) {
-            this.listElement.removeEventListener('click', this._handleAnswerClick);
-            this.listElement.removeEventListener('keydown', this._handleKeyDown);
-        }
-        super.destroy(); 
-        console.log(`[${this.name}] Destroyed.`);
-    }
-
-    /** 
-     * Handles the game time running out and disables interaction.
-     * @private 
+     * Handles when time runs out for a question without an answer.
      */
     _handleTimeUp() {
-        console.debug(`[${this.name}] Time up.`);
-        this.isAnswerable = false;
         this.disableInteraction();
-        // Optionally add visual feedback for time up
     }
 
     /**
-     * Handles the game finishing and clears the answers.
-     * @private
+     * Handles the game finishing event.
+     * Clears all answers and hides the component.
      */
     _handleGameFinished() {
-        console.debug(`[${this.name}] Game finished.`);
+        this.disableInteraction(); // Ensure buttons disabled
         this._clearAnswers();
-        this.isAnswerable = false;
-        // Component might be hidden by GameArea or UIManager anyway
+        this.hide();
     }
 }
 

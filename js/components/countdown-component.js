@@ -1,4 +1,4 @@
-import BaseComponent from './base-component.js';
+import RefactoredBaseComponent from './RefactoredBaseComponent.js';
 import eventBus from '../core/event-bus.js';
 import Events from '../core/event-constants.js';
 import Views from '../core/view-constants.js';
@@ -6,40 +6,52 @@ import { getTextTemplate } from '../utils/miscUtils.js';
 
 /**
  * @class CountdownComponent
- * @extends BaseComponent
- * Displays the 3..2..1 countdown before a game starts.
+ * @extends RefactoredBaseComponent
+ * Displays the 5..4..3..2..1 countdown before a game starts.
  */
-class CountdownComponent extends BaseComponent {
+class CountdownComponent extends RefactoredBaseComponent {
     static SELECTOR = '#countdown';
     static VIEW_NAME = 'Countdown';
+    
+    static SELECTORS = {
+        TEXT: '#countdownText'
+    };
+    
+    // State properties
+    intervalId = null;
+    currentCount = 0;
+    completionCallback = null;
 
-    /** Initializes component elements. */
+    /** 
+     * Initializes the component using the declarative pattern
+     * @returns {Object} Configuration object with events, domEvents, and domElements
+     */
     initialize() {
-        this.countdownText = this.rootElement.querySelector('#countdownText');
-        if (!this.countdownText) {
-            console.error(`[${this.name}] Missing required child element #countdownText.`);
-        }
-        this.intervalId = null;
-        this.currentCount = 0;
-        this.completionCallback = null;
-        this.hide(); // Start hidden
-        console.log(`[${this.name}] Initialized.`);
-
-        // Listen for an event to trigger the countdown
-        this.listen(Events.Game.CountdownStart, this.handleCountdownStart); 
-        // Listen for game end events to stop countdown if it's running
-        this.listen(Events.Game.Finished, this.stopCountdown);
-        // Assuming an Aborted or Leave event exists that GameCoordinator/BaseGameMode might emit
-        this.listen(Events.Game.Aborted, this.stopCountdown); // Add listener for abort
-    }
-
-    /** Registers DOM listeners (none needed). */
-    registerListeners() {
-        console.log(`[${this.name}] Registering DOM listeners (none).`);
-    }
-    /** Unregisters DOM listeners (none needed). */
-    unregisterListeners() {
-        console.log(`[${this.name}] Unregistering DOM listeners (none).`);
+        return {
+            events: [
+                {
+                    eventName: Events.Game.CountdownStart,
+                    callback: this.handleCountdownStart
+                },
+                {
+                    eventName: Events.Game.Finished,
+                    callback: this.stopCountdown
+                },
+                {
+                    eventName: Events.Game.Aborted,
+                    callback: this.stopCountdown
+                }
+            ],
+            
+            domEvents: [], // No DOM events to handle
+            
+            domElements: [
+                {
+                    name: 'countdownText',
+                    selector: CountdownComponent.SELECTORS.TEXT
+                }
+            ]
+        };
     }
 
     /**
@@ -49,7 +61,6 @@ class CountdownComponent extends BaseComponent {
      * @private
      */
     handleCountdownStart(payload = {}) {
-        console.log(`[${this.name}] handleCountdownStart called with payload:`, payload);
         const duration = payload.duration && typeof payload.duration === 'number' ? payload.duration : 3;
         // Define end message and completion event if needed, or pass from payload
         const endMessage = payload.endMessage || getTextTemplate('countdownGo');
@@ -59,41 +70,46 @@ class CountdownComponent extends BaseComponent {
 
     /**
      * Starts the countdown sequence.
-     * @param {number} [duration=3] - Countdown duration in seconds.
+     * @param {number} [duration=5] - Countdown duration in seconds.
      * @param {string} [endMessage] - Message to display after countdown (defaults to template value).
      * @param {string} [completionEvent] - Optional event to emit when countdown finishes.
+     * @event Dynamic - Emits the event specified in completionEvent parameter when countdown completes
      */
-    startCountdown(duration = 3, endMessage, completionEvent = null) {
+    startCountdown(duration = 5, endMessage, completionEvent = null) {
         // Fetch default end message from template if not provided
         const finalEndMessage = endMessage !== undefined ? endMessage : getTextTemplate('countdownGo');
 
         if (this.intervalId) clearInterval(this.intervalId); // Clear existing interval
 
-        console.log(`[${this.name}] Starting countdown from ${duration}...`);
         let remaining = duration;
 
-        // Use the inner span to display the text
-        if (this.countdownText) { 
-            this.countdownText.textContent = remaining;
-        } else {
-             console.error(`[${this.name}] countdownText element not found in startCountdown!`);
-        }
+        // Update the text display
+        this.elements.countdownText.textContent = remaining;
+        
+        // Make sure the countdown is visible and prominent
+        this.rootElement.classList.remove('hidden');
+      
+        console.log(`[${this.constructor.name}] Countdown started with duration: ${duration}s`);
+        
         this.show(); // Make countdown visible
 
         this.intervalId = setInterval(() => {
             remaining--;
             if (remaining > 0) {
-                // Use the inner span
-                if (this.countdownText) this.countdownText.textContent = remaining;
+                this.elements.countdownText.textContent = remaining;
+                console.log(`[${this.constructor.name}] Countdown: ${remaining}s remaining`);
             } else {
                 clearInterval(this.intervalId);
                 this.intervalId = null;
-                // Use the inner span
-                if (this.countdownText) this.countdownText.textContent = finalEndMessage; 
-                console.log(`[${this.name}] Countdown finished.`);
+                this.elements.countdownText.textContent = finalEndMessage; 
+                console.log(`[${this.constructor.name}] Countdown finished: "${finalEndMessage}"`);
 
                 // Hide after a brief moment
-                setTimeout(() => this.hide(), 1000);
+                setTimeout(() => {
+                    this.hide();
+                    this.rootElement.style.zIndex = ''; // Reset z-index
+                    console.log(`[${this.constructor.name}] Countdown hidden`);
+                }, 1000);
 
                 // Emit completion event if specified
                 if (completionEvent) {
@@ -103,21 +119,42 @@ class CountdownComponent extends BaseComponent {
         }, 1000); // Update every second
     }
 
-    /** Stops any active countdown. */
+    /** 
+     * Stops any active countdown. 
+     */
     stopCountdown() {
         if (this.intervalId) {
             clearInterval(this.intervalId);
             this.intervalId = null;
-            console.log(`[${this.name}] Countdown stopped.`);
             this.hide();
         }
     }
 
-    // Override destroy to clear interval
+    /**
+     * Override destroy to clear interval
+     * @override
+     */
     destroy() {
-        console.log(`[${this.name}] Destroying...`);
         this.stopCountdown();
         super.destroy();
+    }
+
+    /**
+     * Override show to make sure the component is visible and positioned properly.
+     * @override
+     */
+    show() {
+        super.show();
+        
+        // Make sure the countdown is clearly visible
+        if (this.rootElement) {
+            this.rootElement.style.display = 'flex';
+            this.rootElement.style.justifyContent = 'center';
+            this.rootElement.style.alignItems = 'center';
+            this.rootElement.style.position = 'fixed';
+            this.rootElement.style.zIndex = '9999';
+            console.log(`[${this.constructor.name}] Ensuring countdown is visible and prominent`);
+        }
     }
 }
 

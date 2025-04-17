@@ -3,8 +3,8 @@
  */
 export const MSG_TYPE = {
     // Internal WebRTC Manager types
-    PING: '__ping__',
-    PONG: '__pong__',
+    PING: 'kwek',
+    PONG: 'kwaak',
 
     // Connection Lifecycle / Info
     CLIENT_HELLO: 'client_hello', // Client -> Host: Announce presence and name
@@ -15,6 +15,7 @@ export const MSG_TYPE = {
 
     // Lobby Phase Messages (Client -> Host)
     C_REQUEST_JOIN: 'c_requestJoin', // Client -> Host: Request to formally join after getting GAME_INFO
+    C_UPDATE_NAME: 'c_updateName',   // Client -> Host: Update player name in lobby
 
     // Game Phase Messages
     GAME_START: 'game_start', // Host -> Client(s): Signal game begin
@@ -29,12 +30,9 @@ export const MSG_TYPE = {
     // --- NEW TYPES ---
     C_SCORE_UPDATE: 'c_scoreUpdate',       // Client -> Host (During game)
     H_PLAYER_SCORES_UPDATE: 'h_player_scores_update',
-    H_START_GAME_LOGIC: 'h_start_game_logic', // Host signals clients to start core game logic
+    H_START_MULTIPLAYER_GAME: 'h_start_multiplayer_game', // Host signals clients to start core game logic
     // --- END NEW TYPES ---
 
-    // Internal / Ping
-    PING: '__ping__',
-    PONG: '__pong__',
 };
 
 // Optional: Add a check for duplicate values if desired during development
