@@ -62,14 +62,35 @@ export default class BaseComponent {
      * Does nothing if the element is already visible.
      */
     show(data = {}) {
+        console.debug(`[${this.name}] Attempting to show. Current isVisible: ${this.isVisible}`);
+        console.debug(`[${this.name}] Root element:`, this.rootElement);
+        if (!this.rootElement) {
+            console.error(`[${this.name}] Cannot show, rootElement is null or undefined.`);
+            return;
+        }
+
         if (!this.isVisible) {
+            console.debug(`[${this.name}] Removing hidden class from:`, this.rootElement);
             this.rootElement.classList.remove(HIDDEN_CLASS);
+            console.log(`[${this.name}] CHECK: classList after remove:`, this.rootElement.className); 
+            if (this.rootElement.classList.contains(HIDDEN_CLASS)) {
+                console.error(`[${this.name}] URGENT: hidden class STILL PRESENT immediately after classList.remove!`);
+            } else {
+                 console.log(`[${this.name}] CHECK: hidden class successfully removed (at this moment).`);
+            }
             this.isVisible = true;
             
+            // Special handling for <dialog> elements - Use BaseDialog for this!
+            // if (this.rootElement instanceof HTMLDialogElement) { ... }
+
             // Lazy initialize elements when shown if configured with lazyInit
             this._lazyInitializeElements();
             
             console.info(`Show: ${this.name}`);
+            // Emit Component.Shown event
+            eventBus.emit(Events.Component.Shown, { component: this, componentName: this.name, data });
+        } else {
+            console.debug(`[${this.name}] Already visible. Skipping show logic.`);
         }
     }
 

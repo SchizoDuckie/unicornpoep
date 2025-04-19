@@ -41,6 +41,10 @@ class MultiplayerHostGame extends BaseGameMode {
         this.isGameOverBroadcast = false; // Prevent multiple GAME_OVER broadcasts.
         this.playersMap = new Map(); // Store the latest player data map here
 
+        // *** ADD TIMER INITIALIZATION FOR HOST GAMEPLAY ***
+        const hostDurationMs = BaseGameMode.DIFFICULTY_DURATIONS_MS[this.difficulty] || BaseGameMode.DIFFICULTY_DURATIONS_MS.medium;
+        this.timer = new Timer(hostDurationMs / 1000);
+
         // Initialize host score in the map (score will be updated later if host plays)
         // We need a placeholder for the host to check completion correctly.
         this.clientScores.set(this.hostPeerId, null); 
@@ -48,6 +52,9 @@ class MultiplayerHostGame extends BaseGameMode {
         this.playersMap.set(this.hostPeerId, { name: localPlayerName, isHost: true });
         
         this._registerHostListeners();
+        // *** REGISTER TIMER LISTENERS ***
+        this._registerTimerListeners(); 
+
         console.log("[MultiplayerHostGame] Host Initialized.");
         // Call the renamed initialization method
         this.initializeHostGame();
@@ -366,9 +373,7 @@ class MultiplayerHostGame extends BaseGameMode {
         this.clientScores.set(this.hostPeerId, null); // Add host
         this._initializeOrUpdatePlayerScoreTracking(); // Ensure consistency
 
-        // Emit Game Started event *locally* for the host instance
-        eventBus.emit(Events.Game.Started, { mode: this.mode, settings: this.settings });
-        console.log("[MultiplayerHostGame] Host Game Started event emitted locally.");
+        console.log("[MultiplayerHostGame] Host Game Initialized (state set, no Game.Started event yet).");
         
         // Do not broadcast GAME_START here. Host waits for explicit trigger.
         // Do not broadcast initial scores here yet, wait for PlayerListUpdated from Manager.
@@ -470,13 +475,6 @@ class MultiplayerHostGame extends BaseGameMode {
         this._cleanupHostListeners(); // Clean up host-specific listeners
     }
     
-    /** Host doesn't call nextQuestion in the same way. */
-    nextQuestion() {
-        // Host logic doesn't cycle through questions locally for gameplay.
-        // It might track current question index for context, but doesn't present questions to itself.
-        console.log("[MultiplayerHostGame] Host nextQuestion called - No local action taken.");
-    }
-
     /**
      * Sends the current game state to a late joiner so they can catch up.
      * This includes the current question and the latest scores.
@@ -512,18 +510,69 @@ class MultiplayerHostGame extends BaseGameMode {
     // --- Host starts its actual game logic here ---
     // Needs to be called after the countdown delay in startGameSequence
     start() {
-         if (this.isStarted || this.isFinished) {
-             console.warn("[MultiplayerHostGame] Start called but game already started or finished.");
+         if (this.isFinished) { 
+             console.warn("[MultiplayerHostGame] Start called but game already finished.");
              return;
          }
-         console.log("[MultiplayerHostGame] Host logic started.");
-         this.isStarted = true;
-         // Emit Game Started locally
-         eventBus.emit(Events.Game.Started, { mode: this.mode, settings: this.settings });
+         console.log("[MultiplayerHostGame] Host logic started (post-countdown).");
+         
+         eventBus.emit(Events.Game.Started, {
+             mode: this.mode,
+             settings: this.settings
+         });
+         console.log("[MultiplayerHostGame] Game Started event emitted (post-countdown).");
+
+         // *** START TIMER FOR HOST ***
+         if (this.timer) {
+            this.timer.start();
+         } else {
+            console.error("[MultiplayerHostGame] Cannot start timer in start() - timer not initialized!");
+         }
+
+         // *** CALL INHERITED nextQuestion from BaseGameMode ***
+         super.nextQuestion(); 
     }
 
     // Implement other necessary BaseGameMode methods or overrides if needed...
     // e.g., _calculateScore might not be used if host doesn't answer questions.
+
+    // Ensure no overrides for _beforeNextQuestion, _afterQuestionPresented, _beforeFinish ...
+
+    // *** ADD TIMER LISTENER REGISTRATION METHOD ***
+    /** [Host Only] Registers timer-specific event listeners. @private */
+    _registerTimerListeners() {
+        if (!this.timer) return;
+        this._boundHandleTimerTick = this._handleTimerTick.bind(this);
+        this._boundHandleTimeUp = this._handleTimeUp.bind(this);
+        this.timer.on('tick', this._boundHandleTimerTick);
+        this.timer.on('end', this._boundHandleTimeUp);
+        console.log(`[MultiplayerHostGame] Registered timer listeners.`);
+    }
+
+    // *** ADD TIMER EVENT HANDLERS ***
+    /** [Host Only] Handles timer ticks, emitting the TimeTick event. @private */
+    _handleTimerTick(remainingTimeMs) {
+        if (this.isFinished) return;
+        eventBus.emit(Events.Game.TimeTick, { remainingTimeMs: remainingTimeMs });
+    }
+
+    /** [Host Only] Handles the timer running out. @private */
+    _handleTimeUp() {
+        if (this.isFinished || this.lastAnswerCorrect !== null) return; 
+        const currentIndex = this.currentQuestionIndex;
+        console.log(`[MultiplayerHostGame] Time's up for question ${currentIndex + 1}`);
+        eventBus.emit(Events.Game.TimeUp);
+        const correctAnswer = this.quizEngine.getCorrectAnswer(currentIndex);
+        const scoreDelta = this._calculateScore(false); 
+        this.lastAnswerCorrect = false; 
+        eventBus.emit(Events.Game.AnswerChecked, {
+            isCorrect: false, scoreDelta: scoreDelta,
+            correctAnswer: correctAnswer, submittedAnswer: null 
+        });
+        this._afterAnswerChecked(false, scoreDelta); // Update host score
+        // Use BaseGameMode's logic for advancing after timeout
+        setTimeout(() => { if (!this.isFinished) { super.nextQuestion(); } }, 1500); 
+    }
 }
 
 export default MultiplayerHostGame; 

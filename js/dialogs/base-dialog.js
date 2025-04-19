@@ -92,6 +92,9 @@ export default class BaseDialog extends RefactoredBaseComponent {
             } 
             this.rootElement.classList.add('hidden'); 
             this.isVisible = false; // Ensure state is false even if wasn't open
+            if (this.rootElement.hasAttribute('open')) {
+                this.rootElement.removeAttribute('open');
+            }
         } 
         // No warning if already closed, as hide() might be called defensively.
     }

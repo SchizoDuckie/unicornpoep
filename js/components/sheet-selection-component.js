@@ -151,7 +151,7 @@ class SheetSelectionComponent extends RefactoredBaseComponent {
             }
 
             const fragment = document.createDocumentFragment();
-            allSheets.forEach(sheet => {
+            allSheets.forEach((sheet, index) => {
                 const label = document.createElement('label');
                 const checkbox = document.createElement('input');
                 
@@ -159,6 +159,11 @@ class SheetSelectionComponent extends RefactoredBaseComponent {
                 checkbox.value = sheet.id;
                 checkbox.id = `sheet-${sheet.id}`;
                 checkbox.dataset.sheetName = sheet.name;
+                
+                // Just set the index for animation staggering, avoiding setting a conflicting view-transition-name
+                // The CSS already sets view-transition-name: sheet-checkbox;
+                label.style.setProperty('--index', index);
+                label.dataset.sheetIndex = index; // Add a unique data-attribute for identification
                 
                 // Add direct event listener to ensure it works
                 checkbox.addEventListener('change', (e) => {
@@ -272,7 +277,7 @@ class SheetSelectionComponent extends RefactoredBaseComponent {
      * @private
      */
     _handleStartClick() {
-        debugger;
+
         if (this.selectedSheets.size === 0) {
             return;
         }

@@ -153,22 +153,25 @@ class SinglePlayerGame extends BaseGameMode {
         if (this.isFinished) return;
         console.log(`[SinglePlayerGame] Finishing game...`);
         
-        // Get base results (includes score)
-        const baseResults = super._getFinalResults({}); 
+        // --- FIX: Get the full results object using the local override ---
+        // This object will contain the score added by the overridden method
+        const fullResults = this._getFinalResults({}); 
 
         // 1. Generate Game Name
         const gameName = this.settings.sheetIds && this.settings.sheetIds.length > 0
             ? this.settings.sheetIds.join(', ')
             : "Onbekende Oefening"; 
 
-        // 2. Check Highscore Eligibility
+        // 2. Check Highscore Eligibility (Use score from fullResults)
         let isEligible = false;
         try {
+            // Use score from the results object that includes it
+            const scoreToCheck = fullResults.score !== undefined ? fullResults.score : 0; 
             if (typeof this.highscoreManager.isNewHighScore === 'function') {
                  isEligible = this.highscoreManager.isNewHighScore(
                      gameName,
                      this.difficulty,
-                     baseResults.score
+                     scoreToCheck // Use score from the correct results object
                  );
             } else {
                 console.error("[SinglePlayerGame] HighscoreManager or isNewHighScore method missing!");
@@ -177,25 +180,24 @@ class SinglePlayerGame extends BaseGameMode {
              console.error("[SinglePlayerGame] Error checking highscore eligibility:", error);
         }
 
-        // 3. Construct Dialog Data
+        // 3. Construct Dialog Data (Use fullResults)
         const dialogData = {
-            ...baseResults,
-            gameName: gameName,
-            difficulty: this.difficulty,
+            ...fullResults, // <<< Spread the object that contains the score
+            gameName: gameName, // Can be overwritten if needed, but likely consistent
+            difficulty: this.difficulty, // Can be overwritten if needed
             eligibleForHighscore: isEligible, // Use calculated value
-            mode: 'single' // Keep mode info for the dialog
+            mode: 'single' // Ensure mode is correctly set
         };
 
         // 4. Emit Navigation Event for Dialog BEFORE marking as finished
-        // This ensures our data is preserved and won't be overwritten by any GameCoordinator cleanup
-        console.log(`[SinglePlayerGame] Requesting UIManager show Single Player End Dialog.`);
+        // Add logging to see the data being sent
+        console.log(`[SinglePlayerGame] Requesting UIManager show Single Player End Dialog. Data:`, JSON.stringify(dialogData)); 
         eventBus.emit(Events.Navigation.ShowView, {
             viewName: Views.SinglePlayerEndDialog,
-            data: dialogData
+            data: dialogData // Pass the object containing the score
         });
 
         // 5. Call Base Finish (performs cleanup, sets isFinished flag) AFTER dialog navigation event
-        // This ensures the coordinator won't run it's cleanup before our dialog is shown
         super.finishGame(); 
     }
 }

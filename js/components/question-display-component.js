@@ -18,6 +18,10 @@ class QuestionDisplayComponent extends RefactoredBaseComponent {
         return {
             events: [
                 {
+                    eventName: Events.Game.Started,
+                    callback: this.show
+                },
+                {
                     eventName: Events.Game.QuestionNew,
                     callback: this._handleQuestionNew
                 },
@@ -29,6 +33,15 @@ class QuestionDisplayComponent extends RefactoredBaseComponent {
             
             domEvents: [] // No DOM events to handle
         };
+    }
+
+    show() {
+        this.rootElement.classList.remove('hidden');
+    }
+
+    hide() {
+       this.rootElement.classList.add('hidden');
+      //  debugger;
     }
 
     /**

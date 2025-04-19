@@ -228,14 +228,15 @@ class PlayerListComponent extends RefactoredBaseComponent {
      * @private
      */
     _handleGameStart({ mode }) {
-        // Show for multiplayer modes, hide for single player
-        if (mode === 'multiplayer-host' || mode === 'multiplayer-client') {
-            console.log(`[${this.name}] Game started in ${mode} mode. Showing player list.`);
-            this.show();
-        } else {
-            console.log(`[${this.name}] Game started in ${mode} mode. Hiding player list.`);
-            this.hide();
-        }
+        console.log(`[PlayerListComponent] handleGameStarted received. Mode: ${mode}`);
+        // REMOVED: Do not call this.show() here. UIManager will handle it.
+        // if (mode === 'multiplayer-host' || mode === 'multiplayer-client') {
+        //     console.log(`[PlayerListComponent] Showing player list for mode: ${mode}`);
+        //     this.show();
+        // } else {
+        //     console.log(`[PlayerListComponent] Hiding player list for mode: ${mode}`);
+        //     this.hide();
+        // }
     }
 
     /**

@@ -125,36 +125,31 @@ class QuizEngine {
         this.settings = { sheetIds, difficulty };
         this.questions = [];
         this.correctAnswerCount = 0;
-
-        eventBus.emit(Events.System.LoadingStart, { message: getTextTemplate('qeLoading') });
-        try {
-            let allLoadedQuestions = [];
-            for (const sheetId of sheetIds) {
-                try {
-                    const sheetQuestions = await questionsManager.getQuestionsForSheet(sheetId);
-                    if (sheetQuestions && sheetQuestions.length > 0) {
-                        const processedQuestions = sheetQuestions.map(q => ({ ...q, sheetId: q.sheetId || sheetId }));
-                        allLoadedQuestions = allLoadedQuestions.concat(processedQuestions);
-                        console.log(`[QuizEngine Instance] Loaded ${sheetQuestions.length} questions from ${sheetId}`);
-                    } else {
-                        console.warn(`[QuizEngine Instance] No questions found or loaded for sheet: ${sheetId}`);
-                    }
-                } catch (error) {
-                    console.error(`[QuizEngine Instance] Error processing questions from sheet ${sheetId}:`, error);
-                    throw error;
+    
+        let allLoadedQuestions = [];
+        for (const sheetId of sheetIds) {
+            try {
+                const sheetQuestions = await questionsManager.getQuestionsForSheet(sheetId);
+                if (sheetQuestions && sheetQuestions.length > 0) {
+                    const processedQuestions = sheetQuestions.map(q => ({ ...q, sheetId: q.sheetId || sheetId }));
+                    allLoadedQuestions = allLoadedQuestions.concat(processedQuestions);
+                    console.log(`[QuizEngine Instance] Loaded ${sheetQuestions.length} questions from ${sheetId}`);
+                } else {
+                    console.warn(`[QuizEngine Instance] No questions found or loaded for sheet: ${sheetId}`);
                 }
+            } catch (error) {
+                console.error(`[QuizEngine Instance] Error processing questions from sheet ${sheetId}:`, error);
+                throw error;
             }
-
-            if (allLoadedQuestions.length === 0) {
-                throw new Error(getTextTemplate('qeLoadError'));
-            }
-
-            this.questions = arrayUtils.shuffleArray(allLoadedQuestions);
-            console.log(`[QuizEngine Instance] Total ${this.questions.length} questions loaded and shuffled.`);
-
-        } finally {
-            eventBus.emit(Events.System.LoadingEnd);
         }
+
+        if (allLoadedQuestions.length === 0) {
+            throw new Error(getTextTemplate('qeLoadError'));
+        }
+
+        this.questions = arrayUtils.shuffleArray(allLoadedQuestions);
+        console.log(`[QuizEngine Instance] Total ${this.questions.length} questions loaded and shuffled.`);
+
     }
 
     // --- Core Quiz Methods (Operate on this.questions) ---

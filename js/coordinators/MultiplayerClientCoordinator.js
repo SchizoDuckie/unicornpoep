@@ -225,18 +225,32 @@ class MultiplayerClientCoordinator {
         // Hide the waiting dialog
         eventBus.emit(Events.System.HideWaitingDialog);
         try {
+            // Use the static factory method to create and load the engine from host data
+            console.log("[MultiplayerClientCoordinator] Creating client QuizEngine instance via static factory...");
+            const clientQuizEngine = QuizEngine.createInstance(gameData);
+            // No need to call load method separately, createInstance handles it.
+            
+            // Removed redundant check, createInstance throws if loading fails.
+            // if (clientQuizEngine.getQuestionCount() === 0) { ... }
+
+            console.log(`[MultiplayerClientCoordinator] Client QuizEngine created with ${clientQuizEngine.getQuestionCount()} questions.`);
+
             console.log("[MultiplayerClientCoordinator] Creating MultiplayerClientGame instance...");
+            // Correct Argument Order: settings, quizEngineInstance, localPlayerName, hostPeerId
+            const gameSettings = { difficulty: gameData.difficulty }; 
             this.activeGame = new MultiplayerClientGame(
-                QuizEngine.getInstance(),
-                gameData.difficulty,
-                this.playerName,
-                gameData.hostId
+                gameSettings,             // Settings object
+                clientQuizEngine,         // The engine instance created by the factory method
+                this.playerName,           // Local player name
+                gameData.hostId            // Host's PeerJS ID
             );
             this.currentGameMode = 'multiplayer-client';
             console.log("[MultiplayerClientCoordinator] MultiplayerClientGame instance created.");
-            // Start the game immediately (the countdown was already handled by the manager)
-            this.activeGame.start();
+            
+            // Start the game 
+            await this.activeGame.start(); // Start is async in BaseGameMode
             console.log("[MultiplayerClientCoordinator] Called activeGame.start() after countdown.");
+
             // Emit event for JoinLobbyComponent to handle navigation
             eventBus.emit(Events.UI.JoinLobby.HostHasStartedGame, { 
                 gameData: {
@@ -268,14 +282,9 @@ class MultiplayerClientCoordinator {
         console.log("[MultiplayerClientCoordinator] Game.Finished received.");
         
         // Clean up game but keep client manager active
-        if (this.activeGame) {
-            if (typeof this.activeGame.destroy === 'function') {
-                this.activeGame.destroy();
-            }
-            this.activeGame = null;
-        }
+        this.resetState();
         
-        // Navigation to results screen is handled by the game
+        // Navigation to results screen is handled by the game/UIManager based on Game.Finished payload
     }
 
     /**

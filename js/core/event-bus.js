@@ -92,7 +92,9 @@ class EventBus {
      * @throws {Error} When a non-whitelisted event is emitted with no listeners (fail fast approach)
      */
     emit(eventName, ...args) {
-        console.log(`Emitting event: ${eventName} (${JSON.stringify(args)})`);
+        if(eventName !== Events.Game.TimeTick) {
+            console.log(`Emitting event: ${eventName} (${JSON.stringify(args)})`);
+        }
         // --- Immediate check for invalid eventName ---
         if (typeof eventName !== 'string' || !eventName) {
             const error = new Error(`[EventBus] Attempted to emit an invalid event: ${eventName}`, arguments);

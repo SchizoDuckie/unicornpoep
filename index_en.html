@@ -29,7 +29,7 @@
 </head>
 <body>
     <div id="app">
-        <h1 style="view-transition-name: page-title;">🦄 Unicorn Poop 💩<br>
+        <h1>🦄 Unicorn Poop 💩<br>
             <small>By SchizoDuckie, for Sanne <img src="img/heart.gif" alt="<3"></small></h1>
         <div id="gameContainer">
             <!-- Loading Indicator -->
@@ -42,7 +42,7 @@
 
             <!-- Main Menu & Sheet Selection -->
             <div id="mainMenu" class="hidden">
-                 <div id="menuItems" style="view-transition-name: main-content;">
+                 <div id="menuItems">
                     <button id="practice">📚 Practice</button>
                     <button id="takeTest">⏱ Take Test</button>
                     <button id="viewHighscores">🥇 High Scores</button>
@@ -57,13 +57,13 @@
                <!-- Moved Back Button outside sheetNavigation -->
                <button id="sheetSelectBack" class="backToMain">Back</button> <!-- Removed hidden class, showView will manage -->
 
-               <div id="sheetsCol" style="view-transition-name: sheets-column;">
+               <div id="sheetsCol">
                    <h1>What do you want to do?</h1>
                    <div id="sheetsCheckboxes">
                        <!-- Checkboxes populated by JS -->
                    </div>
                </div>
-               <div id="difficultyCol" class="hidden" style="view-transition-name: difficulty-column;">
+               <div id="difficultyCol" class="hidden">
                    <h1>Are you good at it?</h1>
                    <div id="difficultySelection">
                        <label><input type="radio" name="difficulty" value="easy"> Don't think so (⏱ 60)</label>
@@ -72,7 +72,7 @@
                    </div>
                </div>
                <!-- Sheet Navigation NOW ONLY CONTAINS Start Button -->
-               <div id="sheetNavigation" style="/* CSS controls positioning */">
+               <div id="sheetNavigation">
                    <button id="startGame" disabled>Start!</button> <!-- No general button class needed if specific style used -->
                </div>
                <data data-translation-key="sheetSelectNoneAvailable">No question sheets found.</data>
@@ -80,7 +80,7 @@
             </div>
 
              <!-- Game Area -->
-            <div id="gameArea" class="hidden" style="view-transition-name: main-content;">
+            <div id="gameArea" class="hidden">
                 <div id="gameHeader">
                     <!-- NEW: Container for left items -->
                     <div id="gameHeaderLeft">
@@ -326,7 +326,7 @@
             </dialog> <!-- End #connectionStatus Dialog -->
 
             <!-- Highscores Screen -->
-            <div id="highscores" class="hidden" style="view-transition-name: main-content;">
+            <div id="highscores" class="hidden">
                 <h1>These people are the very best!</h1>
                 <table>
                     <thead>
@@ -361,7 +361,7 @@
             </div>
 
             <!-- Custom Questions Screen -->
-            <div id="customQuestionsManager" class="hidden" style="view-transition-name: main-content;">
+            <div id="customQuestionsManager" class="hidden">
                 <button class="backToMain">Back</button>
                  <h2>Manage Your Questions</h2>
                 <div id="customSheetSelection">
@@ -411,7 +411,7 @@
             </div>
 
             <!-- About Screen -->
-            <div id="about" class="hidden" style="view-transition-name: main-content;">
+            <div id="about" class="hidden">
                 <button class="backToMain">Back</button>
                 <h2>What is Unicorn Poop?</h2>
                 <p>Unicorn Poop is a very simple game that helps you quickly get better at multiplication tables,

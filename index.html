@@ -29,7 +29,7 @@
 </head>
 <body>
     <div id="app">
-        <h1 style="view-transition-name: page-title;">🦄 Unicorn Poep 💩<br>
+        <h1>🦄 Unicorn Poep 💩<br>
             <small>Door SchizoDuckie, voor Sanne <img src="img/heart.gif" alt="<3"></small></h1>
         <div id="gameContainer">
             <!-- Loading Indicator -->
@@ -42,7 +42,7 @@
 
             <!-- Main Menu & Sheet Selection -->
             <div id="mainMenu" class="hidden">
-                 <div id="menuItems" style="view-transition-name: main-content;">
+                 <div id="menuItems">
                     <button id="practice">📚 Oefenen</button>
                     <button id="takeTest">⏱ Toets</button>
                     <button id="viewHighscores">🥇 Hoogste Scores</button>
@@ -58,13 +58,13 @@
                <!-- Moved Back Button outside sheetNavigation -->
                <button id="sheetSelectBack" class="backToMain">Terug</button> <!-- Removed hidden class, showView will manage -->
 
-               <div id="sheetsCol" style="view-transition-name: sheets-column;">
+               <div id="sheetsCol">
                    <h1>Wat wil je doen?</h1>
                    <div id="sheetsCheckboxes">
                        <!-- Checkboxes populated by JS -->
                    </div>
                </div>
-               <div id="difficultyCol" class="hidden" style="view-transition-name: difficulty-column;">
+               <div id="difficultyCol" class="hidden">
                    <h1>Ben je daar goed in?</h1>
                    <div id="difficultySelection">
                        <label><input type="radio" name="difficulty" value="easy"> Denk het niet (⏱ 60)</label>
@@ -73,7 +73,7 @@
                    </div>
                </div>
                <!-- Sheet Navigation NOW ONLY CONTAINS Start Button -->
-               <div id="sheetNavigation" style="/* CSS controls positioning */">
+               <div id="sheetNavigation">
                    <button id="startGame" disabled>Start!</button> <!-- No general button class needed if specific style used -->
                </div>
                <data data-translation-key="sheetSelectNoneAvailable">Geen vragenlijsten gevonden.</data>
@@ -81,7 +81,7 @@
             </div>
 
              <!-- Game Area -->
-            <div id="gameArea" class="hidden" style="view-transition-name: main-content;">
+            <div id="gameArea" class="hidden">
                 <div id="gameHeader">
                     <!-- NEW: Container for left items -->
                     <div id="gameHeaderLeft">
@@ -188,7 +188,7 @@
             </div>
 
             <!-- Multiplayer Connection Status Dialog -->
-            <dialog id="connectionStatus" class="hidden">
+            <div id="connectionStatus" class="unicorn-theme hidden">
                 <button class="backToMain">Terug</button>
                 <h2>Samen spelen</h2>
 
@@ -320,10 +320,10 @@
                  <data data-translation-key="mcDisconnect">Disconnected from host.</data>
                  <data data-translation-key="mcDefaultPlayerName">Unknown</data>
 
-            </dialog> <!-- End #connectionStatus Dialog -->
+            </div> <!-- End #connectionStatus Dialog -->
 
             <!-- Highscores Screen -->
-            <div id="highscores" class="hidden" style="view-transition-name: main-content;">
+            <div id="highscores" class="hidden">
                 <h1>Deze mensen zijn de allerbeste!</h1>
                 <table>
                     <thead>
@@ -358,7 +358,7 @@
             </div>
 
             <!-- Custom Questions Screen -->
-            <div id="customQuestionsManager" class="hidden" style="view-transition-name: main-content;">
+            <div id="customQuestionsManager" class="hidden">
                 <button class="backToMain">Terug</button>
                  <h2>Jouw Vragen Beheren</h2>
                 <div id="customSheetSelection">
@@ -408,7 +408,7 @@
             </div>
 
             <!-- About Screen -->
-            <div id="about" class="hidden" style="view-transition-name: main-content;">
+            <div id="about" class="hidden">
                 <button class="backToMain">Terug</button>
                 <h2>Wat is Unicorn Poep?</h2>
                 <p>Unicorn Poep is een heel simpel spelletje wat je helpt snel beter te worden in de tafels,

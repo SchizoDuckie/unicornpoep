@@ -32,6 +32,10 @@ class AnswerListComponent extends RefactoredBaseComponent {
         return {
             events: [
                 {
+                    eventName: Events.Game.Started,
+                    callback: this.show
+                },
+                {
                     eventName: Events.Game.QuestionNew,
                     callback: this._handleQuestionNew
                 },
@@ -152,7 +156,7 @@ class AnswerListComponent extends RefactoredBaseComponent {
      */
     _handleQuestionNew({ questionData }) {
         this._clearAnswers(); // Clear previous buttons
-
+        this.show();
         if (!questionData.answers || !Array.isArray(questionData.answers)) {
              this.isAnswerable = false;
              return;
@@ -247,6 +251,15 @@ class AnswerListComponent extends RefactoredBaseComponent {
         this.disableInteraction(); // Ensure buttons disabled
         this._clearAnswers();
         this.hide();
+    }
+
+    show() {
+        this.rootElement.classList.remove('hidden');
+        
+    }
+
+    hide() {
+        
     }
 }
 

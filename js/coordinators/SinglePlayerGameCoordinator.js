@@ -4,6 +4,7 @@ import Views from '../core/view-constants.js';
 import miscUtils from '../utils/miscUtils.js';
 import QuizEngine from '../services/QuizEngine.js';
 import SinglePlayerGame from '../game/SinglePlayerGame.js';
+import highscoreManager from '../services/HighscoreManager.js';
 
 /**
  * Class SinglePlayerGameCoordinator.
@@ -50,6 +51,7 @@ class SinglePlayerGameCoordinator {
         // Game flow
         eventBus.on(Events.Game.Finished, this.handleGameFinished);
         eventBus.on(Events.UI.GameArea.LeaveGameClicked, this.handleLeaveGame);
+        eventBus.on(Events.UI.Dialog.SaveScoreClicked, this._handleSaveScore);
         
         console.info("[SinglePlayerGameCoordinator] Listeners registered.");
     }
@@ -81,9 +83,7 @@ class SinglePlayerGameCoordinator {
      
      */
     handleGameStartRequested = async ({ mode, settings, playerName }) => {
-
         if (mode !== 'single') {
-            // This event isn't for us in this context
             return;
         }
         
@@ -101,9 +101,7 @@ class SinglePlayerGameCoordinator {
         
         console.log("[SinglePlayerGameCoordinator] Stored pendingGameSettings:", this.pendingGameSettings);
 
-        // Show loading indicator
-        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.Loading });
-        
+               
         
         if (this.activeGame) {
             console.warn("[SinglePlayerGameCoordinator] Cannot start single player game, already hosting a session.");
@@ -214,6 +212,41 @@ class SinglePlayerGameCoordinator {
         this.pendingGameSettings = null;
         
         console.log("[SinglePlayerGameCoordinator] State reset complete.");
+    }
+
+    /**
+     * Handles the save score event from the end dialog.
+     * Calls the HighscoreManager to save the score.
+     *
+     * @param {object} payload Event payload from SaveScoreClicked
+     * @param {string} payload.name Player name
+     * @param {number} payload.score Final score
+     * @param {string} payload.gameName Name of the game played
+     * @param {string} payload.mode Game mode ('single')
+     * @param {string} payload.difficulty Game difficulty
+     * @private
+     * @event Events.UI.Dialog.SaveScoreClicked
+     */
+    _handleSaveScore = ({ name, score, gameName, mode, difficulty }) => {
+        console.log(`[SinglePlayerGameCoordinator] SaveScoreClicked received. Name: ${name}, Score: ${score}, Game: ${gameName}, Mode: ${mode}, Diff: ${difficulty}`);
+        try {
+            const saved = highscoreManager.addHighscore(name, score, gameName, mode, difficulty);
+            if (saved) {
+                eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveSuccess'), level: 'success' });
+            } else {
+                // Optional: Provide feedback if score wasn't high enough?
+                // Currently, HighscoreManager logs this.
+                 console.log('[SinglePlayerGameCoordinator] Score did not qualify or was not saved.');
+            }
+            // After attempting save, navigate to highscores or main menu
+            // For now, let's go to highscores to see the result
+            eventBus.emit(Events.Navigation.ShowView, { viewName: Views.Highscores }); 
+        } catch (error) {
+            console.error(`[SinglePlayerGameCoordinator] Error calling addHighscore:`, error);
+            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveError'), level: 'error' });
+            // Fallback to main menu on error
+            eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu }); 
+        }
     }
 }
 

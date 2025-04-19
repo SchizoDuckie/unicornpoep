@@ -119,6 +119,7 @@ class SinglePlayerEndDialog extends BaseDialog {
      * @private
      */
     _handleSaveScore() {
+        
         // Use element references from elements object
         const playerName = this.elements.nameInput.value.trim();
         if (!playerName) {
@@ -140,17 +141,18 @@ class SinglePlayerEndDialog extends BaseDialog {
 
         if (this.currentGameResults && this.currentGameResults.score !== undefined) {
             console.log(`[${this.name}] Save score clicked. Name: ${playerName}, Score: ${this.currentGameResults.score}`);
-            eventBus.emit(Events.UI.EndDialog.SaveScoreClicked, { 
+            eventBus.emit(Events.UI.Dialog.SaveScoreClicked, { 
                 name: playerName, 
                 score: this.currentGameResults.score,
                 gameName: this.gameName, 
                 mode: this.currentMode,
                 difficulty: this.currentDifficulty 
             });
-             // UIManager handles navigation after save attempt
+             this.hide(); 
         } else {
             console.error(`[${this.name}] Cannot save score, results data missing.`);
             this._showError(getTextTemplate('hsErrorSaveFailed'));
+            this.hide(); 
         }
     }
 

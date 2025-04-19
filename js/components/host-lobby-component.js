@@ -43,7 +43,7 @@ class HostLobbyComponent extends RefactoredBaseComponent {
     initialize() {
         return {
             events: [
-                { eventName: Events.Navigation.ShowView, callback: this._handleShowView },
+                // { eventName: Events.Navigation.ShowView, callback: this._handleShowView }, // REMOVED - UIManager handles showing/hiding the root element
                 { eventName: Events.Multiplayer.Host.Initialized, callback: this._handleHostInitialized },
                 { eventName: Events.Multiplayer.Host.ErrorOccurred, callback: this._handleHostError },
                 { eventName: Events.Multiplayer.Common.PlayerListUpdated, callback: this._handlePlayerListUpdate },
@@ -77,110 +77,92 @@ class HostLobbyComponent extends RefactoredBaseComponent {
                 {
                     name: 'hostViewContainer',
                     selector: HostLobbyComponent.HOST_VIEW_SELECTOR,
-                    required: true,
-                    lazyInit: true
+                    required: true
                 },
                 {
                     name: 'hostCodeDisplay',
                     selector: HostLobbyComponent.HOST_CODE_DISPLAY_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'copyCodeButton',
                     selector: HostLobbyComponent.COPY_CODE_BUTTON_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'joinLinkDisplay',
                     selector: HostLobbyComponent.JOIN_LINK_DISPLAY_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'copyLinkButton',
                     selector: HostLobbyComponent.COPY_LINK_BUTTON_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'whatsappButton',
                     selector: HostLobbyComponent.WHATSAPP_BUTTON_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'startGameButton',
                     selector: HostLobbyComponent.START_GAME_BUTTON_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'hostErrorDisplay',
                     selector: HostLobbyComponent.HOST_ERROR_DISPLAY_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'waitingTextContainer',
                     selector: HostLobbyComponent.WAITING_TEXT_CONTAINER_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'statusInitializing',
                     selector: HostLobbyComponent.STATUS_INITIALIZING_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'statusWaiting',
                     selector: HostLobbyComponent.STATUS_WAITING_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'playerCountSpan',
                     selector: HostLobbyComponent.PLAYER_COUNT_SPAN_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'playerLabelSingular',
                     selector: HostLobbyComponent.PLAYER_LABEL_SINGULAR_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'playerLabelPlural',
                     selector: HostLobbyComponent.PLAYER_LABEL_PLURAL_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'playerListContainer',
                     selector: HostLobbyComponent.PLAYER_LIST_CONTAINER_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'playerListUL',
                     selector: HostLobbyComponent.PLAYER_LIST_UL_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'playerListPlaceholder',
                     selector: HostLobbyComponent.PLAYER_LIST_PLACEHOLDER_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 },
                 {
                     name: 'backButton',
                     selector: HostLobbyComponent.BACK_BUTTON_SELECTOR,
-                    required: false,
-                    lazyInit: true
+                    required: false
                 }
             ],
             setup: () => {
@@ -234,7 +216,7 @@ class HostLobbyComponent extends RefactoredBaseComponent {
      */
     _handleShowView({ viewName, data }) {
         if (viewName === this.name) {
-            console.log(`[${this.name}] Handling ShowView.`, data);
+            console.log(`[${this.name}] Handling ShowView. Optional data:`, data);
             // Reset UI elements to their initial waiting state
             this._setupInitialState();
             
@@ -243,25 +225,21 @@ class HostLobbyComponent extends RefactoredBaseComponent {
                  this.elements.hostViewContainer.classList.remove('hidden');
             }
 
-            // Check if we received a join code in the data
-            if (data && data.joinCode) {
-                // Call our host initialization method with the provided join code
-                this._handleHostInitialized({ 
-                    hostId: data.joinCode, 
-                    hostPeerId: data.joinCode // Use same value for both in this context
-                });
-            }
-            // If no join code, we wait for the Host.Initialized event
+            // REMOVED: Do not call _handleHostInitialized here.
+            // Instead, rely *solely* on the Events.Multiplayer.Host.Initialized event
+            // received via the event bus to populate code/link details.
+            // This ensures the component reacts to the system state rather than ShowView data.
+             console.log(`[${this.name}] ShowView complete. Waiting for Host.Initialized event.`);
         }
     }
 
     /**
-     * Handles the Host.Initialized event.
-     * Updates the UI with the host code and join link.
+     * Handles the Multiplayer.Host.Initialized event.
+     * Updates the UI with the join code and shareable link.
      * @param {object} payload
-     * @param {string} payload.hostId The 6-digit host ID.
-     * @param {string} payload.hostPeerId The host's actual PeerJS ID.
-     * @private 
+     * @param {string} payload.hostId The short user-friendly join code.
+     * @param {string} payload.hostPeerId The full PeerJS ID for the host connection.
+     * @private
      */
     _handleHostInitialized({ hostId, hostPeerId }) {
         if (!this.elements.hostViewContainer) return; 

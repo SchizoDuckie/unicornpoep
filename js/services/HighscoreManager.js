@@ -16,6 +16,16 @@ const MAX_ENTRIES_PER_SHEET = 20;
 class HighscoreManager {
     constructor() {
         console.info("[HighscoreManager] Initializing (V1 Multi-Key Storage Service)...");
+        this._registerListeners();
+    }
+
+    /**
+     * Registers necessary event listeners.
+     * @private
+     */
+    _registerListeners() {
+        eventBus.on(Events.Menu.Highscores.ShowRequested, this.loadAndEmitAllScores.bind(this));
+        console.log("[HighscoreManager] Registered listener for ShowRequested.");
     }
 
     /**
@@ -46,12 +56,9 @@ class HighscoreManager {
      * @private
      */
     _getScoresForSheetSync(sheetKey, difficulty, mode) {
-        let storageKey;
-        if (mode === 'single') {
-            storageKey = this._getSinglePlayerStorageKeyV1(sheetKey);
-        } else {
-            storageKey = this._getStorageKey(sheetKey, difficulty);
-        }
+        // --- FIX: Always use _getStorageKey ---
+        const storageKey = this._getStorageKey(sheetKey, difficulty); 
+        // console.log(`[HighscoreManager DEBUG] _getScoresForSheetSync using key: ${storageKey} for sheet=${sheetKey}, diff=${difficulty}, mode=${mode}`); // Debug log
 
         try {
             const storedData = localStorage.getItem(storageKey);
@@ -84,18 +91,6 @@ class HighscoreManager {
     }
 
     /**
-     * Generates the V1-style key for single-player scores.
-     * @param {string} sheetKey - The sheet name(s).
-     * @returns {string} The localStorage key.
-     * @private
-     */
-    _getSinglePlayerStorageKeyV1(sheetKey) {
-        // V1 simple prefix + sheet key
-        const safeSheetKey = (sheetKey || 'unknown').replace(/[^a-z0-9,\-_ ]/gi, '_'); // Allow spaces as per V1 example 'Tafel van 3'
-        return `highscores_${safeSheetKey}`;
-    }
-
-    /**
      * Adds a new score entry for a specific game configuration.
      * Saves to the specific localStorage key for the sheet/difficulty.
      * @param {string} playerName - Player's name.
@@ -118,17 +113,9 @@ class HighscoreManager {
             return false;
         }
 
-        let storageKey;
-        if (mode === 'single') {
-            storageKey = this._getSinglePlayerStorageKeyV1(sheetKey);
-        } else if (mode === 'multiplayer') {
-            // Existing logic for multiplayer/practice keys
-            storageKey = this._getStorageKey(sheetKey, difficulty);
-        } else {
-            // Practice mode saving is already skipped earlier, but handle defensively
-            console.warn("[HighscoreManager] Attempted to save score for unexpected mode:", mode);
-            return false;
-        }
+        // --- FIX: Always use _getStorageKey ---
+        const storageKey = this._getStorageKey(sheetKey, difficulty); 
+        // console.log(`[HighscoreManager DEBUG] addHighscore using key: ${storageKey} for sheet=${sheetKey}, diff=${difficulty}, mode=${mode}`); // Debug log
 
         const timestamp = new Date().toISOString();
 
@@ -217,8 +204,8 @@ class HighscoreManager {
         try {
             const keys = Object.keys(localStorage);
             for (const key of keys) {
-                // Check if key matches EITHER V1 single-player OR V1 multiplayer prefix
-                if (key.startsWith(STORAGE_KEY_PREFIX) || key.startsWith('highscores_')) {
+                // --- FIX: Only check for the standard prefix ---
+                if (key.startsWith(STORAGE_KEY_PREFIX)) { 
                     const storedData = localStorage.getItem(key);
                     if (storedData) {
                         try {
@@ -226,24 +213,35 @@ class HighscoreManager {
                             if (Array.isArray(sheetScores) && sheetScores.every(s => typeof s === 'object' && s !== null && 'player' in s && 'score' in s)) {
                                 // Map to ensure consistent structure expected by the component
                                 const mappedScores = sheetScores.map(score => {
-                                    let gameNameFallback = 'Unknown';
-                                    if (key.startsWith('highscores_')) {
-                                        // For single-player keys, the game name is derived directly from the key
-                                        gameNameFallback = key.substring('highscores_'.length);
-                                    } else if (key.startsWith(STORAGE_KEY_PREFIX)) {
-                                        // For multiplayer keys, try extracting from the key if gameName isn't stored (should be rare)
-                                        gameNameFallback = this._extractSheetKeyFromStorageKey(key) || 'Unknown';
+                                    // --- FIX: Consistently derive game info from the unified key format ---
+                                    const extractedSheetKey = this._extractSheetKeyFromStorageKey(key) || 'Unknown';
+                                    const extractedDifficulty = this._extractDifficultyFromStorageKey(key) || '-';
+                                    let displayMode = 'Unknown';
+                                    if (extractedDifficulty === 'practice') {
+                                        displayMode = 'Practice';
+                                    } else if (key.includes('multiplayer')) { // Heuristic, might need refinement based on final key format
+                                        displayMode = 'Multi';
+                                    } else {
+                                        displayMode = 'Single Player'; // Assume single if not practice/multi
                                     }
+                                    
+                                    // Construct gameName for display based on extracted info
+                                    // (This mirrors previous logic but uses extracted parts)
+                                    let formattedGameName = extractedSheetKey.replace(/_/g, ' '); // Basic name
+                                    if (displayMode === 'Multi' && extractedDifficulty !== '-') {
+                                        const diffDisplay = extractedDifficulty.charAt(0).toUpperCase() + extractedDifficulty.slice(1);
+                                        formattedGameName = `${formattedGameName} (Multiplayer ${diffDisplay})`;
+                                    }
+                                    // END display game name construction
 
                                     return {
                                         player: score.player,
                                         score: score.score,
                                         date: score.date, // Pass date as is
-                                        // Use stored gameName if present (V1 multi), otherwise use the derived fallback (V1 single/corner cases)
-                                        gameName: score.gameName || gameNameFallback,
-                                        // Mode/difficulty might not be stored reliably in V1 single-player entries
-                                        mode: score.mode || (key.startsWith('highscores_') ? 'Single Player' : '-'), // Infer mode if missing
-                                        difficulty: score.difficulty || this._extractDifficultyFromStorageKey(key) || '-', // Difficulty mostly from multi keys
+                                        // Use stored gameName if present (V1 multi legacy), otherwise use derived name
+                                        gameName: score.gameName || formattedGameName, 
+                                        mode: score.mode || displayMode, // Use derived mode if not stored
+                                        difficulty: score.difficulty || extractedDifficulty, // Use extracted difficulty if not stored
                                     };
                                 });
                                 allScores = allScores.concat(mappedScores);
@@ -312,12 +310,12 @@ class HighscoreManager {
      */
      isNewHighScore(sheetKey, difficulty, score) {
         // Practice mode doesn't have highscores handled here, and score must be positive
-        if (!difficulty || score <= 0) {
+        if (!difficulty || difficulty === 'practice' || score <= 0) {
             return false;
         }
 
         try {
-            const currentScores = this._getScoresForSheetSync(sheetKey, difficulty, 'multiplayer');
+            const currentScores = this._getScoresForSheetSync(sheetKey, difficulty);
 
             // If the list isn't full, any positive score qualifies
             if (currentScores.length < MAX_ENTRIES_PER_SHEET) {

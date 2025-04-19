@@ -368,7 +368,7 @@ class MultiplayerHostManager {
         const payload = msg.payload;
         const playerName = this.players.get(sender).name || sender;
 
-        const acceptedTypes = [MSG_TYPE.C_REQUEST_JOIN, MSG_TYPE.C_UPDATE_NAME, clientReadyType, MSG_TYPE.C_REQUEST_REMATCH];
+        const acceptedTypes = [MSG_TYPE.C_REQUEST_JOIN, MSG_TYPE.C_UPDATE_NAME, MSG_TYPE.CLIENT_READY, MSG_TYPE.C_REQUEST_REMATCH];
         if (!acceptedTypes.includes(type)) {
              console.log(`[${this.constructor.name} Lobby] Ignoring non-lobby message type '${type}' from ${playerName} (${sender})`);
              return;
@@ -562,6 +562,41 @@ class MultiplayerHostManager {
             }
         });
     }
+
+    /**
+     * [ADDED] Handles the click event from the Host Lobby UI to start the game.
+     * Tells the active game instance to begin its start sequence.
+     * @private
+     */
+    handleStartGameClicked = () => {
+        console.log(`[${this.constructor.name}] Start Game button clicked.`);
+        if (!this.isHosting) {
+            console.warn(`[${this.constructor.name}] StartGameClicked received, but not hosting.`);
+            return;
+        }
+        if (this.gameHasStarted) {
+            console.warn(`[${this.constructor.name}] StartGameClicked received, but game already started.`);
+            return;
+        }
+        if (!this.activeGame) {
+            console.error(`[${this.constructor.name}] StartGameClicked received, but no active game instance exists.`);
+            eventBus.emit(Events.System.ShowFeedback, { message: 'Error: No active game found.', level: 'error' });
+            return;
+        }
+        if (typeof this.activeGame.startGameSequence !== 'function') {
+            console.error(`[${this.constructor.name}] StartGameClicked received, but active game instance is missing startGameSequence method.`);
+            eventBus.emit(Events.System.ShowFeedback, { message: 'Error: Cannot start game sequence.', level: 'error' });
+            return;
+        }
+
+        console.log(`[${this.constructor.name}] Instructing active game instance to start sequence...`);
+        this.gameHasStarted = true; // Set flag to prevent multiple starts
+        this.activeGame.startGameSequence();
+
+        // Optionally: Stop listening for *new* client connections/lobby messages here?
+        // Or maybe startGameSequence handles broadcasting GAME_START which signals clients
+        // and the HostLobbyComponent hides itself. Let's rely on the game sequence for now.
+    };
 
     /**
      * [REVISED] Initiates the game start sequence.

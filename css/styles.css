@@ -629,7 +629,9 @@ label:hover {
     font-weight: bold;
     text-shadow: 1px 1px 2px #000000bf;
     box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
-    transition: transform 0.1s, box-shadow 0.1s, background-color 0.2s ease-out;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                background-color 0.3s ease,
+                box-shadow 0.3s ease;
     cursor: pointer;
     outline: none;
     user-select: none;
@@ -993,10 +995,6 @@ th.score-rank { /* Specific th styling */
     display: grid;
     align-items: stretch;  
     justify-items: stretch;
-    width: 100%;         
-    height: 100%;        
-    padding: 0;
-    margin: 0;
     border: none;
     background: transparent; 
     max-width: none;
@@ -1615,20 +1613,49 @@ th.score-rank { /* Specific th styling */
 /* Define the keyframes */
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
-@keyframes slideInFromTop { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-@keyframes slideOutToBottom { from { transform: translateY(0); opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
-@keyframes slideInFromLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-@keyframes slideOutToRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+@keyframes slideInFromTop { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes slideOutToBottom { from { transform: translateY(0); opacity: 1; } to { transform: translateY(50px); opacity: 0; } }
+@keyframes slideInFromLeft { from { transform: translateX(-50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideOutToRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(50px); opacity: 0; } }
+@keyframes scaleUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes scaleDown { from { transform: scale(1); opacity: 1; } to { transform: scale(0.8); opacity: 0; } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes elastic { 
+  0% { transform: scale(0); } 
+  55% { transform: scale(1.1); } 
+  70% { transform: scale(0.9); } 
+  80% { transform: scale(1.05); } 
+  90% { transform: scale(0.98); } 
+  100% { transform: scale(1); } 
+}
+@keyframes jello { 
+  0%, 11.1%, 100% { transform: none; }
+  22.2% { transform: skewX(-12.5deg) skewY(-12.5deg); }
+  33.3% { transform: skewX(6.25deg) skewY(6.25deg); }
+  44.4% { transform: skewX(-3.125deg) skewY(-3.125deg); }
+  55.5% { transform: skewX(1.5625deg) skewY(1.5625deg); }
+  66.6% { transform: skewX(-0.78125deg) skewY(-0.78125deg); }
+  77.7% { transform: skewX(0.390625deg) skewY(0.390625deg); }
+  88.8% { transform: skewX(-0.1953125deg) skewY(-0.1953125deg); }
+}
+@keyframes rainbow-bg {
+  0% { background-color: rgba(255, 105, 180, 0.2); }
+  20% { background-color: rgba(255, 165, 0, 0.2); }
+  40% { background-color: rgba(255, 255, 0, 0.2); }
+  60% { background-color: rgba(0, 128, 0, 0.2); }
+  80% { background-color: rgba(75, 0, 130, 0.2); }
+  100% { background-color: rgba(238, 130, 238, 0.2); }
+}
 
 /* Apply animations based on temporary CLASS on HTML element */
 /* Page Title (Fade) */
 ::view-transition-old(page-title),
 ::view-transition-new(page-title) {
-  animation-duration: 0.3s; 
+  animation-duration: 0.4s; 
   animation-timing-function: ease-out;
 }
 ::view-transition-old(page-title) { animation-name: fade-out; }
-::view-transition-new(page-title) { animation-name: fade-in; }
+::view-transition-new(page-title) { animation-name: elastic; animation-duration: 0.8s; }
 
 /* Main Content Areas (Directional Slide) */
 ::view-transition-old(main-content),
@@ -1638,33 +1665,206 @@ th.score-rank { /* Specific th styling */
 ::view-transition-old(difficulty-column),
 ::view-transition-new(difficulty-column) {
     animation-duration: 0.5s;
-    animation-timing-function: ease-out;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); /* Material Design standard easing */
+    animation-fill-mode: both;
+    transform-origin: center center;
+    will-change: transform, opacity;
 }
 
-/* Forward */
-html.transitioning-forward::view-transition-old(main-content),
-html.transitioning-forward::view-transition-old(sheets-column),
-html.transitioning-forward::view-transition-old(difficulty-column) {
-  animation-name: slideOutToBottom;
+/* Forward Transitions */
+html.transitioning-forward::view-transition-old(main-content) {
+  animation-name: slideOutToBottom; 
 }
-html.transitioning-forward::view-transition-new(main-content),
-html.transitioning-forward::view-transition-new(sheets-column),
-html.transitioning-forward::view-transition-new(difficulty-column) {
+html.transitioning-forward::view-transition-new(main-content) {
   animation-name: slideInFromTop;
 }
+html.transitioning-forward::view-transition-old(sheets-column),
+html.transitioning-forward::view-transition-old(difficulty-column) {
+  animation-name: scaleDown;
+}
+html.transitioning-forward::view-transition-new(sheets-column),
+html.transitioning-forward::view-transition-new(difficulty-column) {
+  animation-name: scaleUp;
+  animation-delay: 0.05s; /* Slight delay for effect */
+}
 
-/* Backward */
-html.transitioning-backward::view-transition-old(main-content),
-html.transitioning-backward::view-transition-old(sheets-column),
-html.transitioning-backward::view-transition-old(difficulty-column) {
+/* Backward Transitions */
+html.transitioning-backward::view-transition-old(main-content) {
   animation-name: slideOutToRight;
 }
-html.transitioning-backward::view-transition-new(main-content),
-html.transitioning-backward::view-transition-new(sheets-column),
-html.transitioning-backward::view-transition-new(difficulty-column) {
+html.transitioning-backward::view-transition-new(main-content) {
   animation-name: slideInFromLeft;
 }
+html.transitioning-backward::view-transition-old(sheets-column),
+html.transitioning-backward::view-transition-old(difficulty-column) {
+  animation-name: fade-out;
+}
+html.transitioning-backward::view-transition-new(sheets-column),
+html.transitioning-backward::view-transition-new(difficulty-column) {
+  animation-name: fade-in;
+  animation-delay: 0.05s; /* Slight delay for effect */
+}
 
+/* Additional View-Specific Animations */
+/* Game Area transitions */
+html.to-game-area::view-transition-new(main-content) {
+  animation-name: scaleUp;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); /* Emphasize */
+}
+html.from-game-area::view-transition-old(main-content) {
+  animation-name: scaleDown;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); /* Emphasize */
+}
+
+/* High scores animation (celebratory, bouncy) */
+@keyframes bounceIn {
+  0% { transform: scale(0.3); opacity: 0; }
+  40% { transform: scale(1.1); opacity: 1; }
+  60% { transform: scale(0.9); opacity: 1; }
+  80% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes bounceOut {
+  0% { transform: scale(1); opacity: 1; }
+  20% { transform: scale(1.03); opacity: 1; }
+  40% { transform: scale(0.9); opacity: 1; }
+  70% { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+html.to-highscores::view-transition-new(main-content) {
+  animation-name: bounceIn;
+  animation-duration: 0.7s;
+}
+
+html.transitioning-backward.from-game-area::view-transition-old(main-content) {
+  animation-name: bounceOut;
+  animation-duration: 0.5s;
+}
+
+/* Sheet selection animation (carousel-like effect) */
+@keyframes rotateInRight {
+  from { transform: translateX(50px) rotateY(-20deg); opacity: 0; }
+  to { transform: translateX(0) rotateY(0); opacity: 1; }
+}
+
+@keyframes rotateOutLeft {
+  from { transform: translateX(0) rotateY(0); opacity: 1; }
+  to { transform: translateX(-50px) rotateY(20deg); opacity: 0; }
+}
+
+html.to-sheet-selection::view-transition-new(sheets-column) {
+  animation-name: rotateInRight;
+  animation-duration: 0.6s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-delay: 0.1s;
+}
+
+html.to-sheet-selection::view-transition-new(difficulty-column) {
+  animation-name: rotateInRight;
+  animation-duration: 0.6s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-delay: 0.2s; /* Staggered effect */
+}
+
+/* Component-specific transitions */
+/* Add view-transition names to individual components */
+#menuItems button {
+  view-transition-name: menu-button;
+  transition: transform 0.3s ease, background 0.3s ease;
+}
+
+/* Stagger menu buttons */
+@keyframes popIn {
+  0% { transform: scale(0); opacity: 0; }
+  70% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes popOut {
+  0% { transform: scale(1); opacity: 1; }
+  30% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+html.transitioning-forward #menuItems button:nth-child(1) { animation: popOut 0.3s forwards; }
+html.transitioning-forward #menuItems button:nth-child(2) { animation: popOut 0.3s forwards 0.05s; }
+html.transitioning-forward #menuItems button:nth-child(3) { animation: popOut 0.3s forwards 0.1s; }
+html.transitioning-forward #menuItems button:nth-child(4) { animation: popOut 0.3s forwards 0.15s; }
+html.transitioning-forward #menuItems button:nth-child(5) { animation: popOut 0.3s forwards 0.2s; }
+
+html.transitioning-backward #menuItems button:nth-child(1) { animation: popIn 0.4s forwards 0.05s; }
+html.transitioning-backward #menuItems button:nth-child(2) { animation: popIn 0.4s forwards 0.1s; }
+html.transitioning-backward #menuItems button:nth-child(3) { animation: popIn 0.4s forwards 0.15s; }
+html.transitioning-backward #menuItems button:nth-child(4) { animation: popIn 0.4s forwards 0.2s; }
+html.transitioning-backward #menuItems button:nth-child(5) { animation: popIn 0.4s forwards 0.25s; }
+
+/* Sheet selection checkboxes animation */
+#sheetsCheckboxes label {
+  /* Remove the static view-transition-name to avoid duplicates */
+  /* view-transition-name: sheet-checkbox; */
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+#sheetsCheckboxes label:nth-child(odd) {
+  animation: slideInFromLeft 0.3s forwards;
+  animation-delay: calc(0.05s * var(--index, 0));
+}
+
+#sheetsCheckboxes label:nth-child(even) {
+  animation: slideInFromRight 0.3s forwards;
+  animation-delay: calc(0.05s * var(--index, 0));
+}
+
+/* Game area transitions */
+#question {
+  view-transition-name: game-question;
+}
+
+#answers button {
+  
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              background-color 0.3s ease,
+              box-shadow 0.3s ease;
+}
+
+html.to-game-area #question {
+  animation: elastic 0.7s forwards 0.1s;
+}
+
+html.to-game-area #answers button:nth-child(1) { animation: jello 0.8s forwards 0.2s; }
+html.to-game-area #answers button:nth-child(2) { animation: jello 0.8s forwards 0.3s; }
+html.to-game-area #answers button:nth-child(3) { animation: jello 0.8s forwards 0.4s; }
+html.to-game-area #answers button:nth-child(4) { animation: jello 0.8s forwards 0.5s; }
+
+/* Fun background transitions for the game area */
+html.to-game-area #gameArea {
+  animation: rainbow-bg 2s forwards;
+}
+
+/* Highscores table animation */
+html.to-highscores #highscores table {
+  animation: fade-in 0.5s forwards 0.2s;
+}
+
+html.to-highscores #highscores tr {
+  animation: slideInFromLeft 0.4s forwards;
+  animation-delay: calc(0.05s * var(--row-index, 0));
+}
+
+/* Staggered animations for top scores */
+html.to-highscores #highscores tr.rank-1 {
+  animation: bounceIn 0.8s forwards 0.3s; 
+}
+
+html.to-highscores #highscores tr.rank-2 {
+  animation: bounceIn 0.8s forwards 0.5s;
+}
+
+html.to-highscores #highscores tr.rank-3 {
+  animation: bounceIn 0.8s forwards 0.7s;
+}
 
 /* --- Countdown Display --- */
 #countdown {
@@ -2062,3 +2262,129 @@ data[data-translation-key] {
 }
 
 /* Add other V1 styles as needed (e.g., fonts, specific button looks) */
+
+/* High scores animation (celebratory, bouncy) */
+@keyframes bounceIn {
+  0% { transform: scale(0.3); opacity: 0; }
+  40% { transform: scale(1.1); opacity: 1; }
+  60% { transform: scale(0.9); opacity: 1; }
+  80% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes bounceOut {
+  0% { transform: scale(1); opacity: 1; }
+  20% { transform: scale(1.03); opacity: 1; }
+  40% { transform: scale(0.9); opacity: 1; }
+  70% { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+html.to-highscores::view-transition-new(main-content) {
+  animation-name: bounceIn;
+  animation-duration: 0.7s;
+}
+
+html.transitioning-backward.from-game-area::view-transition-old(main-content) {
+  animation-name: bounceOut;
+  animation-duration: 0.5s;
+}
+
+/* Sheet selection animation (carousel-like effect) */
+@keyframes rotateInRight {
+  from { transform: translateX(50px) rotateY(-20deg); opacity: 0; }
+  to { transform: translateX(0) rotateY(0); opacity: 1; }
+}
+
+@keyframes rotateOutLeft {
+  from { transform: translateX(0) rotateY(0); opacity: 1; }
+  to { transform: translateX(-50px) rotateY(20deg); opacity: 0; }
+}
+
+html.to-sheet-selection::view-transition-new(sheets-column) {
+  animation-name: rotateInRight;
+  animation-duration: 0.6s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-delay: 0.1s;
+}
+
+html.to-sheet-selection::view-transition-new(difficulty-column) {
+  animation-name: rotateInRight;
+  animation-duration: 0.6s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-delay: 0.2s; /* Staggered effect */
+}
+
+/* Generic staggered animations for elements */
+@keyframes popIn {
+  0% { transform: scale(0); opacity: 0; }
+  70% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes popOut {
+  0% { transform: scale(1); opacity: 1; }
+  30% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+@keyframes fadeInScale {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Staggered animation classes */
+.view-animating-in .will-animate {
+  opacity: 0.2;
+  animation-fill-mode: forwards;
+  animation-duration: 0.5s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-delay: calc(0.05s * var(--item-index, 0));
+  animation-name: fadeInScale;
+}
+
+.view-animating-out .will-animate {
+  animation-fill-mode: forwards;
+  animation-duration: 0.3s;
+  animation-timing-function: ease-out;
+  animation-delay: calc(0.02s * var(--item-index, 0));
+  animation-name: fade-out;
+}
+
+/* Element type variations */
+.view-animating-in button.will-animate {
+  animation-name: popIn;
+}
+
+.view-animating-in h1.will-animate,
+.view-animating-in h2.will-animate,
+.view-animating-in h3.will-animate {
+  animation-name: elastic;
+  animation-duration: 0.7s;
+}
+
+.view-animating-out button.will-animate {
+  animation-name: popOut;
+}
+
+/* Game area special animation */
+#gameArea.view-animating-in {
+  animation: rainbow-bg 2s forwards;
+}
+
+/* Override hidden class for animating views */
+.view-animating-in.hidden {
+  display: block !important; /* Override hidden during animation */
+  opacity: 0;
+  animation: fadeIn 0.5s forwards;
+}
+
+.view-animating-out {
+  animation: fadeOut 0.5s forwards;
+  pointer-events: none; /* Prevent interaction during fade-out */
+}
+
+/* Ensure elements with 'will-animate' class remain visible */
+.will-animate.hidden {
+  display: inherit !important; /* Override hidden class */
+}

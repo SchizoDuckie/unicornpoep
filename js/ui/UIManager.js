@@ -62,6 +62,22 @@ class UIManager extends RefactoredBaseComponent {
     constructor() {
         super();
         this.components = new Map();
+        
+        // Track navigation history for direction-based transitions
+        this.navigationHistory = [];
+        this.maxHistoryLength = 10; // Limit history length to save memory
+        
+        
+    }
+
+    /**
+     * Tests if the View Transitions API is properly supported in the current browser
+     * @returns {boolean} Whether the API is fully supported
+     * @private
+     */
+    _checkViewTransitionsSupport() {
+        return false;
+        return 'startViewTransition' in document;
     }
 
     /**
@@ -71,6 +87,7 @@ class UIManager extends RefactoredBaseComponent {
      * @private
      */
     _hideAllViews(skipLoading = false) {
+        console.log("Hiding all views from uimanager!")
         this.components.forEach((component, name) => {
             component.hide(); 
         });
@@ -95,12 +112,13 @@ class UIManager extends RefactoredBaseComponent {
                     eventName: Events.UI.HideAllViews,
                     callback: this._hideAllViews
                 },
-                // Game State Handlers (Direct View Navigation)
+                {
+                    eventName: Events.Game.StartRequested,
+                    callback: this._lazyInitializeGameComponents
+                },
                 {
                     eventName: Events.Game.Started,
                     callback: (e) => {
-                        // Initialize answer list component if not already created
-                        this._lazyInitializeGameComponents();
                         this._handleShowView({ viewName: Views.GameArea });
                     }
                 },
@@ -282,33 +300,83 @@ class UIManager extends RefactoredBaseComponent {
         }
         return false;
     }
+    
+    /**
+     * Updates the navigation history with the new view.
+     * @param {string} viewName The new view being shown
+     * @private
+     */
+    _updateNavigationHistory(viewName) {
+        // Add the new view to history
+        this.navigationHistory.push(viewName);
+        
+        // Trim history if it exceeds max length
+        if (this.navigationHistory.length > this.maxHistoryLength) {
+            this.navigationHistory.shift();
+        }
+    }
 
     /**
      * Handles the ShowView navigation event.
-     * Hides the current view (if any) and shows the requested view.
+     * Hides other components and shows the requested view.
+     * ALL TRANSITION/ANIMATION LOGIC REMOVED.
+     * 
      * @param {object} payload - Event payload.
      * @param {string} payload.viewName - The name of the VIEW component to show.
      * @param {any} [payload.data] - Optional data to pass to the component.
      * @private
      */
     _handleShowView({ viewName, data }) {
-        console.log('[UIManager] _handleShowView', viewName, data);
+        console.log('[UIManager] _handleShowView (Simplified - No Transitions)', viewName, data);
 
         const targetComponent = this.components.get(viewName);
         
         if (!targetComponent) {
-            debugger;
+            console.error(`[UIManager] Component '${viewName}' not found.`);
             return;
         }
 
-        this._hideAllViews();
-        
+        // Hide all other view components
+        this.components.forEach((component) => {
+            // Check if it's a view component (not a dialog) and not the target
+            if (component !== targetComponent && !(component instanceof BaseDialog)) { 
+                component.hide(); 
+            }
+        });
 
-        // Show new view
-        targetComponent.show(data);
+        // Show the target component
+        targetComponent.show(data); 
         this.activeViewName = viewName;
-    }
+        this._updateNavigationHistory(viewName);
 
+        console.log(`[UIManager] Simplified show complete for ${viewName}`);
+
+        // *** ADDED: Special handling for GameAreaComponent children ***
+        if (viewName === Views.GameArea) {
+            // Determine if it's a multiplayer game from the data passed
+            const isMultiplayer = data && (data.gameMode === 'multiplayer-host' || data.gameMode === 'multiplayer-client');
+            
+            console.log(`[UIManager] GameArea shown. Is multiplayer: ${isMultiplayer}`);
+
+            const playerListComponent = this.components.get('PlayerListComponent');
+            if (playerListComponent) {
+                if (isMultiplayer) {
+                    console.log(`[UIManager] Explicitly showing PlayerListComponent.`);
+                    playerListComponent.show(); 
+                } else {
+                    console.log(`[UIManager] Explicitly hiding PlayerListComponent.`);
+                    playerListComponent.hide();
+                }
+            }
+
+            const gameNavigationComponent = this.components.get('GameNavigation');
+            if (gameNavigationComponent) {
+                console.log(`[UIManager] Explicitly showing GameNavigation.`);
+                gameNavigationComponent.show();
+            }
+        }
+    }
+    
     /**
      * Gets a reference to a registered component (View or Dialog).
      * @param {string} componentName - The name of the component.

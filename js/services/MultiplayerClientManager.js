@@ -131,13 +131,10 @@ class MultiplayerClientManager {
      * @event Events.Game.Started
      */
     _handleGameStarted = (payload) => {
-        debugger;
+
         if (payload.mode === 'multiplayer') {
             this.startGame(this.hostPeerId); // Mark game active (might be redundant if startGame called elsewhere)
             this._startListeningForAnswers();
-        } else {
-            // If game started but not MP client, ensure we are NOT listening
-            this._stopListeningForAnswers();
         }
     }
 
@@ -150,10 +147,8 @@ class MultiplayerClientManager {
      */
     _handleGameFinished = (payload) => {
         // Stop listening regardless of which mode finished, just in case
-        this._stopListeningForAnswers();
-        // Reset internal state if it was a multiplayer game ending
-        debugger;
         if (payload.mode === 'multiplayer') {
+            this._stopListeningForAnswers();
             this.resetState();
         }
     }
@@ -458,10 +453,10 @@ class MultiplayerClientManager {
         // Send CLIENT_READY with explicit string type to avoid null type issues
         setTimeout(() => {
             // Use the constant directly to avoid any issues with undefined imports
-            console.log(`[MultiplayerClientManager] Sending CLIENT_READY message (first attempt). Using string literal: '${CLIENT_READY}'`);
+            console.log(`[MultiplayerClientManager] Sending CLIENT_READY message (first attempt).`);
             
             const currentName = this._playerName || 'Unknown Player'; // Use stored name or fallback
-            // Use the explicit string to avoid any import issues
+            // *** FIX: Use MSG_TYPE.CLIENT_READY ***
             webRTCManager.sendToHost(MSG_TYPE.CLIENT_READY, { 
                 name: currentName,
                 isReady: true  // Explicitly include isReady flag
@@ -469,9 +464,10 @@ class MultiplayerClientManager {
             
             // Send a second CLIENT_READY message as backup with explicit string
             setTimeout(() => {
-                console.log(`[MultiplayerClientManager] Sending CLIENT_READY message (second attempt). Using explicit string '${CLIENT_READY}'`);
+                console.log(`[MultiplayerClientManager] Sending CLIENT_READY message (second attempt).`);
                 const backupName = this._playerName || 'Unknown Player'; // Use stored name again
-                webRTCManager.sendToHost(CLIENT_READY, { 
+                // *** FIX: Use MSG_TYPE.CLIENT_READY ***
+                webRTCManager.sendToHost(MSG_TYPE.CLIENT_READY, { 
                     name: backupName,
                     isReady: true  // Explicitly include isReady flag
                 });
