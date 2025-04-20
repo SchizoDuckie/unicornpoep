@@ -498,7 +498,7 @@ const Events = {
             JoinMultiplayerClicked: 'Events.UI.MainMenu.JoinMultiplayerClicked',
             /**
              * Fired when the player clicks the Create Game button in the main menu.
-             * @event Events.UI.MainMenu.CreateGameClicked
+             * @event Events.UI.MainMenu.HostMultiplayerClicked
              */
             HostMultiplayerClicked: 'Events.UI.MainMenu.HostMultiplayerClicked',
             /**
@@ -681,7 +681,9 @@ const Events = {
             /** Fired when the user clicks "Play Again" in any end dialog. */
             PlayAgainClicked: 'Events.UI.EndDialog.PlayAgainClicked',
             /** Fired when the user clicks "Return to Menu" in any end dialog. */
-            ReturnToMenuClicked: 'Events.UI.EndDialog.ReturnToMenuClicked'
+            ReturnToMenuClicked: 'Events.UI.EndDialog.ReturnToMenuClicked',
+            /** User clicked Restart Practice in the practice end dialog. */
+            RestartPracticeClicked: 'Events.UI.EndDialog.RestartPracticeClicked'
         },
         /** @namespace Events.UI.CustomQuestions */
         CustomQuestions: {

@@ -18,11 +18,12 @@ class SinglePlayerGame extends BaseGameMode {
      * @param {object} settings - Game settings.
      * @param {QuizEngine} quizEngineInstance - The QuizEngine instance to use.
      * @param {string} playerName - The name of the player.
+     * @param {string} [mode='single'] - The game mode ('single' or 'practice').
      */
-    constructor(settings, quizEngineInstance, playerName) {
-        // Pass the QuizEngine instance to BaseGameMode constructor
-        super('single', settings, quizEngineInstance, playerName);
-        console.log(`[SinglePlayerGame] Initialized for player: ${playerName}, difficulty: ${settings.difficulty}`);
+    constructor(settings, quizEngineInstance, playerName, mode = 'single') {
+        // Pass the QuizEngine instance and mode to BaseGameMode constructor
+        super(mode, settings, quizEngineInstance, playerName);
+        console.log(`[SinglePlayerGame] Initialized for player: ${playerName}, mode: ${mode}, difficulty: ${settings.difficulty}`);
 
         // Store Highscore Manager
         this.highscoreManager = highscoreManager;
@@ -92,7 +93,42 @@ class SinglePlayerGame extends BaseGameMode {
         }, 1500); // Delay to allow user to see result
     }
 
-   
+    // --- ADDED: Override BaseGameMode hooks for Timer Control --- 
+
+    /** Stop timer before moving to the next question. */
+    _beforeNextQuestion() {
+        // --- PRACTICE MODE: Don't interact with timer --- 
+        if (this.mode !== 'practice') {
+            this.timer.stop();
+        }
+    }
+
+    /** Reset and start timer after a new question is presented. */
+    _afterQuestionPresented() {
+        // --- PRACTICE MODE: Don't interact with timer --- 
+        if (this.mode !== 'practice') {
+            this.timer.reset();
+            this.timer.start();
+        }
+    }
+
+    /** Stop timer when an answer is submitted. */
+    _beforeAnswerCheck() {
+        // --- PRACTICE MODE: Don't interact with timer --- 
+        if (this.mode !== 'practice') {
+            this.timer.stop();
+        }
+    }
+
+    /** Stop timer before finishing the game. */
+    _beforeFinish() {
+        // --- PRACTICE MODE: Don't interact with timer --- 
+        if (this.mode !== 'practice') {
+            this.timer.stop();
+        }
+    }
+
+    // --- End Overridden Hooks --- 
 
     /**
      * Add the final score to the results object.
@@ -107,21 +143,23 @@ class SinglePlayerGame extends BaseGameMode {
             ? this.settings.sheetIds.join(', ')
             : "Onbekende Oefening"; 
 
-        // 2. Check Highscore Eligibility
+        // 2. Check Highscore Eligibility - **DISABLE FOR PRACTICE MODE**
         let isEligible = false;
-        try {
-            const scoreToCheck = this.score; // Use the current score
-            if (typeof this.highscoreManager.isNewHighScore === 'function') {
-                 isEligible = this.highscoreManager.isNewHighScore(
-                     gameName,
-                     this.difficulty,
-                     scoreToCheck
-                 );
-            } else {
-                console.error("[SinglePlayerGame] HighscoreManager or isNewHighScore method missing!");
+        if (this.mode !== 'practice') { // Only check if NOT practice mode
+            try {
+                const scoreToCheck = this.score; // Use the current score
+                if (typeof this.highscoreManager.isNewHighScore === 'function') {
+                     isEligible = this.highscoreManager.isNewHighScore(
+                         gameName,
+                         this.difficulty,
+                         scoreToCheck
+                     );
+                } else {
+                    console.error("[SinglePlayerGame] HighscoreManager or isNewHighScore method missing!");
+                }
+            } catch (error) {
+                 console.error("[SinglePlayerGame] Error checking highscore eligibility:", error);
             }
-        } catch (error) {
-             console.error("[SinglePlayerGame] Error checking highscore eligibility:", error);
         }
 
         // 3. Construct final results, merging with base and adding single-player specific data
@@ -130,8 +168,8 @@ class SinglePlayerGame extends BaseGameMode {
             score: this.score, // Ensure final score is included
             gameName: gameName,
             difficulty: this.difficulty,
-            eligibleForHighscore: isEligible,
-            mode: 'single' // Explicitly set mode for clarity in results payload
+            eligibleForHighscore: isEligible, // Will be false if mode is 'practice'
+            mode: this.mode // Explicitly set mode for clarity in results payload
         };
     }
 

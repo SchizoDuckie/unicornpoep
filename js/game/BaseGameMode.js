@@ -316,6 +316,7 @@ class BaseGameMode {
     _beforeFinish() {
         this.timer.stop();
     }
+
     /**
      * Hook to calculate score delta for an answer. Base implementation provides time bonus.
      *
@@ -329,12 +330,17 @@ class BaseGameMode {
      *   The bonus is calculated based on the percentage of the allowed time remaining.
      *
      * @param {boolean} isCorrect - Whether the answer was correct.
-     * @param {number} [elapsedMs] - Optional: The elapsed time in MS for score calculation (used by MP Host).
+     * @param {number} [elapsedMs=null] - Optional: The elapsed time in MS for score calculation (used by MP Host).
      *                              If not provided, the method attempts to use `this.timer.getElapsedTime()`.
      * @returns {number} The score change (BASE_SCORE + time bonus for correct, 0 otherwise).
      * @protected
      */
     _calculateScore(isCorrect, elapsedMs = null) {
+        // --- PRACTICE MODE: No score --- 
+        if (this.mode === 'practice') {
+            return 0;
+        }
+
         if (!isCorrect) {
             return 0;
         }
@@ -343,60 +349,61 @@ class BaseGameMode {
         if (timeToUseMs === null && this.timer && typeof this.timer.getElapsedTime === 'function') {
             timeToUseMs = this.timer.getElapsedTime();
         } else if (timeToUseMs === null) {
-            console.log(`[BaseGameMode:${this.mode}] Score Calc: Correct! No timer/elapsed time found. Awarding base score.`);
+            // console.log(`[BaseGameMode:${this.mode}] Score Calc: Correct! No timer/elapsed time found. Awarding base score.`);
             return BASE_SCORE;
         }
 
-        if (this.timer && this.timer.durationMs > 0) { 
-            const durationMs = this.timer.durationMs;
-
-            if (durationMs > 0 && timeToUseMs >= 0) {
-                 const elapsedSec = timeToUseMs / 1000;
-                 const durationSec = durationMs / 1000;
-                 const timeFactor = Math.max(0, 1 - (elapsedSec / durationSec));
-                 const timeBonus = Math.round(MAX_TIME_BONUS * timeFactor);
-                 const totalScoreDelta = BASE_SCORE + timeBonus;
-                 console.log(`[BaseGameMode:${this.mode}] Score Calc: Correct! elapsed=${elapsedSec.toFixed(2)}s, duration=${durationSec}s, factor=${timeFactor.toFixed(2)}, bonus=${timeBonus}, totalDelta=${totalScoreDelta}`);
-                 return totalScoreDelta;
-            } else {
-                 console.warn(`[BaseGameMode:${this.mode}] Score Calc: Correct, but durationMs (${durationMs}) or elapsedMs (${timeToUseMs}) invalid. Awarding base score.`);
-                 return BASE_SCORE;
-            }
+        // Calculate score with time bonus if timer details are valid
+        if (this.timer && this.timer.durationMs > 0 && typeof timeToUseMs === 'number' && timeToUseMs >= 0) { 
+            const durationMs = this.timer.durationMs; // Use stored duration
+            const elapsedSec = timeToUseMs / 1000;
+            const durationSec = durationMs / 1000;
+            const timeFactor = Math.max(0, 1 - (elapsedSec / durationSec));
+            const timeBonus = Math.round(MAX_TIME_BONUS * timeFactor);
+            const totalScoreDelta = BASE_SCORE + timeBonus;
+            // console.log(`[BaseGameMode:${this.mode}] Score Calc: Correct! elapsed=${elapsedSec.toFixed(2)}s, duration=${durationSec}s, factor=${timeFactor.toFixed(2)}, bonus=${timeBonus}, totalDelta=${totalScoreDelta}`);
+            return totalScoreDelta;
         } else {
-            console.log(`[BaseGameMode:${this.mode}] Score Calc: Correct! No timer or timer duration (durationMs) found. Awarding base score.`); 
+            // Fallback to base score if timer/time info is incomplete
+            // console.warn(`[BaseGameMode:${this.mode}] Score Calc: Correct, but timer/duration/elapsedMs invalid. Awarding base score.`);
             return BASE_SCORE;
         }
     }
 
     /**
-     * Hook called after an answer has been checked and Game.AnswerChecked emitted.
+     * Hook called after an answer is checked and score calculated, but before the next question is presented.
      * @param {boolean} isCorrect - Whether the answer was correct.
-     * @param {number} scoreDelta - The score change calculated by _calculateScore.
+     * @param {number} scoreDelta - The score delta calculated by _calculateScore.
      * @protected
      */
     _afterAnswerChecked(isCorrect, scoreDelta) { 
-        console.log("[Afteranswerchecked!]", arguments)
-        // Update the total score
-        if (scoreDelta > 0) {
-            this.score += scoreDelta;
-            console.log(`[BaseGameMode:${this.mode}] Score updated. New score: ${this.score} (Delta: ${scoreDelta})`);
-            // Emit event for UI update
-            eventBus.emit(Events.Game.ScoreUpdated, { 
-                playerName: this.playerName,
-                newScore: this.score, 
-                delta: scoreDelta 
-            });
+        console.log('[Afteranswerchecked!]', arguments)
+        // --- PRACTICE MODE: Don't update score --- 
+        if (this.mode === 'practice') {
+            return;
         }
+        this.score += scoreDelta;
+        console.log(`[BaseGameMode:${this.mode}] Score updated. New score: ${this.score} (Delta: ${scoreDelta})`);
+        // Emit score update event - useful for UI
+        eventBus.emit(Events.Game.ScoreUpdated, {
+            playerName: this.playerName,
+            newScore: this.score,
+            delta: scoreDelta
+        });
     }
 
     /**
-     * Hook to allow subclasses to add mode-specific data to the final results object.
-     * @param {object} baseResults - Results object containing common data.
-     * @returns {object} The final results object.
+     * Calculates the final results object.
+     * @param {object} [baseResults={}] - Optional base results object to merge into.
+     * @returns {object} The final results.
      * @protected
      */
     _getFinalResults(baseResults) {
-        return baseResults; // Base implementation returns results as is
+        
+        if(this.mode === 'practice') {
+            baseResults.eligibleForHighscore = false;
+        }
+        return baseResults;
     }
 
     /** Hook called after the game is finished and results are calculated/emitted. @protected */

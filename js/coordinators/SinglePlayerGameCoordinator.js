@@ -44,6 +44,7 @@ class SinglePlayerGameCoordinator {
         
         // Main menu selection
         eventBus.on(Events.UI.MainMenu.SinglePlayerClicked, this.handleSinglePlayerClicked);
+        eventBus.on(Events.UI.MainMenu.StartPracticeClicked, this.handlePracticeClicked);
         
         // Game setup
         eventBus.on(Events.Game.StartRequested, this.handleGameStartRequested);
@@ -53,6 +54,7 @@ class SinglePlayerGameCoordinator {
         eventBus.on(Events.Game.Finished, this.handleGameFinished);
         eventBus.on(Events.UI.GameArea.LeaveGameClicked, this.handleLeaveGame);
         eventBus.on(Events.UI.Dialog.SaveScoreClicked, this._handleSaveScore);
+        eventBus.on(Events.UI.EndDialog.RestartPracticeClicked, this._handleRestartPractice);
         
         console.info("[SinglePlayerGameCoordinator] Listeners registered.");
     }
@@ -79,53 +81,57 @@ class SinglePlayerGameCoordinator {
     }
 
     /**
+     * Handles the practice button click from the main menu.
+     * Shows the game setup screen for practice mode.
+     * 
+     * @private
+     * @event Events.UI.MainMenu.StartPracticeClicked
+     * @throws Shows warning feedback if a game is already in progress
+     */
+    handlePracticeClicked = () => {
+        if (this.activeGame) {
+            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('warnGameInProgress'), level: 'warn' });
+            return;
+        }
+        
+        // Show game setup screen for practice mode
+        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.SheetSelection, data: { mode: 'practice' } });
+    }
+
+    /**
      * Handles the start game button click from the game setup screen.
      * Initializes and starts a new single player game with the specified settings.
-     
      */
     handleGameStartRequested = async ({ mode, settings, playerName }) => {
-        if (mode !== 'single') {
+        if (mode !== 'single' && mode !== 'practice') {
             return;
         }
         
-        console.log(`[SinglePLayerGamecoord ] GameStartRequested received for local mode:`, { settings, playerName });
+        console.log(`[SinglePlayerGameCoordinator] GameStartRequested received for local mode: ${mode}`, { settings, playerName });
         // Validate incoming settings
         if (!settings || !settings.sheetIds || !Array.isArray(settings.sheetIds) || settings.sheetIds.length === 0) {
-            console.error("[MultiplayerHostCoordinator] Invalid settings received. Missing or empty sheetIds:", settings);
-            debugger;
+            console.error("[SinglePlayerGameCoordinator] Invalid settings received. Missing or empty sheetIds:", settings);
             return;
         }
 
-        // Store player name and settings for later use when host is initialized
         this.playerName = playerName;
       
-        
         console.log("[SinglePlayerGameCoordinator] Stored pendingGameSettings:", this.pendingGameSettings);
 
-               
-        
         if (this.activeGame) {
-            console.warn("[SinglePlayerGameCoordinator] Cannot start single player game, already hosting a session.");
-            debugger
+            console.warn("[SinglePlayerGameCoordinator] Cannot start new game, already active.");
             return;
         }
         
-        
         try {
-            // Initialize quiz engine
             this.quizEngine = QuizEngine.getInstance();
             
-            // Load questions based on settings
             await this.quizEngine.loadQuestionsFromManager(settings.sheetIds, settings.difficulty);
             
-            // Create and start the game
-            this.activeGame = new SinglePlayerGame(settings, this.quizEngine, playerName);
-            this.currentGameMode = 'single-player';
+            this.activeGame = new SinglePlayerGame(settings, this.quizEngine, playerName, mode);
+            this.currentGameMode = mode;
             
-            // Start the game and navigate to game area
             await this.activeGame.start();
-            
-            // Note: Game handles navigation to game area
             
         } catch (error) {
             console.error(`[SinglePlayerGameCoordinator] Error starting game: ${error.message}`, error);
@@ -154,35 +160,24 @@ class SinglePlayerGameCoordinator {
      * 
      * @param {Object} payload Event payload
      * @param {string} payload.mode The game mode that finished
-     * @param {Object} payload.results Results of the game
+     * @param {object} payload.results The results of the game
      * @private
      * @event Events.Game.Finished
      */
     handleGameFinished = ({ mode, results }) => {
-        if (mode !== 'single-player') return;
-        
-        console.log("[SinglePlayerGameCoordinator] Game.Finished received.", results);
+        if (mode !== 'single' && mode !== 'practice') return; 
         
         if (results) {
-            console.log(`[SinglePlayerGameCoordinator] Requesting UIManager show Single Player End Dialog.`);
-            uiManager.showDialog(Views.SinglePlayerEndDialog, results);
+            const dialogView = (mode === 'practice') ? Views.PracticeEndDialog : Views.SinglePlayerEndDialog;
+            uiManager.showDialog(dialogView, results);
         } else {
-            console.warn("[SinglePlayerGameCoordinator] Game.Finished received, but no results payload found. Cannot show end dialog.");
+            console.warn(`[SinglePlayerGameCoordinator] Game.Finished (mode: ${mode}) received, but no results payload found. Cannot show end dialog.`);
+            this.resetState();
+            eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+            return; 
         }
         
-        if (this.activeGame) {
-            if (typeof this.activeGame.destroy === 'function') {
-                this.activeGame.destroy();
-            }
-            this.activeGame = null;
-        }
-        if (this.quizEngine) {
-            if (typeof this.quizEngine.destroy === 'function') {
-                this.quizEngine.destroy();
-            }
-            this.quizEngine = null;
-        }
-        this.currentGameMode = null;
+        this.resetState(); 
     }
 
     /**
@@ -193,9 +188,9 @@ class SinglePlayerGameCoordinator {
      * @event Events.UI.GameArea.LeaveGameClicked
      */
     handleLeaveGame = () => {
-        if (this.currentGameMode !== 'single-player') return;
+        if (this.currentGameMode !== 'single' && this.currentGameMode !== 'practice') return;
         
-        console.log("[SinglePlayerGameCoordinator] LeaveGameClicked received.");
+        console.log(`[SinglePlayerGameCoordinator] LeaveGameClicked received for mode: ${this.currentGameMode}.`);
         
         this.resetState();
         eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
@@ -203,32 +198,19 @@ class SinglePlayerGameCoordinator {
 
     /**
      * Resets the coordinator's internal state.
-     * Destroys active game and quiz engine if they exist.
+     * Destroys active game and nullifies quiz engine reference.
      * @private
      */
     resetState = () => {
-        console.log("[SinglePlayerGameCoordinator] Resetting state...");
-        
-        // Clean up active game
         if (this.activeGame) {
-            if (typeof this.activeGame.destroy === 'function') {
-                this.activeGame.destroy();
-            }
+            this.activeGame.destroy();
             this.activeGame = null;
         }
         
-        // Clean up quiz engine
-        if (this.quizEngine) {
-            if (typeof this.quizEngine.destroy === 'function') {
-                this.quizEngine.destroy();
-            }
-            this.quizEngine = null;
-        }
+        this.quizEngine = null; 
         
         this.currentGameMode = null;
         this.pendingGameSettings = null;
-        
-        console.log("[SinglePlayerGameCoordinator] State reset complete.");
     }
 
     /**
@@ -238,32 +220,39 @@ class SinglePlayerGameCoordinator {
      * @param {object} payload Event payload from SaveScoreClicked
      * @param {string} payload.name Player name
      * @param {number} payload.score Final score
-     * @param {string} payload.gameName Name of the game played
+     * @param {string} payload.gameName Name of the game played (sheet key)
      * @param {string} payload.mode Game mode ('single')
      * @param {string} payload.difficulty Game difficulty
      * @private
      * @event Events.UI.Dialog.SaveScoreClicked
      */
     _handleSaveScore = ({ name, score, gameName, mode, difficulty }) => {
-        console.log(`[SinglePlayerGameCoordinator] SaveScoreClicked received. Name: ${name}, Score: ${score}, Game: ${gameName}, Mode: ${mode}, Diff: ${difficulty}`);
         try {
-            const saved = highscoreManager.addHighscore(name, score, gameName, mode, difficulty);
+            const saved = highscoreManager.addHighscore(name, score, gameName, mode, difficulty); 
             if (saved) {
                 eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveSuccess'), level: 'success' });
-            } else {
-                // Optional: Provide feedback if score wasn't high enough?
-                // Currently, HighscoreManager logs this.
-                 console.log('[SinglePlayerGameCoordinator] Score did not qualify or was not saved.');
-            }
-            // After attempting save, navigate to highscores or main menu
-            // For now, let's go to highscores to see the result
+            } 
             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.Highscores }); 
         } catch (error) {
             console.error(`[SinglePlayerGameCoordinator] Error calling addHighscore:`, error);
             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('hsSaveError'), level: 'error' });
-            // Fallback to main menu on error
             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu }); 
         }
+    }
+
+    /**
+     * Handles the restart practice event from the end dialog.
+     * Navigates back to the sheet selection screen for practice mode.
+     * Assumes the user might want to change settings.
+     * 
+     * @private
+     * @event Events.UI.EndDialog.RestartPracticeClicked
+     */
+    _handleRestartPractice = () => {
+        // Reset state just in case (should already be reset by handleGameFinished)
+        this.resetState(); 
+        // Show sheet selection again for practice mode
+        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.SheetSelection, data: { mode: 'practice' } });
     }
 }
 
