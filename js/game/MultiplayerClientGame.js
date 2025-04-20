@@ -186,10 +186,10 @@ class MultiplayerClientGame extends BaseGameMode {
         const resultsPayload = payload && payload.results ? payload.results : payload;
         if (!resultsPayload) {
             console.error("[MultiplayerClientGame] Received GAME_OVER but payload is missing or invalid.", payload);
-            // Potentially show a generic error dialog
-            uiManager.showDialog(Views.ErrorDialog, { 
-                title: 'Game Over Error', 
-                message: 'Received incomplete game results from the host.' 
+            // Use a generic, kid-friendly error message
+            uiManager.showDialog(Views.ErrorDialog, {
+                title: 'Oeps!',
+                messageKey: 'genericInternalError' // Key from index.html
             });
             eventBus.emit(Events.Game.Finished, { mode: this.mode, results: null }); // Emit finish with null results
             return;
@@ -203,10 +203,7 @@ class MultiplayerClientGame extends BaseGameMode {
         
         console.log("[MultiplayerClientGame] Final Results (from host):", finalResults);
 
-        // ---> MODIFIED: Use uiManager.showDialog <--- 
-        console.log(`[MultiplayerClientGame] Requesting UIManager show Multiplayer End Dialog.`);
         uiManager.showDialog(Views.MultiplayerEndDialog, finalResults);
-        // ---> END MODIFIED SECTION <--- 
 
         // Emit the Game.Finished event locally (Coordinator might use this for final cleanup)
         eventBus.emit(Events.Game.Finished, { mode: this.mode, results: finalResults });

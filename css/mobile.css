@@ -1,0 +1,344 @@
+/* Mobile Styles - Generally targeting screens <= 768px */
+
+/* Base Adjustments */
+#app>h1 { font-size: 2.5rem; }
+h2 { font-size: 2rem; }
+h3 { font-size: 1.8rem; }
+
+button { /* General buttons */
+    font-size: 1.5rem;
+    padding: 1rem 1.5rem;
+    margin: 0.5rem;
+}
+
+#answers button {
+    font-size: 1.8rem;
+    padding: 15px;
+    min-height: 80px;
+}
+#multiplayerGame #answers button { /* Multiplayer answers */
+    font-size: 1.5rem; /* Smaller on mobile */
+    padding: 15px;
+    min-height: 60px;
+}
+
+#question { font-size: 2rem; }
+label { font-size: 1.2rem; }
+
+#scoreDisplay, #timerDisplay, #sheetTitleDisplay { font-size: 1.5rem; }
+#gameHeader { padding: 8px 10px 8px 80px; gap: 5px;} /* Adjust header padding */
+#gameHeaderLeft { gap: 10px; }
+
+#gameNavigation #nextButton,
+#sheetNavigation #startGame {
+    font-size: 1.5rem;
+    padding: 0.8rem 1.5rem;
+}
+
+.backToMain, #stopGame {
+    font-size: 1.2rem;
+    padding: 0.4rem 0.8rem;
+    /* Adjust positions slightly if needed for smaller screens */
+    top: 6%; /* Example adjustment */
+    left: 6%;
+}
+#stopGame {
+    left: 6%;
+}
+
+
+#app {
+    top: 5%; left: 5%; right: 5%; bottom: 5%;
+    border-radius: 20px;
+}
+
+/* --- Layout Adjustments --- */
+
+/* Main Menu */
+#menuItems {
+    width: 95%; /* Slightly wider on mobile */
+}
+
+/* Sheet Selection */
+#sheetSelection {
+    grid-template-columns: 1fr; /* Stack columns */
+    gap: 15px;
+    padding-top: 10px;
+}
+#sheetsCol, #difficultyCol {
+    flex-basis: auto; /* Reset flex basis */
+    width: 100%;
+    padding: 0;
+}
+
+/* Game Area */
+#gameArea {
+    width: 100%; /* Make game area full width */
+    height: calc(100% - 20px); /* Adjust height slightly */
+    padding: 15px;
+    padding-bottom: 100px; /* Ensure space for nav */
+    box-sizing: border-box; /* Ensure padding included */
+}
+#gameElements {
+    padding-top: 55px; /* Adjust for smaller header */
+    height: calc(100% - 55px);
+}
+#answers {
+    gap: 10px;
+    padding: 10px;
+}
+
+/* Multiplayer Choice */
+#multiplayerChoice {
+    grid-template-columns: 1fr; /* Stack columns */
+    grid-template-rows: auto auto auto auto; /* Title, Name, Difficulty, Buttons */
+    padding: 20px;
+    gap: 15px;
+}
+#multiplayerChoice .name-input-container {
+    grid-column: 1 / -1; /* Span full width */
+    grid-row: 2 / 3;
+}
+#multiplayerChoice .difficulty-selection-container {
+    grid-column: 1 / -1; /* Span full width */
+    grid-row: 3 / 4;
+}
+#multiplayerChoice button.menuButton:nth-of-type(1),
+#multiplayerChoice button.menuButton:nth-of-type(2) {
+    grid-column: 1 / -1; /* Stack buttons */
+    grid-row: auto; /* Let grid auto-place */
+}
+#multiplayerChoice button.menuButton:nth-of-type(1) { grid-row: 4 / 5; }
+#multiplayerChoice button.menuButton:nth-of-type(2) { grid-row: 5 / 6; }
+
+
+/* Connection Status / Lobby */
+#connectionStatus #connectionCode {
+    padding: 15px; /* Reduce padding */
+    gap: 15px;
+}
+#connectionStatus #connectionCode.host-view {
+    /* Revert to single column layout */
+    grid-template-columns: 1fr; 
+    padding: 15px; /* Keep reduced padding */
+    /* Rows for Code, Link, Players, Start, Error */
+    grid-template-rows: auto auto 1fr auto auto; 
+    gap: 10px; /* Reduced vertical gap */
+}
+/* Assign grid areas for single-column mobile host view */
+.host-view .code-section { 
+    grid-column: 1 / -1; 
+    grid-row: 1 / 2; 
+}
+.host-view .link-section { 
+    grid-column: 1 / -1; 
+    grid-row: 2 / 3; 
+}
+.host-view .player-list-section { 
+    grid-column: 1 / -1; 
+    grid-row: 3 / 4; /* Player list fills space */
+    min-height: 150px; /* Ensure player list has some min height */
+}
+.host-view .start-section { 
+    grid-column: 1 / -1; 
+    grid-row: 4 / 5; 
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+.host-view #hostErrorDisplay { 
+    grid-column: 1 / -1; 
+    grid-row: 5 / 6; /* Last row */
+}
+
+.host-lobby-section { padding: 8px 12px; } /* Keep reduced section padding */
+
+/* Put buttons next to text again */
+.host-code-wrapper {
+    display: flex; /* Use flexbox */
+    align-items: center; /* Vertically align items */
+    justify-content: flex-start; /* Align items to the start */
+    gap: 10px; /* Space between text and button(s) */
+    margin-bottom: 10px; /* Space below wrapper */
+}
+.host-code-text {
+    flex-grow: 1; /* Allow text to take available space */
+    margin-right: 0; /* Reset margin */
+    margin-bottom: 0; /* Reset margin */
+    font-size: 1rem; 
+    word-break: break-all; 
+}
+/* Keep button styles */
+.copy-button, .share-button {
+    padding: 8px; 
+    flex-shrink: 0; /* Prevent buttons from shrinking */
+}
+.copy-button svg, .share-button svg {
+    width: 20px;
+    height: 20px;
+}
+
+.help-text { 
+    font-size: 1rem; /* Smaller help text */
+    margin-top: 5px; 
+    margin-bottom: 5px; 
+}
+
+
+#connectionStatus #joinView .connectionBox { width: 100%; padding: 20px; }
+#connectionStatus #joinView #connectionCodeInput { font-size: 2rem; padding: 10px; }
+#connectionStatus #joinView #connectionErrorMessage {
+   display: none; /* Hide the technical error message */
+}
+
+
+/* Join Confirm View */
+#joinConfirmView {
+    grid-template-columns: 1fr; /* Stack columns */
+    grid-template-rows: auto auto auto auto; /* Title, Left, Right, Buttons */
+    padding: 15px; /* Reduce overall padding */
+    gap: 10px; /* Reduce gap */
+    height: 100%; /* Ensure it takes full height */
+    overflow-y: auto; /* Allow vertical scrolling */
+    box-sizing: border-box; /* Include padding in height calc */
+}
+#joinConfirmView .join-confirm-title { 
+    font-size: 1.8rem; /* Slightly smaller title */
+    margin-bottom: 10px; /* Reduce margin */
+}
+
+/* Reduce padding within the panels */
+#joinConfirmView .host-lobby-section {
+    padding: 10px;
+}
+
+/* Adjust game info display */
+#joinConfirmView .host-lobby-section .game-info-display {
+    font-size: 1rem; /* Smaller font */
+    line-height: 1.4; 
+}
+#joinConfirmView .panel-title { /* "Spel Details:" title */
+    font-size: 1.1rem; /* Smaller panel title */
+    margin-bottom: 5px;
+}
+
+/* Adjust name input section */
+#joinConfirmView .join-confirm-right-panel .name-input-container label.help-text {
+    font-size: 1.1rem; /* Smaller label */
+    margin-bottom: 3px; /* Tighter margin */
+}
+#joinConfirmView .join-confirm-right-panel input[type="text"] {
+    font-size: 1.2rem; /* Reduce font size */
+    padding: 8px 10px; /* Reduce padding */
+    width: auto; /* Let flexbox handle width */
+    border-width: 2px; /* Slightly thinner border */
+}
+
+#joinConfirmView .join-confirm-left-panel { grid-column: 1 / -1; grid-row: 2 / 3; }
+#joinConfirmView .join-confirm-right-panel { grid-column: 1 / -1; grid-row: 3 / 4; }
+#joinConfirmView .join-confirm-buttons { grid-column: 1 / -1; grid-row: 4 / 5; flex-direction: column; gap: 10px; } /* Stack buttons */
+#joinConfirmView .dialog-buttons button { 
+    width: 100%; 
+    font-size: 1.3rem; /* Slightly smaller buttons */
+    padding: 0.8rem 1rem;
+}
+
+
+/* Highscores */
+#highscores table { margin-top: 10px; }
+#highscores th, #highscores td { padding: 8px 10px; font-size: 0.9rem; }
+#highscores td.rank { font-size: 1.2em; width: 40px; }
+#highscores td.date { font-size: 0.8em; }
+
+
+/* Multiplayer In-Game */
+#opponentList {
+    top: auto; /* Unset fixed top */
+    bottom: 100px; /* Position above nav bar */
+    left: 5%;
+    width: 90%;
+    max-height: 25%; /* Limit height */
+    flex-direction: row; /* Display horizontally */
+    flex-wrap: wrap; /* Allow wrapping */
+    gap: 5px;
+    padding: 5px;
+    background-color: rgba(0, 0, 0, 0.1); /* Darker background */
+}
+.opponent-entry {
+    padding: 3px 6px;
+    font-size: 0.8rem;
+    gap: 5px;
+    flex-grow: 1; /* Allow items to grow */
+    min-width: 80px; /* Minimum width */
+}
+
+#playerScores {
+    display: flex; /* Use flex for horizontal layout */
+    flex-wrap: wrap; /* Allow wrapping on very small screens */
+    justify-content: center; /* Center scores */
+    gap: 5px;
+    padding: 5px;
+    margin-bottom: 5px;
+}
+.player-score-display { font-size: 1rem; padding: 3px 8px; }
+
+
+/* End Game Dialogs */
+#endOfGameDialog, #multiplayerEndDialog {
+    width: 90%;
+    padding: 20px;
+}
+#multiplayerEndDialog .player-result { font-size: 1.1rem; padding: 10px; gap: 10px;}
+
+
+/* --- Very Small Screens (<= 480px) --- */
+@media (max-width: 480px) {
+    #app>h1 { font-size: 2rem; }
+    #app>h1 small { font-size: 0.5em; }
+
+    button { /* General buttons */
+        font-size: 1.2rem;
+        padding: 0.8rem 1rem;
+    }
+
+    #answers button {
+        font-size: 1.5rem;
+        padding: 10px;
+        min-height: 60px;
+    }
+    #multiplayerGame #answers button {
+        font-size: 1.3rem; /* Smaller */
+        padding: 10px;
+    }
+
+    #question { font-size: 1.8rem; }
+    label { font-size: 1.2rem; }
+
+    #scoreDisplay, #timerDisplay, #sheetTitleDisplay { font-size: 1.2rem; }
+    #gameHeader { padding: 5px 8px 5px 70px; } /* Further adjust header padding */
+    #gameHeaderLeft { flex-direction: column; align-items: flex-start; gap: 2px; } /* Stack score/timer */
+
+    #gameNavigation #nextButton,
+    #sheetNavigation #startGame {
+        font-size: 1.2rem;
+        padding: 0.6rem 1rem;
+    }
+
+    /* Stack answers vertically */
+    #answers {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+     #answers button {
+         min-height: 50px; /* Adjust min height */
+    }
+
+    .backToMain, #stopGame {
+        font-size: 1rem;
+        padding: 0.3rem 0.6rem;
+    }
+
+    #opponentList { bottom: 80px; } /* Adjust if nav bar is smaller */
+    .opponent-entry { font-size: 0.7rem; min-width: 60px;}
+
+    #countdown { font-size: 30vw; } /* Make countdown huge */
+} 

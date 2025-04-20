@@ -6,6 +6,7 @@
     <title>🦄💩</title>
     <link href="css/fredoka.css" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css?v=1743986807">
+    <link rel="stylesheet" href="css/mobile.css?v=1743986807" media="screen and (max-width: 768px)">
 
 
     <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
@@ -47,16 +48,15 @@
                     <button id="takeTest">⏱ Toets</button>
                     <button id="viewHighscores">🥇 Hoogste Scores</button>
                     <button id="myQuestions">🎒 Zelf vragen maken</button>
-                    <button id="hostGame">👥 Host Game</button>
-                    <button id="joinGame">🔗 Join Game</button>
+                    <button id="hostGame">👥 Samen spelen: Nieuw spel</button>
+                    <button id="joinGame">🔗 Samen spelen: Meedoen</button>
                     <button id="hoeDan">🦄 Wat is Unicorn Poep?</button>
                  </div>
             </div>
 
             <!-- Sheet Selection (NOW A TOP-LEVEL VIEW) -->
             <div id="sheetSelection" class="hidden">
-               <!-- Moved Back Button outside sheetNavigation -->
-               <button id="sheetSelectBack" class="backToMain">Terug</button> <!-- Removed hidden class, showView will manage -->
+               <button id="sheetSelectBack" class="backToMain">Terug</button>
 
                <div id="sheetsCol">
                    <h1>Wat wil je doen?</h1>
@@ -67,14 +67,14 @@
                <div id="difficultyCol" class="hidden">
                    <h1>Ben je daar goed in?</h1>
                    <div id="difficultySelection">
-                       <label><input type="radio" name="difficulty" value="easy"> Denk het niet (⏱ 60)</label>
-                       <label><input type="radio" name="difficulty" value="medium" checked> Misschien (⏱ 30)</label>
-                       <label><input type="radio" name="difficulty" value="hard"> Zeker wel! (⏱ 5)</label>
+                       <label><input type="radio" name="difficulty" value="easy"> Denk het niet (⌛ 60)</label>
+                       <label><input type="radio" name="difficulty" value="medium" checked> Misschien (⌛ 30)</label>
+                       <label><input type="radio" name="difficulty" value="hard"> Zeker wel! (⌛ 5)</label>
                    </div>
                </div>
                <!-- Sheet Navigation NOW ONLY CONTAINS Start Button -->
                <div id="sheetNavigation">
-                   <button id="startGame" disabled>Start!</button> <!-- No general button class needed if specific style used -->
+                   <button id="startGame" disabled>Start!</button>
                </div>
                <data data-translation-key="sheetSelectNoneAvailable">Geen vragenlijsten gevonden.</data>
                <data data-translation-key="sheetSelectLoadError">Fout bij laden vragenlijsten.</data>
@@ -83,27 +83,23 @@
              <!-- Game Area -->
             <div id="gameArea" class="hidden">
                 <div id="gameHeader">
-                    <!-- NEW: Container for left items -->
                     <div id="gameHeaderLeft">
                         <div id="scoreDisplay" class="hidden">Score: 0</div> 
                         <div id="timerDisplay" class="hidden">00:00</div>
                         <!-- Timer Display Template -->
                         <data id="timerDefault">⏳</data> 
-                        <!-- NEW: Placeholder for sheet title -->
                         <div id="sheetTitleDisplay" class="hidden">Laden...</div> 
                     </div>
-                    <!-- END NEW -->
     
-                    <div id="progressIndicator" class=""> <!-- Removed hidden -->
+                    <div id="progressIndicator" class="">
                         <span id="progressText">Vraag 0 / 0</span>
                         <progress id="progressBar" value="0" max="100"></progress>
-                        <!-- Progress Display Templates (Already moved, example) -->
+                        <!-- Progress Display Templates -->
                         <data data-translation-key="progressLabel">Vraag</data> 
                     </div>
                     
                     <div id="playerListContainer">
-                        <!-- Template for Player List Item (Previously Missing) -->
-                        
+                        <!-- Template for Player List Item -->
                     </div> 
                     <template id="player-list-item-template">
                         <div class="opponent-entry" data-peer-id="">
@@ -113,12 +109,12 @@
                         </div>
                     </template>
                     <!-- Player list items will be added here by JS -->
-                    <!-- Moved Player List Templates -->
+                    <!-- Player List Templates -->
                     <data data-translation-key="playerListUnnamed">Naamloos</data>
                     <data data-translation-key="playerListHostTag">(Host)</data>
                     <data data-translation-key="playerListYouTag">(Jij)</data>
                 </div>
-                <!-- Moved Countdown Template -->
+                <!-- Countdown Template -->
                 <data data-translation-key="countdownGo">Go!</data>
                 <div id="question">Laden...</div>
                 <div id="answers"> 
@@ -136,11 +132,11 @@
                             </div>
                         </template>
                         <!-- Player list items will be added here by JS -->
-                        <!-- Moved Player List Templates -->
+                        <!-- Player List Templates -->
                         <data data-translation-key="playerListUnnamed">Naamloos</data>
                         <data data-translation-key="playerListHostTag">(Host)</data>
                         <data data-translation-key="playerListYouTag">(Jij)</data>
-                <!-- Moved QuizEngine Templates -->
+                <!-- QuizEngine Templates -->
                 <data data-translation-key="qeLoading">Vragen laden...</data>
                 <data data-translation-key="qeLoadError">Kon vragen niet laden.</data>
             </div>
@@ -149,32 +145,32 @@
             <div id="multiplayerChoice" class="unicorn-theme hidden" >
                 <button class="backToMain">Terug</button>
                 <h2>Samen spelen</h2>
-                <!-- RESTORED Name Input Container -->
+                <!-- Name Input Container -->
                 <div class="name-input-container mb-4">
                     <label for="playerNameInput" class="block mb-1">Jouw naam:</label>
-                    <!-- ADDED Wrapper Div for Input + Button -->
+                    <!-- Wrapper Div for Input + Button -->
                     <div class="input-with-button"> 
                         <input type="text" id="playerNameInput" placeholder="Typ je naam..." class="w-full p-2 rounded bg-white bg-opacity-20 focus:outline-none focus:ring-2 focus:ring-pink-400">
-                        <!-- ADDED Refresh Button -->
+                        <!-- Refresh Button -->
                         <button id="refreshPlayerNameButton" class="refresh-name-button" title="Genereer willekeurige naam">🔄</button>
                     </div>
-                     <p id="choiceError" class="text-red-400 text-sm mt-1 hidden"></p> <!-- Adjusted error display -->
+                     <p id="choiceError" class="text-red-400 text-sm mt-1 hidden"></p>
                 </div>
                 
                 <!-- Difficulty Selection -->
                 <div class="difficulty-selection-mp">
-                    <h3>Kies Moeilijkheidsgraad:</h3>
+                    <h3>Moeilijkheidsgraad:</h3>
                     <label>
                         <input type="radio" name="mpDifficulty" value="easy">
-                        Makkelijk
+                        Makkelijk (⌛ 60)
                     </label>
                     <label>
                         <input type="radio" name="mpDifficulty" value="medium" checked>
-                        Gemiddeld
+                        Gemiddeld (⌛ 30)
                     </label>
                     <label>
                         <input type="radio" name="mpDifficulty" value="hard">
-                        Moeilijk
+                        Moeilijk (⌛ 5)
                     </label>
                 </div>
 
@@ -193,10 +189,8 @@
                 <h2>Samen spelen</h2>
 
                 <!-- Host View -->
-                <div id="connectionCode" class="unicorn-theme hidden host-view"> <!-- Added host-view class for clarity -->
-                    <!-- Removed host-lobby-content wrapper -->
-                    <!-- Removed Left Column wrapper -->
-                    <div class="host-lobby-section code-section"> <!-- Removed inline style -->
+                <div id="connectionCode" class="unicorn-theme hidden host-view">
+                    <div class="host-lobby-section code-section">
                         <p class="help-text">Deel deze code met de andere speler:</p>
                         <div class="host-code-wrapper">
                             <span id="hostCodeDisplay" class="host-code-text">Laden...</span>
@@ -218,7 +212,7 @@
                     </div>
                     
                     <!-- Player List Section -->
-                    <div class="host-lobby-section player-list-section"> <!-- Removed inline style -->
+                    <div class="host-lobby-section player-list-section">
                         <p id="hostWaitingText" class="waitingText">
                             <span id="host-status-initializing" class="host-status hidden" data-translation-key="host-status-initializing">Host initialiseren...</span>
                             <span id="host-status-waiting" class="host-status hidden">
@@ -234,13 +228,13 @@
                     </div>
                     
                     <!-- Start Button Section -->
-                    <div class="host-lobby-section start-section"> <!-- Removed inline style -->
+                    <div class="host-lobby-section start-section">
                         <p class="help-text mb-2">Start het spel wanneer je klaar bent!</p>
                         <button id="hostStartButton" class="menuButton yellow-button hidden">Start Spel!</button>
                     </div>
 
                     <!-- Error Display -->
-                    <div id="hostErrorDisplay" class="error-message hidden"></div> <!-- Removed inline style -->
+                    <div id="hostErrorDisplay" class="error-message hidden"></div>
 
                     <!-- Host Lobby Templates (General) -->
                     <data data-translation-key="hostLoading">Laden...</data>
@@ -271,12 +265,12 @@
                 </div>
 
                 <!-- Client Join Confirmation View -->
-                <div id="joinConfirmView" class="connectionBox unicorn-theme hidden join-confirm-grid"> <!-- Added class for grid styling -->
+                <div id="joinConfirmView" class="connectionBox unicorn-theme hidden join-confirm-grid">
                     <h2 data-confirm-title="Meedoen met spel?" class="join-confirm-title">Meedoen met spel?</h2>
                     
                     <!-- Left Column with Panel -->
                     <div class="host-lobby-section join-confirm-left-panel"> 
-                        <p class="help-text panel-title">Spel Details:</p> <!-- Added class -->
+                        <p class="help-text panel-title">Spel Details:</p>
                         <div id="joinGameInfo" class="game-info-display"> 
                             <!-- Game info populated by JS -->
                         </div>
@@ -286,10 +280,10 @@
                     <div class="host-lobby-section join-confirm-right-panel"> 
                         <div class="name-input-container"> 
                             <label for="joinConfirmPlayerNameInput" data-name-label="Jouw Naam:" class="help-text">Jouw Naam:</label> 
-                            <!-- ADDED Wrapper Div for Input + Button -->
+                            <!-- Wrapper Div for Input + Button -->
                             <div class="input-with-button">
                                 <input type="text" id="joinConfirmPlayerNameInput" placeholder="Naam" data-name-placeholder="Naam" required>
-                                <!-- ADDED Refresh Button -->
+                                <!-- Refresh Button -->
                                 <button id="refreshJoinConfirmNameButton" class="refresh-name-button" title="Genereer willekeurige naam">🔄</button>
                             </div>
                         </div>
@@ -404,7 +398,7 @@
                 <data data-translation-key="qmDefaultCustomName">Naamloos</data>
                 <data data-translation-key="qmSaveError">Kon eigen vragenlijsten niet opslaan.</data>
                 <data data-translation-key="qmParseErrorLine">Ongeldig formaat op regel %LINE%: '%CONTENT%'. Verwacht 'vraag => antwoord'.</data>
-                 <!-- Moved Sheet Selection errors here as they relate to custom sheets mostly -->
+                 <!-- Sheet Selection errors related to custom sheets -->
             </div>
 
             <!-- About Screen -->
@@ -461,10 +455,9 @@
             <div id="endGameButtons">
                 <button id="saveHighscore">Opslaan</button>
                 <button id="restartGame">Opnieuw</button>
-                <!-- NOTE: Leaving menuButton class here as it's an action within the dialog, not strictly a 'back' navigation -->
                 <button id="spEndMenuButton" class="backToMain menuButton">Hoofdmenu</button>
             </div>
-            <!-- Moved Single Player End Templates -->
+            <!-- Single Player End Templates -->
             <data data-translation-key="spEndErrorSaveName">Vul een naam in!</data>
          </dialog>
 
@@ -476,7 +469,7 @@
              <data data-translation-key="disconnectDefault">De andere speler heeft de verbinding verbroken.</data>
          </dialog>
 
-         <!-- Corrected Name Prompt Dialog (Matching Multiplayer Input Pattern) -->
+         <!-- Name Prompt Dialog -->
          <dialog id="namePromptDialog" class="unicorn-theme hidden">
              <h2>Hoe heet je?</h2>
              <div class="input-with-button">
@@ -493,11 +486,11 @@
              <button class="dialog-close-button" data-dialog-close>OK</button>
          </dialog>
 
-         <!-- New Multiplayer End Results Dialog -->
+         <!-- Multiplayer End Results Dialog -->
          <dialog id="multiplayerEndDialog" class="dialog unicorn-theme hidden">
              <h2 id="multiplayerEndTitle">Spel Voorbij!</h2>
              <div id="multiplayerEndResults">
-                 <!-- Added list container and template -->
+                 <!-- Results Table -->
                  <table id="mpResultsTable">
                      <thead>
                          <tr>
@@ -517,12 +510,9 @@
                          <td class="score"></td>
                      </tr>
                  </template>
-                 <!-- End added elements -->
              </div>
-             <!-- Add Play Again Button -->
-             <button id="mpPlayAgainButton" class="menuButton green-button">Play Again</button> 
-             <button id="mpReturnToMenuButton" class="menuButton yellow-button">Hoofdmenu</button> <!-- Renamed button ID -->
-             <!-- Moved Multiplayer End Templates -->
+             <button id="mpReturnToMenuButton" class="menuButton yellow-button">Hoofdmenu</button>
+             <!-- Multiplayer End Templates -->
              <data data-translation-key="mpEndDefaultPlayerName">Unknown</data>
              <data data-translation-key="mpEndLoadError">Kon resultaten niet laden.</data>
              <data data-translation-key="mpEndNoData">Geen spelers gevonden.</data>
@@ -534,7 +524,7 @@
              <data data-translation-key="hostStartButtonWaiting">Wachten op spelers...</data>
          </dialog>
 
-         <!-- New Practice End Dialog HTML -->
+         <!-- Practice End Dialog -->
          <dialog id="practiceEndDialog" class="unicorn-theme hidden">
             <div class="dialog-container">
                 <h2 class="dialog-title">Oefening Klaar!</h2>
@@ -548,7 +538,7 @@
             </div>
          </dialog>
 
-         <!-- New Confirmation Dialog -->
+         <!-- Confirmation Dialog -->
          <dialog id="confirmationDialog" class="unicorn-theme">
              <h2 id="confirmationTitle">Bevestigen</h2>
              <p class="dialog-message">Weet je het zeker?</p>
@@ -556,7 +546,7 @@
                  <button id="cancelButton" class="button secondary">Nee</button>
                  <button id="confirmButton" class="button primary">Ja</button>
              </div>
-             <!-- Moved Confirmation Dialog Templates -->
+             <!-- Confirmation Dialog Templates -->
              <data data-translation-key="confirmDefaultTitle">Bevestiging</data>
              <data data-translation-key="confirmDefaultOk">Ok</data>
              <data data-translation-key="confirmDefaultCancel">Annuleren</data>
@@ -566,14 +556,14 @@
              <data data-translation-key="deleteSheetCancel">Annuleren</data>
          </dialog>
 
-         <!-- START Waiting Dialog -->
+         <!-- Waiting Dialog -->
          <dialog id="waitingDialog" class="dialog unicorn-theme">
-           <div class="dialog-content text-center"> <!-- Added text-center -->
+           <div class="dialog-content text-center">
              <!-- Title using translation key -->
              <h2 data-translation-key="waitingDialogTitle" class="text-2xl font-bold mb-4">Duurt Lang...</h2>
 
-             <!-- Message using translation key - CORRECTED CLASS -->
-             <p class="dialog-message" data-translation-key="waitingDialogDefaultMsg">Even geduld, de baas van het spel gaat zo beginnen!</p> <!-- Changed id="waitingMessage" class="mb-4" to class="dialog-message" -->
+             <!-- Message using translation key -->
+             <p class="dialog-message" data-translation-key="waitingDialogDefaultMsg">Even geduld, de baas van het spel gaat zo beginnen!</p>
 
              <!-- Cute animated unicorn/poop image -->
              <img src="img/loading.gif" alt="Wachten..." class="mx-auto my-4 h-20 w-20"> <!-- Use your loading gif -->
@@ -583,21 +573,20 @@
          </dialog>
          <!-- END Waiting Dialog -->
 
-         <!-- START Multiplayer Lobby Dialog -->
+         <!-- Multiplayer Lobby Dialog -->
          <dialog id="multiplayerLobbyDialog" class="dialog unicorn-theme hidden">
-             <h2 class="dialog-title">Lobby</h2> <!-- Assuming title class -->
-             <p id="lobbyStatusText" class="dialog-status">Wachten...</p> <!-- Added status text -->
-             <ul id="lobbyPlayerList" class="player-list"></ul> <!-- Added player list UL -->
+             <h2 class="dialog-title">Lobby</h2>
+             <p id="lobbyStatusText" class="dialog-status">Wachten...</p>
+             <ul id="lobbyPlayerList" class="player-list"></ul>
              <div class="dialog-actions">
-                  <!-- Add the standard back button -->
+                  <!-- Standard back button -->
                   <button class="backToMain button">Terug</button> 
-                  <!-- <button id="lobbyLeaveButton" class="button danger">Verlaat Lobby</button> --> <!-- Removed leave button -->
              </div>
               <!-- Lobby Dialog Templates -->
               <data data-translation-key="lobbyWaitingForHost">Wachten tot host spel start...</data>
               <data data-translation-key="lobbyWaitingForPlayers">Wachten op spelers...</data>
-              <!-- Template for player item in lobby - CORRECTED ID -->
-              <template id="lobby-player-item-template"> <!-- Corrected ID -->
+              <!-- Template for player item in lobby -->
+              <template id="lobby-player-item-template">
                   <li class="lobby-player-item" data-peer-id="">
                       <span class="lobby-player-name"></span>
                       <span class="lobby-player-tags"></span>
@@ -609,7 +598,7 @@
        <!-- Toast Notification Area -->
          <div id="toastNotification" class="hidden">
              <span id="toastMessage"></span>
-             <!-- Moved Toast/Feedback Templates -->
+             <!-- Toast/Feedback Templates -->
              <data data-translation-key="hostCopyCodeSuccess">Code gekopieerd!</data>
              <data data-translation-key="hostCopyCodeError">Kopiëren mislukt</data>
              <data data-translation-key="hostCopyLinkSuccess">Link gekopieerd!</data>
@@ -627,10 +616,10 @@
              <data data-translation-key="hsSaveError">Could not save high score.</data>
          </div>
 
-        <!-- Moved Global/RTC Templates (Place near top of #app or body) -->
+        <!-- Global/RTC Templates -->
         <data data-translation-key="rtcErrorPeerJSLoad">PeerJS library niet geladen. Multiplayer is niet beschikbaar.</data>
 
-        <!-- Renamed ID to #countdown and added inner #countdownText -->
+        <!-- Countdown -->
         <div id="countdown" class="hidden">
             <span id="countdownText">5</span> 
         </div>
@@ -638,7 +627,7 @@
     </div> <!-- End #app -->
 
     <div id="text-templates" style="display: none;">
-        <!-- ... existing templates ... -->
+        <!-- ... existing translation keys ... -->
         
         <data data-translation-key="timerDefault">⏳</data> 
         <data data-translation-key="hostLoading">Laden...</data> 
@@ -675,7 +664,6 @@
         <data data-translation-key="mpEndDraw">Gelijkspel!</data>
         <data data-translation-key="mpEndWinnerPrefix">%NAME% wint!</data>
 
-        <!-- Added Missing Keys -->
         <data data-translation-key="mpEndLocalWin">Je hebt gewonnen!</data>
         <data data-translation-key="hostLinkCopied">Link gekopieerd!</data>
         <data data-translation-key="hostStartButton">Start Spel!</data>
@@ -758,17 +746,17 @@
         </datalist>
     </div>
 
-    <!-- Add more template keys as needed -->
+    <!-- Translation Keys -->
     <data data-translation-key="namePromptTitle">Enter Your Name</data>
     <data data-translation-key="namePromptButton">Join Game</data>
     <data data-translation-key="hostLobbyLinkCopied">Join link copied to clipboard!</data>
-    <data data-translation-key="hostLobbyCodeCopied">Host code copied to clipboard!</data> <!-- Added just in case -->
+    <data data-translation-key="hostLobbyCodeCopied">Host code copied to clipboard!</data>
 
     <!-- General UI -->
     <data data-translation-key="backButton">Back</data>
 
 
-    <!-- ADD Basic Styling for the button container -->
+    <!-- Basic Styling for the input+button container -->
     <style>
         .input-with-button {
             display: flex;

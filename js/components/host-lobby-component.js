@@ -344,6 +344,7 @@ class HostLobbyComponent extends RefactoredBaseComponent {
      * Handles Copy Code button click. @private */
     _handleCopyCode() {
         if (!this.hostCode) return;
+        console.log(`[${this.name}] Copying host code: ${this.hostCode}`);
         navigator.clipboard.writeText(this.hostCode).then(() => {
             eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('hostCodeCopied', 'Host code copied!'), level: 'success' });
         }).catch(err => {

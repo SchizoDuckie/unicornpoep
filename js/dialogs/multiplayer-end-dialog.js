@@ -17,7 +17,6 @@ class MultiplayerEndDialog extends BaseDialog {
         TITLE_DISPLAY: '#multiplayerEndTitle',
         PLAYER_LIST_BODY: '#mpResultsList',
         BACK_BUTTON: '#mpReturnToMenuButton',
-        PLAY_AGAIN_BUTTON: '#mpPlayAgainButton',
         PLAYER_TEMPLATE: '#mp-results-row-template'
     };
 
@@ -32,11 +31,6 @@ class MultiplayerEndDialog extends BaseDialog {
                     selector: MultiplayerEndDialog.SELECTORS.BACK_BUTTON,
                     event: 'click',
                     handler: this._handleBackClick
-                },
-                {
-                    selector: MultiplayerEndDialog.SELECTORS.PLAY_AGAIN_BUTTON,
-                    event: 'click',
-                    handler: this._handlePlayAgainClick
                 }
             ],
             domElements: [
@@ -51,10 +45,6 @@ class MultiplayerEndDialog extends BaseDialog {
                 {
                     name: 'backButton',
                     selector: MultiplayerEndDialog.SELECTORS.BACK_BUTTON
-                },
-                {
-                    name: 'playAgainButton',
-                    selector: MultiplayerEndDialog.SELECTORS.PLAY_AGAIN_BUTTON
                 },
                 {
                     name: 'playerTemplate',
@@ -72,16 +62,6 @@ class MultiplayerEndDialog extends BaseDialog {
     _handleBackClick() {
         console.log(`[${this.name}] Back to menu clicked.`);
         eventBus.emit(Events.UI.EndDialog.ReturnToMenuClicked);
-        this.hide();
-    }
-
-    /** 
-     * Handles the play again button click 
-     * @private
-     */
-    _handlePlayAgainClick() {
-        console.log(`[${this.name}] Play Again clicked.`);
-        eventBus.emit(Events.UI.MultiplayerEndDialog.PlayAgainClicked);
         this.hide();
     }
     

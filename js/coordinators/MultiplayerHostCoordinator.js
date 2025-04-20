@@ -77,7 +77,7 @@ class MultiplayerHostCoordinator {
         // Host finished quiz, waiting for clients
         eventBus.on(Events.Multiplayer.Host.HostWaiting, this._handleHostWaiting);
         
-        // *** ADDED LISTENER for End Dialog Close ***
+        // Listen for End Dialog Close
         eventBus.on(Events.UI.EndDialog.ReturnToMenuClicked, this.handleReturnToMenuClicked);
         
         console.info("[MultiplayerHostCoordinator] Listeners registered.");
@@ -564,6 +564,9 @@ class MultiplayerHostCoordinator {
     resetState = () => {
         console.log("[MultiplayerHostCoordinator] Resetting state...");
         
+        // Clean up WebRTC connection FIRST
+        webRTCManager.closeConnection();
+
         // Clean up active game
         if (this.activeGame) {
             if (typeof this.activeGame.destroy === 'function') {

@@ -61,10 +61,13 @@ class MultiplayerClientCoordinator {
         // Multiplayer choice events
         eventBus.on(Events.UI.MultiplayerChoice.JoinClicked, this.handleJoinClicked);
         
-        // Join game screen
-        eventBus.on(Events.UI.JoinGame.ConnectClicked, this.handleConnectToGame);
+        // Join game screen / Join Lobby Component
+        eventBus.on(Events.UI.JoinLobby.SubmitCodeClicked, this.handleJoinLobbySubmitCodeClicked);
         eventBus.on(Events.UI.JoinGame.CancelJoinClicked, this.handleCancelJoin);
         eventBus.on(Events.Multiplayer.Client.JoinFailed, this.handleJoinFailed);
+        
+        // Add a direct listener for connection failures
+        eventBus.on(Events.WebRTC.ConnectionFailed, this.handleConnectionFailed);
         
         // Lobby
         eventBus.on(Events.UI.Lobby.LeaveGameClicked, this.handleLeaveLobby);
@@ -79,10 +82,10 @@ class MultiplayerClientCoordinator {
         eventBus.on(Events.Multiplayer.GameStarted, this.handleMultiplayerGameStarted);
         eventBus.on(Events.Multiplayer.Client.DisconnectedFromHost, this.handleDisconnection);
         
-        // *** ADDED LISTENER for Game Over Command ***
+        // Listen for Game Over Command
         eventBus.on(Events.Multiplayer.Client.GameOverCommandReceived, this._handleGameOverCommand);
         
-        // *** ADDED LISTENER for End Dialog Close ***
+        // Listen for End Dialog Close
         eventBus.on(Events.UI.EndDialog.ReturnToMenuClicked, this.handleReturnToMenuClicked);
         
         console.info("[MultiplayerClientCoordinator] Listeners registered.");
@@ -128,49 +131,63 @@ class MultiplayerClientCoordinator {
         // Store the player name
         this.playerName = playerName;
         
-        // Show the join game screen with the player name pre-filled
+        // Show the join game screen (JoinLobbyComponent)
         eventBus.emit(Events.Navigation.ShowView, { 
-            viewName: Views.MultiplayerLobbyDialog,
-            data: { playerName: playerName }
+            viewName: Views.JoinLobby, 
+            data: { playerName: playerName } // Pass name if JoinLobbyComponent needs it
         });
     }
 
     /**
-     * Handles the connect button click from the join game screen.
-     * Attempts to connect to a host with the given game code and player name.
+     * Handles the code submission from the JoinLobbyComponent UI.
+     * Attempts to connect to a host with the given game code and stored player name.
      * 
      * @param {Object} payload Event payload
-     * @param {string} payload.gameCode The game code to connect to
-     * @param {string} payload.playerName The player's name
+     * @param {string} payload.code The game code entered by the user
+     * @param {string} [payload.playerName] The player name, if provided from the component
      * @private
-     * @event Events.UI.JoinGame.ConnectClicked
+     * @event Events.UI.JoinLobby.SubmitCodeClicked
      * @throws Shows error feedback if connection fails
      */
-    handleConnectToGame = async ({ gameCode, playerName }) => {
-        console.log("[MultiplayerClientCoordinator] ConnectClicked received:", { gameCode, playerName });
-        
+    handleJoinLobbySubmitCodeClicked = ({ code, playerName }) => {
+        console.log(`[MultiplayerClientCoordinator] SubmitCodeClicked received with code: ${code}`);
+
+        // Update: Accept playerName from the JoinLobbyComponent if provided
+        if (playerName) {
+            this.playerName = playerName;
+        }
+
+        if (!this.playerName) {
+            console.error("[MultiplayerClientCoordinator] Player name is missing when trying to join via SubmitCode. This shouldn't happen.");
+            // Attempt to recover or show error - for now, let's try generating one? Or show an error dialog.
+            // Ideally, the UI flow ensures playerName is set before reaching JoinLobbyComponent.
+            // If not, we might need to re-trigger the NamePromptDialog here.
+            // For now, show error and return.
+            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('errorMissingPlayerName'), level: 'error' });
+            eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu }); // Go back to main menu
+            return;
+        }
+
         if (this.activeGame || webRTCManager.status !== ConnectionStatus.DISCONNECTED) {
             console.warn("[MultiplayerClientCoordinator] Already connected or in a game.");
             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('warnAlreadyConnected'), level: 'warn' });
             return;
         }
         
-        this.playerName = playerName;
-        
-        // Show connecting status in the Join Game view
-        eventBus.emit(Events.UI.JoinGame.Connecting, { code: gameCode }); 
 
         try {
-            // Use the singleton manager to initiate the connection
-            multiplayerClientManager.initiateConnection(gameCode, playerName);
+            // Use the singleton manager to initiate the connection with the code and stored player name
+            multiplayerClientManager.initiateConnection(code, this.playerName);
             this.currentGameMode = 'multiplayer-client';
-            console.log(`[MultiplayerClientCoordinator] Connection initiated to ${gameCode}. Waiting for connection events.`);
+            console.log(`[MultiplayerClientCoordinator] Connection initiated to ${code} for player ${this.playerName}. Waiting for connection events.`);
             
         } catch (error) {
             console.error(`[MultiplayerClientCoordinator] Connection initiation error: ${error.message}`, error);
-            this.resetState();
+            this.resetState(); // Ensure state is clean after failure
+            // Provide feedback via JoinLobbyComponent or generic error
             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('errorConnecting', `Failed to initiate connection: ${error.message}`), level: 'error' });
-            eventBus.emit(Events.UI.JoinGame.ConnectionFailed, { error: error.message });
+            // Optionally notify the component directly if needed:
+            // eventBus.emit(Events.UI.JoinLobby.ConnectionFailed, { error: error.message });
         }
     }
 
@@ -218,11 +235,17 @@ class MultiplayerClientCoordinator {
         console.log("[MultiplayerClientCoordinator] GameStarted received:", gameData);
         // Ensure player name is available (retrieve if needed)
         if (!this.playerName) {
+            // Try fetching from manager as a fallback
             this.playerName = multiplayerClientManager.getPlayerName(); 
             if (!this.playerName) {
-                console.warn("[MultiplayerClientCoordinator] Player name not found after game start. Generating new.");
-                this.playerName = miscUtils.generatePlayerName();
+                console.error("[MultiplayerClientCoordinator] Player name not found after game start and couldn't retrieve from manager.");
+                // Handle critical error - perhaps disconnect?
+                eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('errorMissingPlayerName'), level: 'error' });
+                this.resetState();
+                eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+                return;
             }
+            console.warn(`[MultiplayerClientCoordinator] Player name was missing but recovered from manager: ${this.playerName}`);
         }
         if (!gameData || !gameData.questionsData || !gameData.difficulty || !gameData.hostId) {
             console.error("[MultiplayerClientCoordinator] Invalid gameData received in GameStarted event:", gameData);
@@ -356,14 +379,13 @@ class MultiplayerClientCoordinator {
             return;
         }
 
-        // NOTE: Player name will be set when the user interacts with the JoinGame view,
-        // triggered by the UIManager showing it.
-        this.playerName = null; // Ensure player name is reset
+        // Set a default player name when joining from URL - this can be updated by user later
+        this.playerName = localStorage.getItem('unicornPoepUserName') || miscUtils.generateRandomPlayerName();
         this.currentGameMode = 'multiplayer-client'; // Set expected mode
 
         console.log(`[MultiplayerClientCoordinator] Initiating connection to host via WebRTCManager with code: ${joinCode}`);
-        // Use the singleton manager to initiate connection - name will be provided later via UI interaction
-        multiplayerClientManager.initiateConnection(joinCode, null); // Pass null for name initially
+        // Use the singleton manager to initiate connection with the default player name
+        multiplayerClientManager.initiateConnection(joinCode, this.playerName);
         
         // UIManager is responsible for showing JoinLobbyComponent based on the same event.
         // This coordinator just kicks off the connection in the background.
@@ -378,9 +400,48 @@ class MultiplayerClientCoordinator {
      * @event Events.Multiplayer.Client.JoinFailed
      */
     handleJoinFailed = ({ reason }) => {
-        this.resetState(); // Reset coordinator state
+        console.log(`[MultiplayerClientCoordinator] Join failed: ${reason}`);
+        
+        // Ensure manager disconnects
+        multiplayerClientManager.disconnect();
+        
+        // Reset coordinator state but DON'T navigate away
+        // The JoinLobbyComponent will handle showing the error
+        this.resetState(); 
+        
         // Update JoinGame view state to show error
         eventBus.emit(Events.UI.JoinGame.ConnectionFailed, { error: reason });
+        
+        // No navigation to main menu - stay on the join screen
+    }
+
+    /**
+     * Handles WebRTC connection failures to ensure the state is reset properly.
+     * @param {object} payload Error information
+     * @private
+     * @event Events.WebRTC.ConnectionFailed
+     */
+    handleConnectionFailed = (payload) => {
+        console.log(`[MultiplayerClientCoordinator] WebRTC connection failed:`, payload);
+        
+        // When a connection fails, ensure we disconnect and reset the state
+        if (this.currentGameMode === 'multiplayer-client') {
+            // Store the current player name before resetting state
+            const currentPlayerName = this.playerName;
+            
+            // Ensure manager disconnects and cleans up
+            multiplayerClientManager.disconnect();
+            
+            // Reset coordinator state but preserve playerName and DON'T navigate away
+            this.resetState(true); // Pass true to preserve player name
+            
+            // Restore the player name after reset
+            this.playerName = currentPlayerName;
+            
+            // We do NOT navigate to main menu here anymore
+            // This allows the JoinLobbyComponent to show the error properly
+            // and lets the user try again with another code
+        }
     }
 
     /**
@@ -388,15 +449,21 @@ class MultiplayerClientCoordinator {
      * Destroys active client manager and game if they exist.
      * Does NOT directly interact with the client manager singleton here, 
      * assumes disconnect/cleanup is handled elsewhere (e.g., via manager.disconnect()).
+     * @param {boolean} [preservePlayerName=false] - If true, won't reset the playerName
      * @private
      */
-    resetState = () => {
+    resetState = (preservePlayerName = false) => {
         if (this.activeGame) {
             this.activeGame.destroy();
             this.activeGame = null;
         }
         this.currentGameMode = null;
-        this.playerName = null;
+        
+        // Only reset playerName if we're not preserving it
+        if (!preservePlayerName) {
+            this.playerName = null;
+        }
+        
         eventBus.emit(Events.System.HideWaitingDialog);
     }
 
@@ -426,7 +493,12 @@ class MultiplayerClientCoordinator {
     _handleGameOverCommand = ({ results }) => {
         eventBus.emit(Events.System.HideWaitingDialog);
 
-        const resultsWithContext = { ...results }; 
+        // Inject localPlayerId into results before showing dialog
+        const resultsWithContext = {
+            ...results,
+            localPlayerId: webRTCManager.getMyPeerId() // Add local ID here
+        };
+
         uiManager.showDialog(Views.MultiplayerEndDialog, resultsWithContext);
         
         if (results && results.winner) {
@@ -457,6 +529,5 @@ class MultiplayerClientCoordinator {
     }
 }
 
-// Singleton instance
-// const multiplayerClientCoordinator = new MultiplayerClientCoordinator(); // REVERTED
-export default MultiplayerClientCoordinator; // EXPORT CLASS AGAIN
+// Export the class, not an instance, as per user requirement
+export default MultiplayerClientCoordinator;

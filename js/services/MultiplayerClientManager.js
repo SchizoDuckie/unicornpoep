@@ -99,7 +99,10 @@ class MultiplayerClientManager {
             console.error(`[${this.constructor.name}] Error preparing client game after confirmation:`, error);
             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('errorProcessingGameInfo', `Error processing game info: ${error.message}`), level: 'error' });
             // Disconnect if critical error during setup
-            this.disconnect();
+            if (webRTCManager.status !== ConnectionStatus.DISCONNECTED) {
+                webRTCManager.closeConnection(); // FIXED: Use closeConnection instead of this.disconnect()
+                this.resetState();
+            }
         }
         // Assume JoinLobbyComponent manages its own UI state transition to 'waiting'.
     }
@@ -288,7 +291,10 @@ class MultiplayerClientManager {
                 } else {
                     console.error(`[MultiplayerClientManager] Received GAME_INFO with missing/invalid payload from ${senderId}`, payload);
                     eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('errorInvalidGameInfoPayload'), level: 'error' });
-                    this.disconnect(); // Disconnect due to critical error
+                    if (webRTCManager.status !== ConnectionStatus.DISCONNECTED) {
+                        webRTCManager.closeConnection(); // FIXED: Use closeConnection instead of this.disconnect()
+                        this.resetState();
+                    }
                 }
                 break;
 
@@ -525,7 +531,7 @@ class MultiplayerClientManager {
     disconnect = () => {
         console.log(`[${this.constructor.name}] Disconnecting.`);
         if (webRTCManager.status !== ConnectionStatus.DISCONNECTED) {
-            webRTCManager.disconnect(); // Tell WebRTCManager to close connection
+            webRTCManager.closeConnection(); // FIXED: Use closeConnection instead of disconnect
         }
         this.resetState(); // Ensure local state is reset
     }

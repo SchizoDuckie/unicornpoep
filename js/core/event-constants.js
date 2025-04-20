@@ -732,13 +732,6 @@ const Events = {
         },
         MultiplayerEndDialog: {
             Closed: 'Events.UI.MultiplayerEndDialog.Closed',
-            /**
-             * Fired when user clicks Play Again in the MULTIPLAYER end dialog.
-             * Listened for by GameCoordinator.
-             * @event Events.UI.MultiplayerEndDialog.PlayAgainClicked
-             * @type {object} - Payload might be empty or indicate context.
-             */
-            PlayAgainClicked: 'Events.UI.MultiplayerEndDialog.PlayAgainClicked',
         },
         /**
          * Events related to the name prompt dialog for various actions.

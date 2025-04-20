@@ -142,12 +142,25 @@ class JoinLobbyComponent extends RefactoredBaseComponent {
             const joinCodeFromUrl = data && data.joinCode;
 
             if (joinCodeFromUrl) {
-                // Joining via URL link. Connection is handled by Coordinator.
-                // Show the 'fetching info' view immediately.
-                console.log(`[${this.name}] Join via URL detected. Showing fetching view.`);
-                this._showSpecificView('fetchingInfoView'); 
-                this._clearError();
-                // No need to pre-fill or focus input, or auto-submit.
+                // If there's a join code from URL but no player name was provided,
+                // we should show the join view to let the user enter their name
+                if (!providedName) {
+                    console.log(`[${this.name}] Join via URL detected with no player name. Showing join view.`);
+                    this._showSpecificView('joinView');
+                    this._clearError();
+                    
+                    // Pre-fill the join code input
+                    if (this.joinCodeInput) {
+                        this.joinCodeInput.value = joinCodeFromUrl;
+                        this.joinCodeInput.focus();
+                    }
+                } else {
+                    // Joining via URL with player name. Connection is handled by Coordinator.
+                    // Show the 'fetching info' view immediately.
+                    console.log(`[${this.name}] Join via URL detected with player name. Showing fetching view.`);
+                    this._showSpecificView('fetchingInfoView'); 
+                    this._clearError();
+                }
             } else {
                 // Standard flow (e.g., navigated from MultiplayerChoice)
                 // Reset UI to initial state (#joinView)
@@ -324,28 +337,59 @@ class JoinLobbyComponent extends RefactoredBaseComponent {
      * @private
      */
     _handleConnectionFailed(payload = {}) {
-        // ---> ADD THIS CHECK: Only handle if the component is currently visible
-        if (this.rootElement.classList.contains('hidden')) {
-            console.log(`[${this.name}] Ignoring ConnectionFailed event because component is hidden.`);
-            return; 
-        }
-        // ---> END ADDED CHECK
-
+        // Don't add the hidden check here - connection errors need to be shown
+        // even if initiated from URL parameters and component isn't fully visible yet
+        
         console.warn(`[${this.name}] Connection failed or disconnected. Payload:`, payload);
+        
+        // If playerName is missing for any reason, try to get a default
+        if (!this.playerName) {
+            console.warn(`[${this.name}] playerName missing during connection failure, using stored or default`);
+            // Try to get from localStorage first, or generate a new one
+            this.playerName = localStorage.getItem('unicornPoepUserName') || miscUtils.generateRandomPlayerName();
+            console.log(`[${this.name}] Restored playerName to: ${this.playerName}`);
+        }
+        
         const defaultMsg = miscUtils.getTextTemplate('joinErrorConnectionFailed', 'Connection failed or host disconnected.');
-        // Prioritize specific error message if available
-        const message = payload.message || payload.error.message || defaultMsg;
+        
+        // Extract message from different possible payload structures
+        let message = defaultMsg;
+        if (payload.message) {
+            message = payload.message;
+        } else if (payload.error) {
+            // Handle both string errors and Error objects
+            message = payload.error.message || 
+                     (typeof payload.error === 'string' ? payload.error : defaultMsg);
+            
+            // Add context from error type if available
+            if (payload.error.type === 'peer-unavailable') {
+                message = miscUtils.getTextTemplate('joinErrorHostNotFound', 'Host not found. The game may have ended or the code is incorrect.');
+            }
+        } else if (payload.reason) {
+            // Handle disconnection events which use 'reason' property
+            message = payload.reason;
+        }
+        
+        // Show error and reset UI state
         this._showError(message); 
         this._showSpecificView('joinView'); // Revert to initial join view
-        if (this.joinCodeInput) { // Ensure element exists before focusing
+        
+        // Re-enable input
+        if (this.submitCodeButton) this.submitCodeButton.disabled = false;
+        if (this.joinCodeInput) {
             this.joinCodeInput.focus();
+            
+            // If we have a code in the input, select it for easy replacement
+            if (this.joinCodeInput.value) {
+                this.joinCodeInput.select();
+            }
         }
     }
 
     /**
-     * Handles the click event on the submit code button.
-     * Validates input and initiates connection to host.
-     * @param {Event} event - The click event.
+     * Handles the submit code button click.
+     * Validates the code and emits the SubmitCodeClicked event.
+     * @param {Event} event The click event.
      * @private
      * @event Events.UI.JoinLobby.SubmitCodeClicked
      */
@@ -363,6 +407,14 @@ class JoinLobbyComponent extends RefactoredBaseComponent {
             return;
         }
         
+        // Make sure we have a playerName before submitting
+        if (!this.playerName) {
+            console.warn(`[${this.name}] playerName missing when submitting code, using stored or default`);
+            // Try to get from localStorage first, or generate a new one
+            this.playerName = localStorage.getItem('unicornPoepUserName') || miscUtils.generateRandomPlayerName();
+            console.log(`[${this.name}] Set playerName to: ${this.playerName}`);
+        }
+        
         // Show fetching view while connecting
         this._showSpecificView('fetchingInfoView');
         
@@ -371,7 +423,8 @@ class JoinLobbyComponent extends RefactoredBaseComponent {
 
         // Emit event for MultiplayerClientManager to handle
         eventBus.emit(Events.UI.JoinLobby.SubmitCodeClicked, {
-            code: code
+            code: code,
+            playerName: this.playerName // Include the player name in the event payload
         });
     }
     

@@ -8,25 +8,36 @@ import miscUtils from '../utils/miscUtils.js';
 import Timer from '../core/timer.js';
 import Views from '../core/view-constants.js';
 
-const COUNTDOWN_DURATION_MS = 5000; // 5 seconds
+const COUNTDOWN_DURATION_MS = 5000; // 5 seconds countdown before game starts
 
 /**
- * Manages the state and logic for a multiplayer game session from the host's perspective.
- * Extends BaseGameMode.
- * - Initializes game with selected sheets/difficulty.
- * - Receives answers/finish signals from clients.
- * - Manages player scores and readiness.
- * - Determines game end condition.
- * - Broadcasts game state updates (scores, game over) to clients.
- * @typedef {import('../services/WebRTCManager.js').PlayerData} PlayerData
+ * Manages a multiplayer game session from the host's perspective.
+ * Handles game state, player connections, scoring, and synchronization.
+ * 
+ * @extends BaseGameMode
+ * @event Events.Game.Started - Emitted when game starts with {mode, settings, timer}
+ * @event Events.Game.QuestionNew - Emitted for each new question
+ * @event Events.Game.Finished - Emitted when game ends with final results
+ * @event Events.Multiplayer.Host.HostWaiting - Emitted when host finishes before clients
+ * @event Events.Multiplayer.Common.SendMessage - Emitted to broadcast messages to clients
+ * 
+ * @property {Map<string,number|null>} clientScores - Maps peer IDs to scores
+ * @property {Set<string>} clientsFinished - Set of peer IDs that finished
+ * @property {boolean} hostFinished - Whether host completed all questions
+ * @property {Map<string,boolean>} clientAnswersThisRound - Tracks client answers per round
+ * @property {boolean} isGameOverBroadcast - Prevents multiple game over broadcasts
+ * @property {Map<string,object>} playersMap - Stores player data by peer ID
  */
 class MultiplayerHostGame extends BaseGameMode {
     /**
-     * Creates an instance of MultiplayerHostGame.
-     * @param {object} settings - Game settings (e.g., { sheetIds, difficulty }).
-     * @param {QuizEngine} quizEngineInstance - An initialized QuizEngine instance with host questions.
-     * @param {string} localPlayerName - The name of the host player.
-     * @param {string} hostPeerId - The host's own PeerJS ID.
+     * Creates a new MultiplayerHostGame instance
+     * 
+     * @param {object} settings - Game configuration settings
+     * @param {string[]} settings.sheetIds - IDs of question sheets to use
+     * @param {string} settings.difficulty - Game difficulty level
+     * @param {QuizEngine} quizEngineInstance - Initialized quiz engine with questions
+     * @param {string} localPlayerName - Display name of host player
+     * @param {string} hostPeerId - PeerJS ID of host
      */
     constructor(settings, quizEngineInstance, localPlayerName, hostPeerId) {
         super('multiplayer-host', settings, quizEngineInstance, localPlayerName);
@@ -43,19 +54,16 @@ class MultiplayerHostGame extends BaseGameMode {
         this.isGameOverBroadcast = false; // Prevent multiple GAME_OVER broadcasts.
         this.playersMap = new Map(); // Store the latest player data map here
 
-        // *** ADD TIMER INITIALIZATION FOR HOST GAMEPLAY ***
+        // Add timer initialization for host gameplay
         const hostDurationMs = BaseGameMode.DIFFICULTY_DURATIONS_MS[this.difficulty] || BaseGameMode.DIFFICULTY_DURATIONS_MS.medium;
         this.timer = new Timer(hostDurationMs / 1000);
 
         // Initialize host score in the map (score will be updated later if host plays)
-        // We need a placeholder for the host to check completion correctly.
-        this.clientScores.set(this.hostPeerId, null); 
-        // Add host to initial player map
+        this.clientScores.set(this.hostPeerId, null);
         this.playersMap.set(this.hostPeerId, { name: localPlayerName, isHost: true });
         
         this._registerHostListeners();
-        // *** REGISTER TIMER LISTENERS ***
-        this._registerTimerListeners(); 
+        this._registerTimerListeners();
 
         console.log("[MultiplayerHostGame] Host Initialized.");
         // Call the renamed initialization method
@@ -96,12 +104,13 @@ class MultiplayerHostGame extends BaseGameMode {
     _handlePlayerListUpdate({ players }) {
         if (!players) {
              console.warn("[MultiplayerHostGame] Received PlayerListUpdated event without players data.");
-             return;
+            return;
         }
         // Convert object to Map if needed
         const playersMap = players instanceof Map ? players : new Map(Object.entries(players));
         console.log(`[MultiplayerHostGame] Received PlayerListUpdated:`, playersMap); 
         this.playersMap = playersMap; // Store the latest player map
+        
         this._initializeOrUpdatePlayerScoreTracking(); // Update score map based on new player list
     }
 
@@ -152,12 +161,12 @@ class MultiplayerHostGame extends BaseGameMode {
 
         if (!msg || typeof msg.type !== 'string') {
              console.warn(`[MultiplayerHostGame] Received invalid message structure from ${sender}. Ignoring.`, msg);
-             if (msg && msg.type === null && this.clientScores.has(sender)) {
+            if (msg && msg.type === null && this.clientScores.has(sender)) {
                  console.error(`[MultiplayerHostGame] Received NULL message type from known client ${sender}. Treating as CLIENT_LEFT.`);
-                 this._hostHandleClientLeft(sender);
-             }
-             return;
-         }
+                this._hostHandleClientLeft(sender);
+            }
+            return;
+        }
 
         const { type, payload } = msg;
 
@@ -169,10 +178,9 @@ class MultiplayerHostGame extends BaseGameMode {
 
         switch (type) {
             case MSG_TYPE.ANSWER_SUBMITTED:
-                // console.log(`[MultiplayerHostGame] Received answer submission from ${sender}:`, payload);
                 // Host might need to process this if it tracks individual answers, 
                 // but currently relies on CLIENT_FINISHED with final score.
-                // ** Implementing inline answer verification and scoring **
+                // Implementing inline answer verification and scoring
                 if (this.isGameOverBroadcast || !this.clientScores.has(sender)) {
                     console.warn(`[MultiplayerHostGame] Ignoring ANSWER_SUBMITTED from ${sender}. Game over or unknown client.`);
                     // return; // Allow fallthrough or break depending on desired behavior
@@ -218,7 +226,7 @@ class MultiplayerHostGame extends BaseGameMode {
                         // TODO: Optionally, check here if all connected clients have answered this question.
                     }
                 }
-                // ** REMOVED break; - Logic is now inline **
+                // REMOVED break; - Logic is now inline
                 break; // Keep break to avoid fallthrough
 
             case MSG_TYPE.CLIENT_FINISHED:
@@ -259,12 +267,14 @@ class MultiplayerHostGame extends BaseGameMode {
     }
 
     /**
-     * [Host Only] Handles a client indicating they have finished the game.
-     * @param {object} params
-     * @param {string} params.sender - PeerJS ID of the client.
-     * @param {object} params.payload - Payload containing the client's final score.
-     * @param {number} params.payload.score - The final score.
+     * Processes a client indicating they finished the game
+     * Updates scores and checks for game completion
+     * 
      * @private
+     * @param {object} params
+     * @param {string} params.sender - PeerJS ID of client
+     * @param {object} params.payload - Message payload
+     * @param {number} params.payload.score - Client's final score
      */
     _hostHandleClientFinished({ sender, payload }) {
         if (this.isGameOverBroadcast || !this.clientScores.has(sender) || this.clientsFinished.has(sender)) {
@@ -288,9 +298,11 @@ class MultiplayerHostGame extends BaseGameMode {
     }
 
     /**
-     * [Host Only] Checks if the game completion conditions are met.
-     * Game ends if the host is finished AND all currently tracked clients are finished.
+     * Checks if game completion conditions are met
+     * Game ends when host and all tracked clients are finished
+     * 
      * @private
+     * @fires Events.Multiplayer.Common.SendMessage
      */
     _hostCheckCompletion() {
         if (this.isGameOverBroadcast) return; // Already ended
@@ -338,12 +350,33 @@ class MultiplayerHostGame extends BaseGameMode {
             
             // Finish the game locally for the host
             this.finishGame(finalResults);
+        } else if (connectedClientCount === 0 && this.hostFinished) {
+            // Special case: All clients have disconnected and host is finished
+            console.log("[MultiplayerHostGame] All clients have disconnected and host is finished. Ending game.");
+            
+            // Make sure host score is updated one final time before ending
+            this.clientScores.set(this.hostPeerId, this.score);
+            
+            // Mark as game over to prevent further score broadcasts
+            this.isGameOverBroadcast = true;
+            
+            // Get final results with just the host
+            const finalResults = this._getFinalResults();
+            
+            // Broadcast game over event
+            eventBus.emit(Events.Multiplayer.Common.SendMessage, { 
+                type: MSG_TYPE.H_COMMAND_GAME_OVER,
+                payload: finalResults 
+            });
+            
+            // Finish the game locally for the host
+            this.finishGame(finalResults);
         } else {
              console.log("[MultiplayerHostGame] Game end conditions not yet met.");
         }
     }
 
-    /**
+    /** 
      * [Host Only] Handles a player disconnecting during the game.
      * @param {object} payload
      * @param {string} payload.peerId - The PeerJS ID of the player who left.
@@ -369,7 +402,7 @@ class MultiplayerHostGame extends BaseGameMode {
             this.clientsFinished.delete(peerId); // Also remove from finished set
             
             // Broadcast updated scores (player removed)
-            this._broadcastPlayerScores(); 
+            this._broadcastPlayerScores();
             
             // Check if removing this client triggers game completion
             this._hostCheckCompletion();
@@ -379,10 +412,12 @@ class MultiplayerHostGame extends BaseGameMode {
     }
 
     /**
-     * Broadcasts the current player scores to all clients via WebRTC.
-     * Players Map is converted to a regular object for transmission.
+     * Broadcasts current player scores to all clients
+     * Throttled to prevent excessive updates
+     * 
      * @private
-     * @event Events.Multiplayer.Common.SendMessage
+     * @fires Events.Multiplayer.Common.SendMessage
+     * @fires Events.Multiplayer.Common.PlayerListUpdated
      */
     _broadcastPlayerScores() {
         if (this.isGameOverBroadcast || this.isFinished) {
@@ -417,7 +452,7 @@ class MultiplayerHostGame extends BaseGameMode {
         // DEBUG: Log all connections before broadcast
         console.log(`[MultiplayerHostGame] Active connections before broadcast:`, 
             Array.from(this.connections?.keys() || []).join(', '));
-        
+
         eventBus.emit(Events.Multiplayer.Common.SendMessage, {
             type: MSG_TYPE.H_PLAYER_SCORES_UPDATE,
             payload: scoresPayload // Send object with player data and scores
@@ -428,12 +463,12 @@ class MultiplayerHostGame extends BaseGameMode {
         
         console.log("[MultiplayerHostGame] Score broadcast completed");
     }
-    
+
     /**
      * [Host Only] Cleans up host-specific listeners.
      * @private
      */
-     _cleanupHostListeners() {
+    _cleanupHostListeners() {
         eventBus.off(Events.WebRTC.MessageReceived, this._boundHandleWebRTCMessage_Host);
         eventBus.off(Events.Multiplayer.Common.PlayerLeft, this._boundHandlePlayerLeft_Host);
         // Unregister PlayerListUpdated listener
@@ -443,11 +478,12 @@ class MultiplayerHostGame extends BaseGameMode {
 
     // --- Overridden BaseGameMode Methods ---
 
-    /** Starts the multiplayer game (Host). */
-    /** 
-     * Initializes the host-side game state but does not start gameplay for clients.
-     * Sets up score tracking based on the initial player list (host only) and emits Game.Started locally.
-     * Client game start is triggered by `startGameForClients`.
+    /**
+     * Initializes host game state and score tracking
+     * Does not start gameplay for clients
+     * 
+     * @async
+     * @fires Events.Game.Started
      */
     async initializeHostGame() {
         if (this.isStarted) {
@@ -475,10 +511,11 @@ class MultiplayerHostGame extends BaseGameMode {
     }
 
     /**
-     * [Host Only] Initiates the game start sequence: broadcast GAME_START with countdown duration,
-     * start local countdown, and start host game logic after delay.
-     * @event Events.Game.CountdownStart
-     * @event Events.Multiplayer.Common.SendMessage
+     * Starts game sequence with countdown for all players
+     * Broadcasts start signal and begins host gameplay after delay
+     * 
+     * @fires Events.Game.CountdownStart
+     * @fires Events.Multiplayer.Common.SendMessage
      */
     startGameSequence() {
         // Use a constant or configuration for duration
@@ -508,22 +545,28 @@ class MultiplayerHostGame extends BaseGameMode {
 
             console.log("[MultiplayerHostGame] Countdown finished. Starting host game logic.");
             
-            this.start(); 
+            this.start();
 
         }, startDelayMs);
     }
 
-    /** Finalizes the game (Host). */
+    /**
+     * Finalizes the game and broadcasts results
+     * 
+     * @param {object} finalResults - Final game results and rankings
+     * @fires Events.Game.Finished
+     * @fires Events.Multiplayer.Common.SendMessage
+     */
     finishGame(finalResults) {
         if (this.isFinished) return;
         console.log("[MultiplayerHostGame] Finishing game.");
-        
+
         console.log("[MultiplayerHostGame] Final Results:", finalResults);
         
         // Ensure GAME_OVER was broadcast (might happen in _hostCheckCompletion)
         if (!this.isGameOverBroadcast) {
              console.warn("[MultiplayerHostGame] finishGame called but GAME_OVER not broadcast yet. Broadcasting now.");
-             eventBus.emit(Events.Multiplayer.Common.SendMessage, {
+            eventBus.emit(Events.Multiplayer.Common.SendMessage, {
                 type: MSG_TYPE.GAME_OVER,
                 payload: finalResults
             });
@@ -531,17 +574,22 @@ class MultiplayerHostGame extends BaseGameMode {
         }
 
         // Call super.finishGame FIRST to ensure base class logic (including event emission) runs
-        super.finishGame(finalResults); 
+        super.finishGame(finalResults);
 
         // Now mark as finished and cleanup host-specific things
-        this.isFinished = true; 
-        this.timer.stop(); 
+        this.isFinished = true;
+        this.timer.stop();
         this._cleanupListeners(); // Cleanup host listeners AFTER base finish
     }
 
-    /** Calculates final results (Host). Relies on internally synchronized player data. */
+    /**
+     * Calculates final game results and rankings
+     * 
+     * @private
+     * @returns {object} Final results with rankings and winner
+     */
     _getFinalResults() {
-        // --- REWRITTEN to use internal state ONLY --- 
+        // Original logic before refactoring
         console.log(`[MultiplayerHostGame] Calculating final results... Host score: ${this.score}, Client Scores:`, this.clientScores, "Player Map:", this.playersMap);
         
         const finalScores = new Map();
@@ -557,8 +605,8 @@ class MultiplayerHostGame extends BaseGameMode {
         // Ensure host is included if somehow missing from clientScores keys (shouldn't happen)
         if (!finalScores.has(this.hostPeerId)) {
              console.warn("[MultiplayerHostGame] Host missing from clientScores map during final results, adding manually.");
-             const hostName = this.playersMap.get(this.hostPeerId)?.name || this.localPlayerName || 'Host';
-             finalScores.set(this.hostPeerId, { name: hostName, score: this.score });
+            const hostName = this.playersMap.get(this.hostPeerId)?.name || this.localPlayerName || 'Host';
+            finalScores.set(this.hostPeerId, { name: hostName, score: this.score });
         }
         
         // Basic ranking (sort by score descending)
@@ -598,24 +646,28 @@ class MultiplayerHostGame extends BaseGameMode {
             difficulty: this.settings?.difficulty || 'unknown',
             gameName: gameName,
             timestamp: Date.now(),
-            winnerId: winner ? winner.peerId : null // ID of winner or null
+            winnerId: winner ? winner.peerId : null, // ID of winner or null
+            // Add localPlayerId
+            localPlayerId: this.hostPeerId // For host, localPlayerId is always hostPeerId
         };
         
         console.log("[MultiplayerHostGame] Final results calculated using internal state:", finalResultsObject);
         return finalResultsObject;
-        // --- END REWRITE (Internal State) --- 
     }
-    
+
     /** Cleans up listeners (Host). */
     _cleanupListeners() {
         super._cleanupListeners(); // Call base cleanup
         this._cleanupHostListeners(); // Clean up host-specific listeners
+        this._cleanupTimerListeners(); // Clean up timer listeners
     }
     
     /**
-     * Sends the current game state to a late joiner so they can catch up.
-     * This includes the current question and the latest scores.
-     * @param {string} peerId - The PeerJS ID of the late joining client.
+     * Sends current game state to a late-joining player
+     * 
+     * @private
+     * @param {string} peerId - PeerJS ID of joining player
+     * @fires Events.Multiplayer.Common.SendMessage
      */
     _sendCurrentGameStateToLateJoiner(peerId) {
         // Example: send the current question and scores
@@ -653,7 +705,7 @@ class MultiplayerHostGame extends BaseGameMode {
          }
          console.log("[MultiplayerHostGame] Host logic started (post-countdown).");
          
-         // *** MODIFIED: Add timer instance to payload ***
+         // Add timer instance to payload
          eventBus.emit(Events.Game.Started, {
              mode: this.mode,
              settings: this.settings,
@@ -661,14 +713,14 @@ class MultiplayerHostGame extends BaseGameMode {
          });
          console.log("[MultiplayerHostGame] Game Started event emitted (post-countdown).");
 
-         // *** START TIMER FOR HOST ***
+         // Start timer for host
          if (this.timer) {
             this.timer.start();
-         } else {
+        } else {
             console.error("[MultiplayerHostGame] Cannot start timer in start() - timer not initialized!");
          }
 
-         // *** CALL OUR OVERRIDDEN nextQuestion method instead of the base one ***
+         // Call our overridden nextQuestion method instead of the base one
          this.nextQuestion(); 
     }
 
@@ -677,7 +729,7 @@ class MultiplayerHostGame extends BaseGameMode {
 
     // Ensure no overrides for _beforeNextQuestion, _afterQuestionPresented, _beforeFinish ...
 
-    // *** ADD TIMER LISTENER REGISTRATION METHOD ***
+    // Add timer listener registration method
     /** [Host Only] Registers timer-specific event listeners. @private */
     _registerTimerListeners() {
         if (!this.timer) return;
@@ -688,7 +740,7 @@ class MultiplayerHostGame extends BaseGameMode {
         console.log(`[MultiplayerHostGame] Registered timer listeners.`);
     }
 
-    // *** ADD TIMER EVENT HANDLERS ***
+    // Add timer event handlers
     /** [Host Only] Handles timer ticks, emitting the TimeTick event. @private */
     _handleTimerTick(remainingTimeMs) {
         if (this.isFinished) return;
@@ -715,7 +767,7 @@ class MultiplayerHostGame extends BaseGameMode {
         
         // After host answer is checked, continue with the next question
         // If this is the last question, it will trigger hostFinished = true in our overridden nextQuestion
-        setTimeout(() => { 
+        setTimeout(() => {
             if (!this.isFinished) { 
                 this.nextQuestion(); 
             } 
@@ -756,12 +808,14 @@ class MultiplayerHostGame extends BaseGameMode {
     }
 
     /**
-     * Updates scores and checks game status after an answer is processed.
-     * @param {boolean} isCorrect - Whether the answer was correct.
-     * @param {number} scoreDelta - The amount to adjust the score by.
+     * Updates scores and broadcasts after answer processing
+     * 
+     * @private
+     * @param {boolean} isCorrect - Whether answer was correct
+     * @param {number} scoreDelta - Points to add/subtract
      */
     _afterAnswerChecked(isCorrect, scoreDelta) {
-        super._afterAnswerChecked(isCorrect, scoreDelta); 
+        super._afterAnswerChecked(isCorrect, scoreDelta);
         
         // Prevent updates after the game is over
         if (this.isGameOverBroadcast || this.isFinished) {
@@ -786,8 +840,10 @@ class MultiplayerHostGame extends BaseGameMode {
     }
 
     /**
-     * Overrides the nextQuestion method from BaseGameMode to check for host game completion.
-     * If the host has no more questions, it sets hostFinished but doesn't end the game yet.
+     * Advances to next question or marks host as finished
+     * 
+     * @fires Events.Game.QuestionNew
+     * @fires Events.Multiplayer.Host.HostWaiting
      */
     nextQuestion() {
         if (this.isFinished) return;
@@ -810,7 +866,7 @@ class MultiplayerHostGame extends BaseGameMode {
             // Update scores and broadcast to clients
             this._broadcastPlayerScores();
             
-            // --- MODIFIED: Don't check completion yet, just signal host is waiting ---
+            // MODIFIED: Don't check completion yet, just signal host is waiting
             console.log(`[${this.mode}] Host finished. Emitting HostWaiting event.`);
             eventBus.emit(Events.Multiplayer.Host.HostWaiting, { 
                 // Optional payload: could include list of clients still playing
@@ -818,18 +874,20 @@ class MultiplayerHostGame extends BaseGameMode {
                     id !== this.hostPeerId && !this.clientsFinished.has(id)
                 )
             });
+            // ADDED: Check completion immediately after host finishes
+            this._hostCheckCompletion();
             // REMOVED: this._hostCheckCompletion(); 
             // Completion check will now only happen when a client finishes or leaves.
-            // --- END MODIFICATION ---
+            // END MODIFICATION
         } else {
             // Continue with normal question flow
             try {
                 const questionData = this.quizEngine.getQuestionData(nextIndex);
                 if (!questionData) {
                      console.error(`[${this.mode}] Could not retrieve question data for index ${nextIndex}. Marking host as finished.`);
-                     this.hostFinished = true;
-                     this._hostCheckCompletion();
-                     return;
+                    this.hostFinished = true;
+                    this._hostCheckCompletion();
+                    return;
                 }
 
                 this.currentQuestionIndex = nextIndex;
@@ -853,6 +911,23 @@ class MultiplayerHostGame extends BaseGameMode {
                 this.hostFinished = true; // Mark host as finished on error
                 this._hostCheckCompletion(); // Check if we should end the game
             }
+        }
+    }
+
+    // Added timer listener cleanup method
+    /** [Host Only] Removes timer-specific event listeners. @private */
+    _cleanupTimerListeners() {
+        if (!this.timer) return;
+        
+        if (this._boundHandleTimerTick) {
+            this.timer.off('tick', this._boundHandleTimerTick);
+            this._boundHandleTimerTick = null; // Clear the stored bound function
+            console.log(`[MultiplayerHostGame] Removed timer 'tick' listener.`);
+        }
+        if (this._boundHandleTimeUp) {
+            this.timer.off('end', this._boundHandleTimeUp);
+            this._boundHandleTimeUp = null; // Clear the stored bound function
+            console.log(`[MultiplayerHostGame] Removed timer 'end' listener.`);
         }
     }
 }
