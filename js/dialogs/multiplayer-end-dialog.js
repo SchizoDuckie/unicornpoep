@@ -71,7 +71,7 @@ class MultiplayerEndDialog extends BaseDialog {
      */
     _handleBackClick() {
         console.log(`[${this.name}] Back to menu clicked.`);
-        eventBus.emit(Events.UI.MultiplayerEndDialog.Closed);
+        eventBus.emit(Events.UI.EndDialog.ReturnToMenuClicked);
         this.hide();
     }
 
@@ -90,6 +90,7 @@ class MultiplayerEndDialog extends BaseDialog {
      * @param {object} results - The results object from GameCoordinator/MultiplayerGame.
      * @param {Array<object>} results.players - Sorted array of player objects { id, name, score }.
      * @param {string|null} results.winnerId - ID of the winning player, or null for a draw.
+     * @param {string|null} results.localPlayerId - ID of the local player viewing the dialog.
      */
     updateDisplay(results) {
         if (!results || !results.players) {
@@ -100,10 +101,19 @@ class MultiplayerEndDialog extends BaseDialog {
         }
 
         let winnerText = getTextTemplate('mpEndDraw') || 'It\'s a draw!';
+        // Check if there is a winner AND if that winner is the local player
         if (results.winner) {
             const winner = results.winner;
-            const name = winner.name || getTextTemplate('mpEndDefaultPlayerName') || `Player ${winner.peerId.slice(-4)}`;
-            winnerText = getTextTemplate('mpEndWinnerPrefix', { '%NAME%': name }) || `${name} wint!`; 
+            const isLocalPlayerWinner = results.localPlayerId && winner.peerId === results.localPlayerId;
+
+            if (isLocalPlayerWinner) {
+                // Use specific template for local player winning
+                winnerText = getTextTemplate('mpEndLocalWin'); 
+            } else {
+                // Use template for remote player winning
+                const name = winner.name || getTextTemplate('mpEndDefaultPlayerName') || `Player ${winner.peerId.slice(-4)}`;
+                winnerText = getTextTemplate('mpEndWinnerPrefix', { '%NAME%': name }) || `${name} wint!`; 
+            }
         }
         if (this.elements.titleDisplay) this.elements.titleDisplay.textContent = winnerText;
 

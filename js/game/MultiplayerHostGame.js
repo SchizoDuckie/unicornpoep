@@ -222,6 +222,7 @@ class MultiplayerHostGame extends BaseGameMode {
                 break; // Keep break to avoid fallthrough
 
             case MSG_TYPE.CLIENT_FINISHED:
+                console.log(`[MultiplayerHostGame] Received CLIENT_FINISHED from ${sender}. Payload:`, payload);
                 this._hostHandleClientFinished({ sender, payload });
                 break;
 
@@ -538,41 +539,71 @@ class MultiplayerHostGame extends BaseGameMode {
         this._cleanupListeners(); // Cleanup host listeners AFTER base finish
     }
 
-    /** Calculates final results (Host). Uses locally stored playersMap. */
+    /** Calculates final results (Host). Relies on internally synchronized player data. */
     _getFinalResults() {
-        console.log("[MultiplayerHostGame] Calculating final results from scores:", this.clientScores, "using player map:", this.playersMap);
+        // --- REWRITTEN to use internal state ONLY --- 
+        console.log(`[MultiplayerHostGame] Calculating final results... Host score: ${this.score}, Client Scores:`, this.clientScores, "Player Map:", this.playersMap);
         
-        const scoreArray = Array.from(this.clientScores.entries())
-            .map(([peerId, score]) => { 
-                // Get player name from the locally stored playersMap
-                const playerData = this.playersMap.get(peerId); 
-                const name = playerData ? playerData.name : `Player_${peerId.substring(0,4)}`; // Use stored name or placeholder
-                const result = { 
-                    peerId: peerId, 
-                    name: name
-                };
-                
-                // Only add score if it's not null
-                if (score !== null) {
-                    result.score = score;
-                } else if (peerId === this.hostPeerId && this.score) {
-                    // Use the host's internal score if available
-                    result.score = this.score;
-                } else {
-                    // Default to 0 for display
-                    result.score = 0;
-                }
-                
-                return result;
-             })
-            .sort((a, b) => (b.score || 0) - (a.score || 0)); // Sort descending, handling undefined scores
+        const finalScores = new Map();
 
-        return {
-            players: scoreArray,
-            mode: this.mode,
-            settings: this.settings
-            // Add any other relevant host-side summary data
+        // Build map using internal clientScores and playersMap
+        this.clientScores.forEach((score, peerId) => {
+            const playerData = this.playersMap.get(peerId);
+            const name = playerData ? playerData.name : `Player_${peerId.substring(0,4)}`; // Use name from internal map
+            const finalScore = (peerId === this.hostPeerId) ? this.score : (score ?? 0); // Use host's final score or client score
+            finalScores.set(peerId, { name: name, score: finalScore });
+        });
+
+        // Ensure host is included if somehow missing from clientScores keys (shouldn't happen)
+        if (!finalScores.has(this.hostPeerId)) {
+             console.warn("[MultiplayerHostGame] Host missing from clientScores map during final results, adding manually.");
+             const hostName = this.playersMap.get(this.hostPeerId)?.name || this.localPlayerName || 'Host';
+             finalScores.set(this.hostPeerId, { name: hostName, score: this.score });
+        }
+        
+        // Basic ranking (sort by score descending)
+        const rankedPlayers = Array.from(finalScores.entries())
+            .sort(([, a], [, b]) => b.score - a.score)
+            .map(([peerId, data], index) => ({ 
+                rank: index + 1, 
+                peerId: peerId, 
+                name: data.name, 
+                score: data.score 
+            }));
+        
+        // Determine winner (handle ties - winner is null if highest scores are equal)
+        let winner = null;
+        if (rankedPlayers.length > 0) {
+            const topScore = rankedPlayers[0].score;
+            // Ensure score is a number before comparison
+            if (typeof topScore === 'number') {
+                const winners = rankedPlayers.filter(p => p.score === topScore);
+                if (winners.length === 1) {
+                    winner = winners[0]; // Assign if single winner
+                }
+            } else {
+                 console.warn("[MultiplayerHostGame] Top score was not a number, cannot determine winner.", {topScore});
+            }
+        }
+        
+        // Get game name from settings (likely sheet IDs)
+        const gameName = Array.isArray(this.settings?.sheetIds) 
+                           ? this.settings.sheetIds.join(', ') 
+                           : 'Unknown Game';
+
+        const finalResultsObject = {
+            winner: winner, // Can be null for ties
+            players: rankedPlayers, // Array of { rank, peerId, name, score }
+            mode: 'multiplayer-host',
+            difficulty: this.settings?.difficulty || 'unknown',
+            gameName: gameName,
+            timestamp: Date.now(),
+            winnerId: winner ? winner.peerId : null // ID of winner or null
         };
+        
+        console.log("[MultiplayerHostGame] Final results calculated using internal state:", finalResultsObject);
+        return finalResultsObject;
+        // --- END REWRITE (Internal State) --- 
     }
     
     /** Cleans up listeners (Host). */

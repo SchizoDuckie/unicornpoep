@@ -7,6 +7,7 @@ import webRTCManager from '../services/WebRTCManager.js';
 import QuizEngine from '../services/QuizEngine.js';
 import MultiplayerHostGame from '../game/MultiplayerHostGame.js';
 import uiManager from '../ui/UIManager.js';
+import highscoreManager from '../services/HighscoreManager.js';
 
 /**
  * Class MultiplayerHostCoordinator
@@ -75,6 +76,9 @@ class MultiplayerHostCoordinator {
         eventBus.on(Events.Multiplayer.Host.Initialized, this.handleHostInitialized);
         // Host finished quiz, waiting for clients
         eventBus.on(Events.Multiplayer.Host.HostWaiting, this._handleHostWaiting);
+        
+        // *** ADDED LISTENER for End Dialog Close ***
+        eventBus.on(Events.UI.EndDialog.ReturnToMenuClicked, this.handleReturnToMenuClicked);
         
         console.info("[MultiplayerHostCoordinator] Listeners registered.");
     }
@@ -334,35 +338,39 @@ class MultiplayerHostCoordinator {
     handleGameFinished = ({ mode, results }) => {
         if (mode !== 'multiplayer-host') return;
         
-        console.log("[MultiplayerHostCoordinator] Host Game.Finished received.", results);
+        // --- REVISED HIGHSCORE SAVING LOGIC (Save Winner Only) ---
+        if (results && results.winner) {
+            const winnerName = results.winner.name || 'Unknown Winner';
+            const winnerScore = results.winner.score;
+
+            if (typeof winnerScore === 'number' && winnerScore > 0 && this.activeGame && this.activeGame.settings) {
+                const sheetKey = this.activeGame.settings.sheetIds ? this.activeGame.settings.sheetIds.join(',') : 'unknown_sheets';
+                const difficulty = this.activeGame.settings.difficulty;
+                
+                highscoreManager.addHighscore(winnerName, winnerScore, sheetKey, 'multiplayer', difficulty);
+                
+            } 
+            
+        } 
+        // --- END REVISED HIGHSCORE SAVING LOGIC ---
         
-        // ---> MODIFIED: Use uiManager.showDialog <--- 
+        // Show the end dialog
         if (results) {
-             console.log(`[MultiplayerHostCoordinator] Requesting UIManager show Multiplayer End Dialog.`);
-             // eventBus.emit(Events.Navigation.ShowView, {
-             //     viewName: Views.MultiplayerEndDialog, // Ensure Views.MultiplayerEndDialog exists
-             //     data: results 
-             // });
-             uiManager.showDialog(Views.MultiplayerEndDialog, results);
+             const resultsWithContext = { ...results }; 
+             uiManager.showDialog(Views.MultiplayerEndDialog, resultsWithContext);
          } else {
              console.warn("[MultiplayerHostCoordinator] Game.Finished received, but no results payload found. Cannot show end dialog.");
-             // Optionally navigate back to main menu as a fallback
-             // eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+             this.resetState(); 
+             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+             return; 
          }
-         // ---> END ADDED SECTION <--- 
 
-        // Clean up game but keep host manager active for potential rematch?
+        // Clean up game instance, BUT KEEP Host Manager active for now
         if (this.activeGame) {
-            // Destroy game object AFTER showing results
-            if (typeof this.activeGame.destroy === 'function') {
-                this.activeGame.destroy(); 
-            }
+            this.activeGame.destroy(); 
             this.activeGame = null;
         }
         this.currentGameMode = null; // Mark game as inactive
-
-        // Keep host manager active for now
-        // console.log("[MultiplayerHostCoordinator] Host game finished. Host Manager kept active for potential rematch.");
     }
 
     /**
@@ -531,6 +539,22 @@ class MultiplayerHostCoordinator {
         console.log("[MultiplayerHostCoordinator] HostWaiting event received.", payload);
         eventBus.emit(Events.System.ShowWaitingDialog, { message: miscUtils.getTextTemplate('mpHostWaitOthers', 'You finished! Waiting for other players...') });
     };
+
+    /**
+     * Handles the ReturnToMenuClicked event from the end dialog.
+     * Resets the state and navigates back to the main menu.
+     * @private
+     */
+    handleReturnToMenuClicked = () => {
+        // Ensure this handler only acts if we were in host mode
+        if (this.activeHostManager) { // Check if host manager was active
+             console.log("[MultiplayerHostCoordinator] ReturnToMenuClicked received. Resetting state and navigating to Main Menu.");
+             this.resetState(); // Full cleanup now
+             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+        } else {
+            console.warn("[MultiplayerHostCoordinator] ReturnToMenuClicked received, but no active host manager found. Ignoring.");
+        }
+    }
 
     /**
      * Resets the coordinator's internal state.

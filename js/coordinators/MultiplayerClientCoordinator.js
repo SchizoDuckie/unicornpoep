@@ -13,6 +13,7 @@ import webRTCManager from '../services/WebRTCManager.js';
 import uiManager from '../ui/UIManager.js';
 import QuizEngine from '../services/QuizEngine.js';
 import multiplayerClientManager from '../services/MultiplayerClientManager.js';
+import highscoreManager from '../services/HighscoreManager.js';
 
 // Dialogs
 import ErrorDialog from '../dialogs/error-dialog.js';
@@ -78,8 +79,11 @@ class MultiplayerClientCoordinator {
         eventBus.on(Events.Multiplayer.GameStarted, this.handleMultiplayerGameStarted);
         eventBus.on(Events.Multiplayer.Client.DisconnectedFromHost, this.handleDisconnection);
         
-        // *** ADDED LISTENER ***
+        // *** ADDED LISTENER for Game Over Command ***
         eventBus.on(Events.Multiplayer.Client.GameOverCommandReceived, this._handleGameOverCommand);
+        
+        // *** ADDED LISTENER for End Dialog Close ***
+        eventBus.on(Events.UI.EndDialog.ReturnToMenuClicked, this.handleReturnToMenuClicked);
         
         console.info("[MultiplayerClientCoordinator] Listeners registered.");
     }
@@ -374,7 +378,6 @@ class MultiplayerClientCoordinator {
      * @event Events.Multiplayer.Client.JoinFailed
      */
     handleJoinFailed = ({ reason }) => {
-        console.warn(`[MultiplayerClientCoordinator] JoinFailed reported: ${reason}`);
         this.resetState(); // Reset coordinator state
         // Update JoinGame view state to show error
         eventBus.emit(Events.UI.JoinGame.ConnectionFailed, { error: reason });
@@ -388,14 +391,12 @@ class MultiplayerClientCoordinator {
      * @private
      */
     resetState = () => {
-        console.log("[MultiplayerClientCoordinator] Resetting coordinator state.");
         if (this.activeGame) {
             this.activeGame.destroy();
             this.activeGame = null;
         }
         this.currentGameMode = null;
         this.playerName = null;
-        // Emit event to hide the waiting dialog instead of calling directly
         eventBus.emit(Events.System.HideWaitingDialog);
     }
 
@@ -409,37 +410,53 @@ class MultiplayerClientCoordinator {
      * @event Events.Game.LocalPlayerFinished
      */
     handleLocalPlayerFinished = ({ score }) => {
-        console.log(`[MultiplayerClientCoordinator] LocalPlayerFinished received with score: ${score}`);
-        
-        // Show the waiting dialog with appropriate message
         const waitMessage = miscUtils.getTextTemplate('mpClientWaitOthers', 'Je bent klaar! We wachten op de andere spelers');
         eventBus.emit(Events.System.ShowWaitingDialog, { 
             message: waitMessage 
         });
     }
     
-    // *** ADDED HANDLER ***
     /**
-     * Handles the GameOver command received from the host.
-     * Hides the waiting dialog and shows the final results dialog.
-     * 
+     * Handles the GameOverCommand received from the host.
+     * Shows the end dialog with results and attempts to save the highscore.
      * @param {object} payload
-     * @param {object} payload.results - Final game results (players, scores, etc.)
+     * @param {object} payload.results - Final game results including players and settings.
      * @private
-     * @event Events.Multiplayer.Client.GameOverCommandReceived
      */
     _handleGameOverCommand = ({ results }) => {
-        console.log(`[MultiplayerClientCoordinator] GameOverCommand received:`, results);
-        
-        // 1. Hide the waiting dialog immediately
         eventBus.emit(Events.System.HideWaitingDialog);
+
+        const resultsWithContext = { ...results }; 
+        uiManager.showDialog(Views.MultiplayerEndDialog, resultsWithContext);
         
-        // 2. Show the Multiplayer End Dialog using UIManager helper
-        uiManager.showDialog('MultiplayerEndDialog', results); // Corrected VIEW_NAME
+        if (results && results.winner) {
+            const winnerName = results.winner.name || 'Unknown Winner';
+            const winnerScore = results.winner.score;
+
+            if (typeof winnerScore === 'number' && winnerScore > 0 && this.activeGame && this.activeGame.settings) {
+                const sheetKey = this.activeGame.settings.sheetIds ? this.activeGame.settings.sheetIds.join(',') : 'unknown_sheets';
+                const difficulty = this.activeGame.settings.difficulty;
+                
+                highscoreManager.addHighscore(winnerName, winnerScore, sheetKey, 'multiplayer', difficulty);
+                
+            } 
+            
+        } 
         
-        // 3. Reset state (cleans up active game, etc.)
         this.resetState(); 
+    }
+    
+    /**
+     * Handles the ReturnToMenuClicked event from the end dialog.
+     * Navigates back to the main menu.
+     * @private
+     */
+    handleReturnToMenuClicked = () => {
+        this.resetState(); 
+        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
     }
 }
 
-export default MultiplayerClientCoordinator;
+// Singleton instance
+// const multiplayerClientCoordinator = new MultiplayerClientCoordinator(); // REVERTED
+export default MultiplayerClientCoordinator; // EXPORT CLASS AGAIN
