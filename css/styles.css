@@ -520,6 +520,8 @@ label:hover {
 #scoreDisplay,
 #timerDisplay,
 #sheetTitleDisplay {
+    /* REMOVED display: none; */
+    display: inline-block; /* Define the default visible display style */
     font-family: 'Fredoka One', cursive;
     font-size: 1.8rem;
     color: #614ae2;
@@ -531,9 +533,12 @@ label:hover {
     z-index: auto;
     line-height: 1;
     white-space: nowrap;
-    display: none;
 }
 
+/* Ensure .hidden class takes precedence */
+.hidden {
+    display: none !important;
+}
 
 /* --- Game Elements: Progress Indicator (Shared between Single/Multiplayer) --- */
 #progressIndicator {

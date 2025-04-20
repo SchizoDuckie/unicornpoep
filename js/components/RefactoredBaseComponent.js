@@ -49,8 +49,8 @@ export default class BaseComponent {
             // Throw an error instead of just warning
             debugger;
         }
-
-        // Assume components start hidden unless explicitly shown
+        
+        // Set initial visibility based ONLY on the hidden class
         this.isVisible = !this.rootElement.classList.contains(HIDDEN_CLASS);
 
         // Process initialization configuration
@@ -59,7 +59,6 @@ export default class BaseComponent {
 
     /**
      * Shows the component's root element by removing the 'hidden' class.
-     * Does nothing if the element is already visible.
      */
     show(data = {}) {
         console.debug(`[${this.name}] Attempting to show. Current isVisible: ${this.isVisible}`);
@@ -70,8 +69,9 @@ export default class BaseComponent {
         }
 
         if (!this.isVisible) {
-            console.debug(`[${this.name}] Removing hidden class from:`, this.rootElement);
+            console.debug(`[${this.name}] Removing hidden class.`);
             this.rootElement.classList.remove(HIDDEN_CLASS);
+            
             console.log(`[${this.name}] CHECK: classList after remove:`, this.rootElement.className); 
             if (this.rootElement.classList.contains(HIDDEN_CLASS)) {
                 console.error(`[${this.name}] URGENT: hidden class STILL PRESENT immediately after classList.remove!`);
@@ -80,9 +80,6 @@ export default class BaseComponent {
             }
             this.isVisible = true;
             
-            // Special handling for <dialog> elements - Use BaseDialog for this!
-            // if (this.rootElement instanceof HTMLDialogElement) { ... }
-
             // Lazy initialize elements when shown if configured with lazyInit
             this._lazyInitializeElements();
             
@@ -136,10 +133,15 @@ export default class BaseComponent {
 
     /**
      * Hides the component's root element by adding the 'hidden' class.
-     * Does nothing if the element is already hidden.
      */
     hide() {
+         if (!this.rootElement) { // Add check for rootElement
+             console.warn(`[${this.name}] Cannot hide, rootElement is null or undefined.`);
+             return;
+         }
+        
         if (this.isVisible) {
+            console.debug(`[${this.name}] Adding hidden class.`);
             this.rootElement.classList.add(HIDDEN_CLASS);
             this.isVisible = false;
             
@@ -148,7 +150,11 @@ export default class BaseComponent {
                 this.unregisterListeners();
             }
             
-            console.debug(`Hide: ${this.name}`);
+            console.info(`Hide: ${this.name}`);
+            // Emit Component.Hidden event
+             eventBus.emit(Events.Component.Hidden, { component: this, componentName: this.name });
+        } else {
+             console.debug(`[${this.name}] Already hidden. Skipping hide logic.`);
         }
     }
 

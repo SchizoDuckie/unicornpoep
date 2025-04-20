@@ -100,7 +100,12 @@ class BaseGameMode {
                  ...this.settings,
                  totalQuestions: this.quizEngine.getQuestionCount()
              };
-            eventBus.emit(Events.Game.Started, { mode: this.mode, settings: gameSettings, role: 'player' });
+            eventBus.emit(Events.Game.Started, { 
+                mode: this.mode, 
+                settings: gameSettings, 
+                role: 'player', // Assuming base mode is always for a direct player
+                timer: this.timer // Include the timer instance
+            });
             // Load the first question
             this.nextQuestion();
         } catch (error) {
@@ -223,30 +228,43 @@ class BaseGameMode {
     /**
      * Finishes the game, calculates results using the injected this.quizEngine instance,
      * emits Game.Finished, and cleans up listeners.
+     * @param {object} [finalResultsOverride] - Optional: If provided, these results will be used
+     *                                         instead of calculating them locally. Used by host modes.
      */
-    finishGame() {
+    finishGame(finalResultsOverride = null) {
         if (this.isFinished) return;
         console.log(`[BaseGameMode:${this.mode}] Finishing game...`);
         this.isFinished = true;
         this._beforeFinish();
 
-        // Use the INSTANCE for counts
-        const score = this._getFinalResults({}).score ?? this.quizEngine.getCorrectCount() * BASE_SCORE;
-        const isEligible = score > 0;
+        let resultsToEmit; // Variable to hold the results we'll emit
 
-        const baseResults = {
-            playerName: this.playerName,
-            totalQuestions: this.quizEngine.getQuestionCount(),
-            correctAnswers: this.quizEngine.getCorrectCount(),
-            settings: this.settings,
-            score: score,
-            eligibleForHighscore: isEligible
-        };
+        if (finalResultsOverride) {
+            // Use the results passed in (e.g., from MultiplayerHostGame)
+            console.log(`[BaseGameMode:${this.mode}] Using provided final results.`);
+            resultsToEmit = finalResultsOverride;
+        } else {
+            // Calculate results locally (e.g., for SinglePlayerGame)
+            console.log(`[BaseGameMode:${this.mode}] Calculating final results locally...`);
+            // Use the INSTANCE for counts
+            const score = this.quizEngine.getCorrectCount() * BASE_SCORE; // Simplified base score calc if not provided
+            const isEligible = score > 0;
 
-        const finalResults = this._getFinalResults(baseResults);
+            const baseResults = {
+                playerName: this.playerName,
+                totalQuestions: this.quizEngine.getQuestionCount(),
+                correctAnswers: this.quizEngine.getCorrectCount(),
+                settings: this.settings,
+                score: score,
+                eligibleForHighscore: isEligible
+            };
+             // Apply subclass modifications if any (e.g., SinglePlayer specific logic)
+            resultsToEmit = this._getFinalResults(baseResults);
+        }
 
-        console.log(`[BaseGameMode:${this.mode}] Final Results:`, finalResults);
-        eventBus.emit(Events.Game.Finished, { mode: this.mode, results: finalResults });
+
+        console.log(`[BaseGameMode:${this.mode}] Final Results to emit:`, resultsToEmit);
+        eventBus.emit(Events.Game.Finished, { mode: this.mode, results: resultsToEmit }); // Use resultsToEmit
 
         this._cleanupListeners();
     }

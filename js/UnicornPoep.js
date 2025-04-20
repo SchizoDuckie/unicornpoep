@@ -49,10 +49,8 @@ class UnicornPoepApp {
             if (joinCode) {
                 eventBus.emit(Events.System.ValidJoinCodeDetected, { joinCode: joinCode });
             } else {
-                
-                
-                    eventBus.emit(Events.UI.MainMenu.Show);
-                
+                // Emit the standard navigation event to show the main menu
+                eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
             }
     }
 

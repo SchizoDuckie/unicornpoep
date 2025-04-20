@@ -10,6 +10,7 @@ import { getTextTemplate } from '../utils/miscUtils.js';
 class ProgressDisplayComponent extends RefactoredBaseComponent {
     static SELECTOR = '#progressIndicator';
     static VIEW_NAME = 'ProgressDisplayComponent';
+    static IS_GAME_AREA_CHILD = true;
     
     static SELECTORS = {
         PROGRESS_TEXT: '#progressText',

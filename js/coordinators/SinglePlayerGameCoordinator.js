@@ -5,6 +5,7 @@ import miscUtils from '../utils/miscUtils.js';
 import QuizEngine from '../services/QuizEngine.js';
 import SinglePlayerGame from '../game/SinglePlayerGame.js';
 import highscoreManager from '../services/HighscoreManager.js';
+import uiManager from '../ui/UIManager.js';
 
 /**
  * Class SinglePlayerGameCoordinator.
@@ -153,19 +154,35 @@ class SinglePlayerGameCoordinator {
      * 
      * @param {Object} payload Event payload
      * @param {string} payload.mode The game mode that finished
+     * @param {Object} payload.results Results of the game
      * @private
      * @event Events.Game.Finished
      */
-    handleGameFinished = ({ mode }) => {
+    handleGameFinished = ({ mode, results }) => {
         if (mode !== 'single-player') return;
         
-        console.log("[SinglePlayerGameCoordinator] Game.Finished received.");
+        console.log("[SinglePlayerGameCoordinator] Game.Finished received.", results);
         
-        // Clean up game resources but keep results
-        // Navigation to results screen is handled by the game
+        if (results) {
+            console.log(`[SinglePlayerGameCoordinator] Requesting UIManager show Single Player End Dialog.`);
+            uiManager.showDialog(Views.SinglePlayerEndDialog, results);
+        } else {
+            console.warn("[SinglePlayerGameCoordinator] Game.Finished received, but no results payload found. Cannot show end dialog.");
+        }
         
-        // We don't fully reset state here because the game results may still be needed
-        // The state will be fully reset when returning to main menu or starting a new game
+        if (this.activeGame) {
+            if (typeof this.activeGame.destroy === 'function') {
+                this.activeGame.destroy();
+            }
+            this.activeGame = null;
+        }
+        if (this.quizEngine) {
+            if (typeof this.quizEngine.destroy === 'function') {
+                this.quizEngine.destroy();
+            }
+            this.quizEngine = null;
+        }
+        this.currentGameMode = null;
     }
 
     /**

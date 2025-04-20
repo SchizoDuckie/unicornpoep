@@ -12,7 +12,8 @@ import Views from '../core/view-constants.js';
  */
 class GameFeedbackComponent extends RefactoredBaseComponent {
     static SELECTOR = '#gameFeedback';
-    static VIEW_NAME = 'GameFeedback';
+    static VIEW_NAME = 'GameFeedbackComponent';
+    static IS_GAME_AREA_CHILD = true;
     
     // State properties
     hideTimeout = null;

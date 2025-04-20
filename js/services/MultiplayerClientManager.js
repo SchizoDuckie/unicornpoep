@@ -403,11 +403,29 @@ class MultiplayerClientManager {
                  }
                  break;
 
+            // *** ADDED CASE for Host Score Updates ***
+            case MSG_TYPE.H_PLAYER_SCORES_UPDATE:
+                if (payload && typeof payload === 'object') {
+                    // The payload already contains the full player objects { name, score, isHost }
+                    this.players = new Map(Object.entries(payload)); 
+                    console.log(`[${this.constructor.name}] Updated player list from H_PLAYER_SCORES_UPDATE:`, this.players);
+                    eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: this.players });
+                } else {
+                    console.warn(`[${this.constructor.name}] Received invalid H_PLAYER_SCORES_UPDATE payload:`, payload);
+                }
+                break;
+
             // Messages client should IGNORE (or handle differently):
             case MSG_TYPE.PING: // Handled by WebRTCManager
             case MSG_TYPE.PONG: // Handled by WebRTCManager
                  // console.log(`[${this.constructor.name}] Ignoring message type ${type}`);
                  break;
+
+            case MSG_TYPE.H_COMMAND_GAME_OVER:
+                console.log(`[${this.constructor.name}] Received H_COMMAND_GAME_OVER:`, payload);
+                // Forward the final results to the game logic coordinator/component
+                eventBus.emit(Events.Multiplayer.Client.GameOverCommandReceived, { results: payload });
+                break;
 
             default:
                 console.warn(`[MultiplayerClientManager] Received unhandled message type from host: ${type}`, payload);

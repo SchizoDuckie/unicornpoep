@@ -23,6 +23,11 @@ class PlayerListComponent extends RefactoredBaseComponent {
     // --- Static properties REQUIRED by RefactoredBaseComponent ---
     static SELECTOR = '#playerListContainer';
     static VIEW_NAME = 'PlayerListComponent';
+    static IS_GAME_AREA_CHILD = true;
+
+    static SELECTORS = {
+        // ... existing code ...
+    };
 
     /**
      * Creates an instance of PlayerListComponent.

@@ -14,6 +14,11 @@ import questionsManager from '../services/QuestionsManager.js';
 class ScoreDisplayComponent extends RefactoredBaseComponent {
     static SELECTOR = '#scoreDisplay';
     static VIEW_NAME = 'ScoreDisplayComponent';
+    static IS_GAME_AREA_CHILD = true;
+
+    static SELECTORS = {
+        // ... existing code ...
+    };
 
     /**
      * Initializes the component using the declarative pattern

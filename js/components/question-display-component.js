@@ -8,7 +8,12 @@ import Events from '../core/event-constants.js';
  */
 class QuestionDisplayComponent extends RefactoredBaseComponent {
     static SELECTOR = '#question';
-    static VIEW_NAME = 'QuestionDisplay';
+    static VIEW_NAME = 'QuestionDisplayComponent';
+    static IS_GAME_AREA_CHILD = true;
+
+    static SELECTORS = {
+        // ... existing code ...
+    };
 
     /**
      * Initializes the component using the declarative pattern
@@ -53,7 +58,7 @@ class QuestionDisplayComponent extends RefactoredBaseComponent {
     _handleQuestionNew({ questionData }) {
         // Use textContent for safety, assuming questions are plain text
         this.rootElement.textContent = questionData.question;
-        // Ensure component is visible
+        // Visibility is handled by UIManager showing the parent view
         this.show();
     }
 

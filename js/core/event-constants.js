@@ -299,6 +299,14 @@ const Events = {
              * @property {number} [index] - Relevant index if error relates to a specific question (e.g., 'mpHostErrorNextQPrefix').
              */
             ErrorOccurred: 'Events.Multiplayer.Host.ErrorOccurred',
+            /**
+             * Fired by MultiplayerGame (Host) when the host finishes their local quiz
+             * but is waiting for one or more clients to finish.
+             * Listened for by UI/Coordinator to display a waiting message for the host.
+             * @event Events.Multiplayer.Host.HostWaiting
+             * @type {object} - Payload is typically empty, but could include IDs of waiting clients.
+             */
+            HostWaiting: 'Events.Multiplayer.Host.HostWaiting',
             RematchReady: 'Events.Multiplayer.Host.RematchReady'
         },
         /** @namespace Events.Multiplayer.Client */
@@ -326,6 +334,15 @@ const Events = {
              * @property {Map<string, object>} players - Map of currently connected players (peerId -> playerData: { name: string, score: number, isFinished: boolean }).
              */
             GameInfoReceived: 'Events.Multiplayer.Client.GameInfoReceived',
+            /**
+             * Fired by MultiplayerClientManager when the host sends the H_COMMAND_GAME_OVER message.
+             * This signals that the host has determined the game is over and has sent final results.
+             * Listened for by MultiplayerClientGame to trigger its local game over sequence.
+             * @event Events.Multiplayer.Client.GameOverCommandReceived
+             * @type {object}
+             * @property {object} results - The final game results payload sent by the host.
+             */
+            GameOverCommandReceived: 'Events.Multiplayer.Client.GameOverCommandReceived',
             /**
              * Fired by the JoinLobby component when the client initiates the connection attempt to the host.
              * Listened for primarily by WebRTCManager to start the PeerJS connection.

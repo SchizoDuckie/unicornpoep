@@ -71,10 +71,15 @@ class MultiplayerClientCoordinator {
         // Game flow
         eventBus.on(Events.Game.Finished, this.handleGameFinished);
         eventBus.on(Events.UI.GameArea.LeaveGameClicked, this.handleLeaveGame);
+        // Add listener for LocalPlayerFinished event
+        eventBus.on(Events.Game.LocalPlayerFinished, this.handleLocalPlayerFinished);
         
         // Connection events (Now defined in event-constants.js)
         eventBus.on(Events.Multiplayer.GameStarted, this.handleMultiplayerGameStarted);
         eventBus.on(Events.Multiplayer.Client.DisconnectedFromHost, this.handleDisconnection);
+        
+        // *** ADDED LISTENER ***
+        eventBus.on(Events.Multiplayer.Client.GameOverCommandReceived, this._handleGameOverCommand);
         
         console.info("[MultiplayerClientCoordinator] Listeners registered.");
     }
@@ -392,6 +397,48 @@ class MultiplayerClientCoordinator {
         this.playerName = null;
         // Emit event to hide the waiting dialog instead of calling directly
         eventBus.emit(Events.System.HideWaitingDialog);
+    }
+
+    /**
+     * Handles the LocalPlayerFinished event.
+     * Shows the waiting dialog when a client finishes their questions.
+     * 
+     * @param {Object} payload Event payload
+     * @param {number} payload.score The final score achieved by the local client
+     * @private
+     * @event Events.Game.LocalPlayerFinished
+     */
+    handleLocalPlayerFinished = ({ score }) => {
+        console.log(`[MultiplayerClientCoordinator] LocalPlayerFinished received with score: ${score}`);
+        
+        // Show the waiting dialog with appropriate message
+        const waitMessage = miscUtils.getTextTemplate('mpClientWaitOthers', 'Je bent klaar! We wachten op de andere spelers');
+        eventBus.emit(Events.System.ShowWaitingDialog, { 
+            message: waitMessage 
+        });
+    }
+    
+    // *** ADDED HANDLER ***
+    /**
+     * Handles the GameOver command received from the host.
+     * Hides the waiting dialog and shows the final results dialog.
+     * 
+     * @param {object} payload
+     * @param {object} payload.results - Final game results (players, scores, etc.)
+     * @private
+     * @event Events.Multiplayer.Client.GameOverCommandReceived
+     */
+    _handleGameOverCommand = ({ results }) => {
+        console.log(`[MultiplayerClientCoordinator] GameOverCommand received:`, results);
+        
+        // 1. Hide the waiting dialog immediately
+        eventBus.emit(Events.System.HideWaitingDialog);
+        
+        // 2. Show the Multiplayer End Dialog using UIManager helper
+        uiManager.showDialog('MultiplayerEndDialog', results); // Corrected VIEW_NAME
+        
+        // 3. Reset state (cleans up active game, etc.)
+        this.resetState(); 
     }
 }
 

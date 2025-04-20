@@ -9,7 +9,8 @@ import Events from '../core/event-constants.js';
  */
 export default class GameNavigationComponent extends RefactoredBaseComponent {
     static SELECTOR = '#gameNavigation';
-    static VIEW_NAME = 'GameNavigation';
+    static VIEW_NAME = 'GameNavigationComponent';
+    static IS_GAME_AREA_CHILD = true;
     
     static SELECTORS = {
         STOP_BUTTON: '#stopGame'

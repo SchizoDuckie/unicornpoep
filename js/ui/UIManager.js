@@ -83,16 +83,41 @@ class UIManager extends RefactoredBaseComponent {
     /**
      * Hides all registered VIEW components (BaseComponent instances).
      * Does not affect Dialogs (BaseDialog instances).
-     * @param {boolean} [skipLoading=false] - If true, does not hide the Loading component.
+     * @param {string|null} [viewBeingShown=null] - The VIEW_NAME of the component being shown, to avoid hiding its children.
      * @private
      */
-    _hideAllViews(skipLoading = false) {
-        console.log("Hiding all views from uimanager!")
+    _hideAllViews(viewBeingShown = null) {
+        console.log(`[UIManager] Hiding views. View being shown: ${viewBeingShown}`);
+        const isShowingGameArea = viewBeingShown === Views.GameArea; // Use View Constant
+
         this.components.forEach((component, name) => {
+            // Skip hiding dialogs (assuming they extend BaseDialog or have a similar marker)
+            if (component instanceof BaseDialog) {
+                return; 
+            }
+
+            // Skip hiding GameArea children if GameArea is being shown
+            if (isShowingGameArea && component.constructor.IS_GAME_AREA_CHILD) {
+                console.debug(`[UIManager] Skipping hide for GameArea child: ${name}`);
+                return;
+            }
+
+            // Skip hiding the LoadingComponent generally - let LoadingStart/End handle it
+            if (component.constructor.VIEW_NAME === LoadingComponent.VIEW_NAME) {
+                 console.debug(`[UIManager] Skipping hide for LoadingComponent.`);
+                 return;
+            }
+            
+            // Skip hiding the ToastComponent - it manages its own lifecycle
+             if (component.constructor.VIEW_NAME === ToastComponent.VIEW_NAME) {
+                  console.debug(`[UIManager] Skipping hide for ToastComponent.`);
+                  return;
+             }
+
             component.hide(); 
         });
-        console.debug('[UIManager] All views hidden (except potentially Loading).');
-        this.activeViewName = null; // No view is active after hiding all
+        // console.debug('[UIManager] Hide loop finished.'); // Reduced verbosity
+        this.activeViewName = null; // Reset active view before showing the new one
     }
 
     /**
@@ -317,63 +342,67 @@ class UIManager extends RefactoredBaseComponent {
     }
 
     /**
-     * Handles the ShowView navigation event.
-     * Hides other components and shows the requested view.
-     * ALL TRANSITION/ANIMATION LOGIC REMOVED.
-     * 
-     * @param {object} payload - Event payload.
-     * @param {string} payload.viewName - The name of the VIEW component to show.
-     * @param {any} [payload.data] - Optional data to pass to the component.
+     * Handles the Navigation.ShowView event to transition between UI components.
+     * @param {object} payload - The event payload.
+     * @param {string} payload.viewName - The VIEW_NAME of the component to show.
+     * @param {object} [payload.data] - Optional data to pass to the component's show method.
      * @private
      */
     _handleShowView({ viewName, data }) {
-        console.log('[UIManager] _handleShowView (Simplified - No Transitions)', viewName, data);
+        console.debug(`[UIManager] _handleShowView (Simplified - No Transitions) ${viewName}`, data);
+        const componentToShow = this.components.get(viewName);
 
-        const targetComponent = this.components.get(viewName);
-        
-        if (!targetComponent) {
-            console.error(`[UIManager] Component '${viewName}' not found.`);
+        if (!componentToShow) {
+            console.error(`[UIManager] Component with name "${viewName}" not found.`);
+            eventBus.emit(Events.System.ShowFeedback, { message: `Error: UI View "${viewName}" not found.`, type: 'error' });
             return;
         }
 
-        // Hide all other view components
-        this.components.forEach((component) => {
-            // Check if it's a view component (not a dialog) and not the target
-            if (component !== targetComponent && !(component instanceof BaseDialog)) { 
-                component.hide(); 
-            }
-        });
+        // Hide other views (passing the target view to potentially skip children)
+        this._hideAllViews(viewName); 
+
+        // *** Explicitly hide LoadingComponent AFTER hiding others ***
+        const loadingComponent = this.components.get(LoadingComponent.VIEW_NAME);
+        if (loadingComponent) {
+            loadingComponent.hide(); 
+        }
 
         // Show the target component
-        targetComponent.show(data); 
-        this.activeViewName = viewName;
-        this._updateNavigationHistory(viewName);
+        if (typeof componentToShow.show === 'function') {
+            componentToShow.show(data); // Pass data to the show method
+            this.activeViewName = viewName; // Set the new active view
+            this._updateNavigationHistory(viewName); // Update history
+            console.debug(`[UIManager] Simplified show complete for ${viewName}`);
 
-        console.log(`[UIManager] Simplified show complete for ${viewName}`);
+            // --- Specific Logic for GameArea ---
+            // This ensures related components are shown/hidden correctly ONLY when GameArea is the target view
+            if (viewName === Views.GameArea) {
+                 const isMultiplayer = data?.gameMode?.includes('multiplayer'); // Check if multiplayer based on passed data
+                 console.log(`[UIManager] GameArea shown. Is multiplayer: ${isMultiplayer}`);
 
-        // *** ADDED: Special handling for GameAreaComponent children ***
-        if (viewName === Views.GameArea) {
-            // Determine if it's a multiplayer game from the data passed
-            const isMultiplayer = data && (data.gameMode === 'multiplayer-host' || data.gameMode === 'multiplayer-client');
-            
-            console.log(`[UIManager] GameArea shown. Is multiplayer: ${isMultiplayer}`);
+                 // Always show these core game components when GameArea is active
+                 this.components.get(QuestionDisplayComponent.VIEW_NAME)?.show();
+                 this.components.get(AnswerListComponent.VIEW_NAME)?.show(); // Assuming AnswerList is always needed
+                 this.components.get(TimerDisplayComponent.VIEW_NAME)?.show();
+                 this.components.get(ProgressDisplayComponent.VIEW_NAME)?.show();
+                 this.components.get(ScoreDisplayComponent.VIEW_NAME)?.show();
+                 this.components.get(GameFeedbackComponent.VIEW_NAME)?.show(); // Show feedback area
+                 this.components.get(GameNavigationComponent.VIEW_NAME)?.show(); // Show navigation (like Stop button)
 
-            const playerListComponent = this.components.get('PlayerListComponent');
-            if (playerListComponent) {
-                if (isMultiplayer) {
-                    console.log(`[UIManager] Explicitly showing PlayerListComponent.`);
-                    playerListComponent.show(); 
-                } else {
-                    console.log(`[UIManager] Explicitly hiding PlayerListComponent.`);
-                    playerListComponent.hide();
-                }
+                 // Conditionally show/hide PlayerList
+                 const playerListComponent = this.components.get(PlayerListComponent.VIEW_NAME);
+                 if (isMultiplayer) {
+                      console.log(`[UIManager] Explicitly showing PlayerListComponent.`);
+                      playerListComponent?.show();
+                 } else {
+                      console.log(`[UIManager] Explicitly hiding PlayerListComponent.`);
+                      playerListComponent?.hide();
+                 }
             }
+            // --- End Specific Logic for GameArea ---
 
-            const gameNavigationComponent = this.components.get('GameNavigation');
-            if (gameNavigationComponent) {
-                console.log(`[UIManager] Explicitly showing GameNavigation.`);
-                gameNavigationComponent.show();
-            }
+        } else {
+            console.error(`[UIManager] Component "${viewName}" does not have a show method.`);
         }
     }
     

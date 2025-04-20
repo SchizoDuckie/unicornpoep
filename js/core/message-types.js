@@ -28,9 +28,11 @@ export const MSG_TYPE = {
     // PLAYER_ACTION: 'player_action', // For other in-game actions
 
     // --- NEW TYPES ---
-    C_SCORE_UPDATE: 'c_scoreUpdate',       // Client -> Host (During game)
-    H_PLAYER_SCORES_UPDATE: 'h_player_scores_update',
+    C_SCORE_UPDATE: 'c_score_update',       // Client -> Host (During game)
+    H_PLAYER_SCORES_UPDATE: 'h_player_scores_update', // Host -> Client(s): Updated scores during game
     H_START_MULTIPLAYER_GAME: 'h_start_multiplayer_game', // Host signals clients to start core game logic
+    // --- Game Over Command (Host -> Client) ---
+    H_COMMAND_GAME_OVER: 'h_command_game_over', // Host -> Client: Command to display final results
     // --- END NEW TYPES ---
 
 };

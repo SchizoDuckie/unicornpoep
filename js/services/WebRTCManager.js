@@ -79,19 +79,39 @@ class WebRTCManager {
      * @param {string|string[]} [params.targetPeerIds] - Optional recipient peerId(s) (alias)
      */
     _handleMultiplayerSendMessage(params) {
-        if (!this.isHost) return;
+        // Check for our marker first
+        if (params._internal_marker === 'SEND_GAME_OVER') {
+            if (this.isHost) {
+                // Explicitly set type here for broadcast
+                this.broadcastMessage(MSG_TYPE.H_COMMAND_GAME_OVER, params.payload);
+            }
+            return; // Handled SEND_GAME_OVER marker
+        }
+        
+        // Normal handling for other messages
         const { type, payload, recipient, targetPeerIds } = params;
-        if (recipient || targetPeerIds) {
-            // Send to specific peer(s)
-            const targets = recipient || targetPeerIds;
-            if (Array.isArray(targets)) {
-                targets.forEach(peerId => this.sendToPeer(peerId, type, payload));
+        const targets = recipient || targetPeerIds;
+
+        if (this.isHost) {
+            // Host logic: Broadcast or send to specific client(s)
+            if (targets) {
+                // Send to specific peer(s)
+                if (Array.isArray(targets)) {
+                    targets.forEach(peerId => this.sendToPeer(peerId, type, payload));
+                } else {
+                    this.sendToPeer(targets, type, payload);
+                }
             } else {
-                this.sendToPeer(targets, type, payload);
+                // Broadcast to all clients
+                this.broadcastMessage(type, payload);
             }
         } else {
-            // Broadcast to all clients
-            this.broadcastMessage(type, payload);
+            // Client logic: Should only ever send TO the host
+            if (targets && targets === this.hostId) {
+                 this.sendToHost(type, payload);
+            } else {
+                console.warn(`[WebRTCManager Client] Ignoring SendMessage event with invalid/missing target host:`, params);
+            }
         }
     }
 
@@ -706,9 +726,10 @@ class WebRTCManager {
              return;
         }
          if (connection.open) {
-            const message = { type, payload };
-            // Debug specific message types
+            // Construct message object here using passed type
+            const message = { type, payload }; 
             
+            console.debug(`[WebRTC SEND] Preparing to send to ${connection.peer}:`, JSON.stringify(message));
             try {
                  connection.send(message); // Send the object directly
             

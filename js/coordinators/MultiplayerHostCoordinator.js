@@ -6,6 +6,7 @@ import MultiplayerHostManager from '../services/MultiplayerHostManager.js';
 import webRTCManager from '../services/WebRTCManager.js';
 import QuizEngine from '../services/QuizEngine.js';
 import MultiplayerHostGame from '../game/MultiplayerHostGame.js';
+import uiManager from '../ui/UIManager.js';
 
 /**
  * Class MultiplayerHostCoordinator
@@ -72,6 +73,8 @@ class MultiplayerHostCoordinator {
         
         // Host Initialization Completion (gets join code)
         eventBus.on(Events.Multiplayer.Host.Initialized, this.handleHostInitialized);
+        // Host finished quiz, waiting for clients
+        eventBus.on(Events.Multiplayer.Host.HostWaiting, this._handleHostWaiting);
         
         console.info("[MultiplayerHostCoordinator] Listeners registered.");
     }
@@ -324,24 +327,42 @@ class MultiplayerHostCoordinator {
      * 
      * @param {Object} payload Event payload
      * @param {string} payload.mode The game mode that finished
+     * @param {object} payload.results The results of the game
      * @private
      * @event Events.Game.Finished
      */
-    handleGameFinished = ({ mode }) => {
+    handleGameFinished = ({ mode, results }) => {
         if (mode !== 'multiplayer-host') return;
         
-        console.log("[MultiplayerHostCoordinator] Host Game.Finished received.");
+        console.log("[MultiplayerHostCoordinator] Host Game.Finished received.", results);
         
+        // ---> MODIFIED: Use uiManager.showDialog <--- 
+        if (results) {
+             console.log(`[MultiplayerHostCoordinator] Requesting UIManager show Multiplayer End Dialog.`);
+             // eventBus.emit(Events.Navigation.ShowView, {
+             //     viewName: Views.MultiplayerEndDialog, // Ensure Views.MultiplayerEndDialog exists
+             //     data: results 
+             // });
+             uiManager.showDialog(Views.MultiplayerEndDialog, results);
+         } else {
+             console.warn("[MultiplayerHostCoordinator] Game.Finished received, but no results payload found. Cannot show end dialog.");
+             // Optionally navigate back to main menu as a fallback
+             // eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+         }
+         // ---> END ADDED SECTION <--- 
+
         // Clean up game but keep host manager active for potential rematch?
         if (this.activeGame) {
+            // Destroy game object AFTER showing results
             if (typeof this.activeGame.destroy === 'function') {
-                this.activeGame.destroy();
+                this.activeGame.destroy(); 
             }
             this.activeGame = null;
         }
         this.currentGameMode = null; // Mark game as inactive
 
-        console.log("[MultiplayerHostCoordinator] Host game finished. Waiting for UI interaction (e.g., end dialog).");
+        // Keep host manager active for now
+        // console.log("[MultiplayerHostCoordinator] Host game finished. Host Manager kept active for potential rematch.");
     }
 
     /**
@@ -497,6 +518,19 @@ class MultiplayerHostCoordinator {
             } 
         });
     }
+
+    /**
+     * Handles the HostWaiting event from the host game instance.
+     * Shows the waiting dialog for the host.
+     * @param {object} payload - Event payload (currently unused, could contain list of waiting peers).
+     * @private
+     */
+    _handleHostWaiting = (payload) => {
+        if (this.currentGameMode !== 'multiplayer-host') return;
+
+        console.log("[MultiplayerHostCoordinator] HostWaiting event received.", payload);
+        eventBus.emit(Events.System.ShowWaitingDialog, { message: miscUtils.getTextTemplate('mpHostWaitOthers', 'You finished! Waiting for other players...') });
+    };
 
     /**
      * Resets the coordinator's internal state.

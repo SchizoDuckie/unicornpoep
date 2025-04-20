@@ -102,9 +102,36 @@ class SinglePlayerGame extends BaseGameMode {
      * @protected
      */
     _getFinalResults(baseResults) {
+        // 1. Generate Game Name
+        const gameName = this.settings.sheetIds && this.settings.sheetIds.length > 0
+            ? this.settings.sheetIds.join(', ')
+            : "Onbekende Oefening"; 
+
+        // 2. Check Highscore Eligibility
+        let isEligible = false;
+        try {
+            const scoreToCheck = this.score; // Use the current score
+            if (typeof this.highscoreManager.isNewHighScore === 'function') {
+                 isEligible = this.highscoreManager.isNewHighScore(
+                     gameName,
+                     this.difficulty,
+                     scoreToCheck
+                 );
+            } else {
+                console.error("[SinglePlayerGame] HighscoreManager or isNewHighScore method missing!");
+            }
+        } catch (error) {
+             console.error("[SinglePlayerGame] Error checking highscore eligibility:", error);
+        }
+
+        // 3. Construct final results, merging with base and adding single-player specific data
         return {
             ...baseResults, // Include base results (player, counts, settings)
-            score: this.score // Add the final score
+            score: this.score, // Ensure final score is included
+            gameName: gameName,
+            difficulty: this.difficulty,
+            eligibleForHighscore: isEligible,
+            mode: 'single' // Explicitly set mode for clarity in results payload
         };
     }
 
@@ -153,51 +180,7 @@ class SinglePlayerGame extends BaseGameMode {
         if (this.isFinished) return;
         console.log(`[SinglePlayerGame] Finishing game...`);
         
-        // --- FIX: Get the full results object using the local override ---
-        // This object will contain the score added by the overridden method
-        const fullResults = this._getFinalResults({}); 
-
-        // 1. Generate Game Name
-        const gameName = this.settings.sheetIds && this.settings.sheetIds.length > 0
-            ? this.settings.sheetIds.join(', ')
-            : "Onbekende Oefening"; 
-
-        // 2. Check Highscore Eligibility (Use score from fullResults)
-        let isEligible = false;
-        try {
-            // Use score from the results object that includes it
-            const scoreToCheck = fullResults.score !== undefined ? fullResults.score : 0; 
-            if (typeof this.highscoreManager.isNewHighScore === 'function') {
-                 isEligible = this.highscoreManager.isNewHighScore(
-                     gameName,
-                     this.difficulty,
-                     scoreToCheck // Use score from the correct results object
-                 );
-            } else {
-                console.error("[SinglePlayerGame] HighscoreManager or isNewHighScore method missing!");
-            }
-        } catch (error) {
-             console.error("[SinglePlayerGame] Error checking highscore eligibility:", error);
-        }
-
-        // 3. Construct Dialog Data (Use fullResults)
-        const dialogData = {
-            ...fullResults, // <<< Spread the object that contains the score
-            gameName: gameName, // Can be overwritten if needed, but likely consistent
-            difficulty: this.difficulty, // Can be overwritten if needed
-            eligibleForHighscore: isEligible, // Use calculated value
-            mode: 'single' // Ensure mode is correctly set
-        };
-
-        // 4. Emit Navigation Event for Dialog BEFORE marking as finished
-        // Add logging to see the data being sent
-        console.log(`[SinglePlayerGame] Requesting UIManager show Single Player End Dialog. Data:`, JSON.stringify(dialogData)); 
-        eventBus.emit(Events.Navigation.ShowView, {
-            viewName: Views.SinglePlayerEndDialog,
-            data: dialogData // Pass the object containing the score
-        });
-
-        // 5. Call Base Finish (performs cleanup, sets isFinished flag) AFTER dialog navigation event
+        // BaseGameMode.finishGame now handles calculating results via _getFinalResults
         super.finishGame(); 
     }
 }

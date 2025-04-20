@@ -6,6 +6,8 @@ import Timer from '../core/timer.js';
 import { MSG_TYPE } from '../core/message-types.js';
 // Removed direct import of WebRTCManager - use events
 import miscUtils from '../utils/miscUtils.js';
+import uiManager from '../ui/UIManager.js';
+import Views from '../core/view-constants.js';
 
 /**
  * Manages the state and logic for a multiplayer game session from the client's perspective.
@@ -46,6 +48,11 @@ class MultiplayerClientGame extends BaseGameMode {
     _registerClientListeners() {
         this._boundHandleWebRTCMessage_Client = this._handleWebRTCMessage_Client.bind(this);
         eventBus.on(Events.WebRTC.MessageReceived, this._boundHandleWebRTCMessage_Client);
+        
+        // Listen for the game over command event from the MultiplayerClientManager
+        this._boundHandleGameOverMessage = this._handleGameOverMessage.bind(this);
+        eventBus.on(Events.Multiplayer.Client.GameOverCommandReceived, this._boundHandleGameOverMessage);
+        
         console.log(`[MultiplayerClientGame] Registered client message listeners.`);
     }
 
@@ -127,22 +134,34 @@ class MultiplayerClientGame extends BaseGameMode {
                 this._handleGameOverMessage(payload);
                 break;
 
-            case MSG_TYPE.H_PLAYER_SCORES_UPDATE: 
-                console.log("[MultiplayerClientGame] Received H_PLAYER_SCORES_UPDATE from host.", payload);
-                // The PlayerListComponent listens for PlayerListUpdated, which the host also emits locally
-                // and the coordinator might forward or the client manager might re-emit based on this.
-                // For simplicity here, let's just log, assuming another component handles the UI update via the map.
-                // Let's emit the standard event here too for consistency?
-                if (payload && payload.players && typeof payload.players === 'object') {
-                    // Reconstruct the Map from the plain object received
-                    const playersMap = new Map();
-                    for (const [peerId, playerData] of Object.entries(payload.players)) {
-                        playersMap.set(peerId, playerData);
-                    }
-                    // Emit the standard update event that UI components listen for
-                    eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: playersMap });
-                } else {
-                    console.warn('[MultiplayerClientGame] Invalid H_PLAYER_SCORES_UPDATE payload:', payload);
+            case MSG_TYPE.H_PLAYER_SCORES_UPDATE:
+                {
+                    // Process the updated scores format which now includes player data
+                    const receivedScores = payload || {};
+                    console.log("[MultiplayerClientGame] Received player scores update:", receivedScores);
+                    
+                    // Convert the received scores to a format our UI can handle
+                    const scoresMap = new Map();
+                    Object.entries(receivedScores).forEach(([peerId, playerData]) => {
+                        if (playerData) {
+                            // Handle both old format (direct score) and new format (object with score property)
+                            const score = typeof playerData === 'object' ? 
+                                (playerData.score === null ? 0 : playerData.score) : 
+                                (playerData === null ? 0 : playerData);
+                            
+                            console.log(`[MultiplayerClientGame] Processing score for ${peerId}: ${score} (from ${JSON.stringify(playerData)})`);
+                            scoresMap.set(peerId, score);
+                        }
+                    });
+                    
+                    this.playerScores = scoresMap;
+                    
+                    // Log the final processed scores
+                    console.log("[MultiplayerClientGame] Final processed scores:", Object.fromEntries(scoresMap));
+                    
+                    // Emit an event that PlayerListComponent listens to for updates
+                    eventBus.emit(Events.Game.ScoreUpdated, { scores: scoresMap });
+                    eventBus.emit(Events.Multiplayer.Common.PlayerListUpdated, { players: receivedScores });
                 }
                 break;
 
@@ -152,15 +171,29 @@ class MultiplayerClientGame extends BaseGameMode {
     }
 
     /**
-     * [Client Only] Handles the GAME_OVER message from the host.
-     * @param {object} resultsPayload - The final game results payload.
+     * [Client Only] Handles the GAME_OVER message from the host or the GameOverCommandReceived event.
+     * @param {object} payload - The message payload or event data. Expected to contain `results` property.
      * @private
+     * @event Events.Game.Finished Emitted locally after processing game over.
      */
-     _handleGameOverMessage(resultsPayload) {
+     _handleGameOverMessage(payload) {
         if (this.isFinished) return; // Prevent finishing multiple times
-        console.log("[MultiplayerClientGame] Processing GAME_OVER message.");
+        console.log("[MultiplayerClientGame] Processing GAME_OVER message or event.", payload);
         // Mark finished and clean up immediately
         this.finishGame(); // Call the consolidated cleanup method
+        
+        // Extract results from the payload (could be direct message or event data)
+        const resultsPayload = payload && payload.results ? payload.results : payload;
+        if (!resultsPayload) {
+            console.error("[MultiplayerClientGame] Received GAME_OVER but payload is missing or invalid.", payload);
+            // Potentially show a generic error dialog
+            uiManager.showDialog(Views.ErrorDialog, { 
+                title: 'Game Over Error', 
+                message: 'Received incomplete game results from the host.' 
+            });
+            eventBus.emit(Events.Game.Finished, { mode: this.mode, results: null }); // Emit finish with null results
+            return;
+        }
         
         // Use the received results payload directly
         const finalResults = {
@@ -170,7 +203,12 @@ class MultiplayerClientGame extends BaseGameMode {
         
         console.log("[MultiplayerClientGame] Final Results (from host):", finalResults);
 
-        // Emit the Game.Finished event locally
+        // ---> MODIFIED: Use uiManager.showDialog <--- 
+        console.log(`[MultiplayerClientGame] Requesting UIManager show Multiplayer End Dialog.`);
+        uiManager.showDialog(Views.MultiplayerEndDialog, finalResults);
+        // ---> END MODIFIED SECTION <--- 
+
+        // Emit the Game.Finished event locally (Coordinator might use this for final cleanup)
         eventBus.emit(Events.Game.Finished, { mode: this.mode, results: finalResults });
 
         // No need for _cleanupListeners() here, finishGame handles it.
@@ -179,6 +217,8 @@ class MultiplayerClientGame extends BaseGameMode {
     /** [Client Only] Cleans up client-specific listeners. @private */
     _cleanupClientListeners() {
         eventBus.off(Events.WebRTC.MessageReceived, this._boundHandleWebRTCMessage_Client);
+        // Unregister the game over command listener as well
+        eventBus.off(Events.Multiplayer.Client.GameOverCommandReceived, this._boundHandleGameOverMessage);
         console.log("[MultiplayerClientGame] Cleaned up client listeners.");
     }
     
@@ -206,7 +246,11 @@ class MultiplayerClientGame extends BaseGameMode {
         this.timer.start();
         this.nextQuestion(); // FIXED: Use the correct method name from BaseGameMode
         
-        eventBus.emit(Events.Game.Started, { mode: this.mode, settings: this.settings });
+        eventBus.emit(Events.Game.Started, { 
+            mode: this.mode, 
+            settings: this.settings, 
+            timer: this.timer // Include the timer instance
+        });
         console.log("[MultiplayerClientGame] Game Started event emitted.");
     }
 
@@ -218,7 +262,7 @@ class MultiplayerClientGame extends BaseGameMode {
     _afterAnswerChecked(isCorrect, scoreDelta) {
         super._afterAnswerChecked(isCorrect, scoreDelta); // Update local score
         
-        // ** CORRECTED: Send score update to host after every answer **
+        // Send score update to host after every answer
         console.log(`[MultiplayerClientGame] Answer checked. New local score: ${this.score}. Sending update to host.`);
         try {
              eventBus.emit(Events.Multiplayer.Common.SendMessage, { 
@@ -257,22 +301,40 @@ class MultiplayerClientGame extends BaseGameMode {
         }
     }
 
-    /** Finalizes the game (Client). */
+    /**
+     * Finalizes the game state, cleans up listeners, and stops the timer.
+     * Emits the LocalPlayerFinished event BEFORE cleaning up.
+     * @override
+     */
     finishGame() {
-        // Client finish is primarily triggered by receiving GAME_OVER from host
-        // However, _beforeFinish sends the final score.
-        // The local finishGame call happens inside _handleGameOverMessage.
-        // This method now centralizes the cleanup.
         if (this.isFinished) return;
         console.log("[MultiplayerClientGame] finishGame called (likely via GAME_OVER or local completion timeout). Cleaning up...");
-        this.isFinished = true; // Mark as finished
-        this.timer.stop(); // Stop local timer
-        this._cleanupListeners(); // Perform all listener cleanup
-        // Actual Game.Finished emission happens in _handleGameOverMessage (with host results)
-        // or potentially after _beforeFinish if we wanted to signal local completion differently (but currently don't)
+
+        // --- MOVED EVENT EMISSION HERE ---
+        if (!this._hasEmittedLocalFinished) {
+            console.log(`[MultiplayerClientGame] Emitting LocalPlayerFinished event. Score: ${this.score}`);
+            eventBus.emit(Events.Game.LocalPlayerFinished, { score: this.score });
+            
+            // ---> ADDED: Send CLIENT_FINISHED message to host <--- 
+            eventBus.emit(Events.Multiplayer.Common.SendMessage, { 
+                type: MSG_TYPE.CLIENT_FINISHED, 
+                payload: { score: this.score },
+                recipient: this.hostPeerId // Ensure it's sent only to the host
+            });
+            
+            this._hasEmittedLocalFinished = true;
+        }
+        // ---------------------------------
+
+        this.isFinished = true; // Mark as finished *after* emitting local finish event
+        this.timer.stop();
+        this._cleanupListeners(); // Now cleanup listeners
+        
+        // Note: The final Game.Finished event for clients is typically triggered 
+        // by receiving GAME_OVER from the host, handled in _handleGameOverMessage.
     }
 
-    /** Cleans up listeners (Client). */
+    /** Cleans up all listeners (base, client, timer). @private @override */
     _cleanupListeners() {
         super._cleanupListeners(); // Call base cleanup
         this._cleanupClientListeners();

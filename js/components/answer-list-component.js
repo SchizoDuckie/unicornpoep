@@ -14,6 +14,7 @@ import Views from '../core/view-constants.js';
 class AnswerListComponent extends RefactoredBaseComponent {
     static SELECTOR = '#answers'; // Restored: Required by BaseComponent
     static VIEW_NAME = 'AnswerListComponent';
+    static IS_GAME_AREA_CHILD = true;
     
     // CSS Classes
     static ANSWER_BUTTON_CLASS = 'answer-button';
