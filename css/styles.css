@@ -2,6 +2,7 @@ html {
     background-image: url("../img/background.webp");
     background-size: cover;
     background-repeat: no-repeat;
+    background-attachment: fixed;
 }
 
 body,
@@ -23,7 +24,6 @@ html {
     overflow: hidden !important;
     padding: 0 !important;
     margin: 0 !important;
-    
 }
 
 .active {
@@ -43,14 +43,22 @@ html {
     display: grid;
     place-items: center;
     text-align: center;
-    position: absolute;
-    top: 5%;
-    left: 5%;
-    right: 5%;
-    bottom: 5%;
+    height: fit-content;
+    align-self: center;
+    place-self: anchor-center;
+    margin: 50px;
+    margin-top: 80px;
 }
 
-
+.dialog {
+    width: fit-content;
+    min-width: 20em;
+    max-width: 90%;
+    margin: auto;
+    justify-self: center;
+    align-self: center;
+    place-self: center;
+}
 #loading {
     padding: 50px;
     overflow: visible;
@@ -332,7 +340,7 @@ h1 small {
 
     
     display: grid;
-    grid-template-columns: 1fr 1fr; 
+    grid-template-columns: 1fr;
     grid-template-rows: auto min-content 1fr auto; 
     gap: 20px 30px; 
     align-items: start; 
@@ -340,16 +348,6 @@ h1 small {
     line-height: 1.4; 
 }
 
-#multiplayerChoice h2 { 
-    grid-column: 1 / -1;
-    grid-row: 1 / 2;
-    text-align: center;
-    color: #614ae2; 
-    text-shadow: 4px 4px 10px rgba(0,0,0,0.25);
-    margin: 0; 
-    font-size: 2.5rem; 
-    align-self: center; 
-}
 
 #multiplayerChoice p.explanation { 
     grid-column: 1 / -1; 
@@ -445,8 +443,6 @@ h1 small {
     background: rgba(255, 255, 255, 0.5); 
 }
 
-
-
 #multiplayerChoice button#hostGame {
     grid-column: 1 / -1; 
     grid-row: 4 / 5; 
@@ -541,29 +537,6 @@ h1 small {
 #multiplayerChoice .frosty-panel input[type="radio"]::after {
      background-color: #614ae2; 
 }
-
-
-#multiplayerChoice button#hostGame {
-    grid-column: 1 / -1; 
-    grid-row: 4 / 5; 
-    justify-self: stretch; 
-    
-    padding: 15px 20px; 
-    font-size: 1.8rem;
-    margin: 0; 
-    width: auto; 
-}
-
-
-
-
-#multiplayerChoice h2 {
-    
-   
-    color: white;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-}
-
 
 
 #gameArea {
@@ -1147,20 +1120,6 @@ th.score-rank {
     z-index: 100;
 }
 
-
-
-
-
-#customQuestionsManager {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
-    width: 100%;
-    max-width: 1200px;
-    position: relative;
-    
-}
 
 #customQuestionsManager h2 {
     grid-row: 1 / 2;
@@ -2283,19 +2242,6 @@ data[data-translation-key] {
     border-radius: 15px;
     box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
-
-
-#multiplayerChoice button#hostGame {
-    grid-column: 1 / -1; 
-    grid-row: 4 / 5; 
-    justify-self: stretch; 
-    
-    padding: 15px 20px; 
-    font-size: 1.8rem;
-    margin: 0; 
-    width: auto; 
-}
-
 
 #multiplayerChoice .unicorn-theme { 
     background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 99%, #fad0c4 100%); 

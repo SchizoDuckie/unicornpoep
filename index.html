@@ -62,7 +62,7 @@
                <div id="sheetsCol">
                    <h1>Wat wil je doen?</h1>
                    <div id="sheetsCheckboxes">
-                       <!-- Checkboxes populated by JS -->
+                       
                    </div>
                </div>
                <div id="difficultyCol" class="hidden">
@@ -110,7 +110,7 @@
                             <span class="opponent-status"></span>
                         </div>
                     </template>
-                    <!-- Player list items will be added here by JS -->
+                    
                     <!-- Player List Templates -->
                     <data data-translation-key="playerListUnnamed">Naamloos</data>
                     <data data-translation-key="playerListHostTag">(Host)</data>
@@ -133,7 +133,6 @@
                                 <span class="opponent-status"></span>
                             </div>
                         </template>
-                        <!-- Player list items will be added here by JS -->
                         <!-- Player List Templates -->
                         <data data-translation-key="playerListUnnamed">Naamloos</data>
                         <data data-translation-key="playerListHostTag">(Host)</data>
@@ -147,14 +146,18 @@
             <div id="multiplayerChoice" class="unicorn-theme hidden" >
                 <button class="backToMain">Terug</button>
                 <h2>Samen spelen</h2>
-                <p class="explanation">Hoi! Hier maak je alles klaar om een spel te starten waar een vriendje aan mee kan doen. Kies een leuke naam en hoe moeilijk het mag zijn. Druk daarna op 'Start een nieuw spel' om je code te krijgen!</p>
+                <div class="explanation">
+                    <p>Hoi! Hier maak je alles klaar om een spel te starten waar iemand anders aan mee kan doen.</p>
+                    <p>Je speelt tegen elkaar in je eigen tempo zo snel mogelijk de vragen weg.</p>
+                    <p>Kies hier eerst een leuke naam zodat je tegenstander weet door wie hij/zij uitgedaagd wordt.</p>
+                </div>
                 <div class="name-input-container frosty-panel"> 
-                    <label for="playerNameInput" class="block mb-1">Jouw naam:</label>
+                    <label for="playerNameInput">Jouw naam:</label>
                     <div class="input-with-button"> 
                         <input type="text" id="playerNameInput" placeholder="Typ je naam..." class="w-full p-2 rounded bg-white bg-opacity-20 focus:outline-none focus:ring-2 focus:ring-pink-400">
                         <button id="refreshPlayerNameButton" class="refresh-name-button" title="Genereer willekeurige naam">🔄</button>
                     </div>
-                     <p id="choiceError" class="text-red-400 text-sm mt-1 hidden"></p>
+                     <p id="choiceError"></p>
                 </div>
                 
                 <button id="hostGame" class="button primary">Start een nieuw spel</button>
@@ -253,7 +256,7 @@
                     <div class="host-lobby-section join-confirm-left-panel"> 
                         <p class="help-text panel-title">Spel Details:</p>
                         <div id="joinGameInfo" class="game-info-display"> 
-                            <!-- Game info populated by JS -->
+                            
                         </div>
                     </div>
 
@@ -342,7 +345,7 @@
                         <input type="text" id="customSheetName" placeholder="Naam van je vragenlijst" class="sheet-name-input">
                         
                         <div id="questionAnswerPairsContainer" class="qa-pairs-list">
-                            <!-- Q/A pairs will be added here by JS -->
+                            
                         </div>
                         
                         <button id="addQuestionPairButton" class="button secondary add-question-button">➕ Vraag Toevoegen</button>
@@ -352,7 +355,6 @@
                         <h3>Bestaande lijsten:</h3>
                          <!-- List container for existing sheets -->
                          <div id="customSheetList">
-                            <!-- Existing sheets list populated by JS -->
                             <p class="list-placeholder"><i>Nog geen eigen lijsten...</i></p>
                          </div>
                     </div>
@@ -434,7 +436,7 @@
 
         </div> <!-- End #gameContainer -->
 
-         <!-- Dialogs (visibility controlled by JS showModal/close) -->
+         
          <dialog id="endOfGameDialog" class="unicorn-theme hidden">
             <h1>Goed gedaan!</h1>
             <p>Je score is: <strong id="finalScore"></strong>!</p>
@@ -493,7 +495,7 @@
                          </tr>
                      </thead>
                      <tbody id="mpResultsList">
-                         <!-- Results populated by JS -->
+                         
                      </tbody>
                  </table>
                  <template id="mp-results-row-template">

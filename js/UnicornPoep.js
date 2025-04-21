@@ -57,33 +57,6 @@ import { getTextTemplate } from './utils/miscUtils.js';
         }
     };
 
-    // Function to process arguments, stringifying objects
-    const processArgs = (args) => {
-        return args.map(arg => 
-            (typeof arg === 'object' && arg !== null) ? JSON.stringify(arg, null, 2) : arg
-        );
-    };
-
-    // Override console methods
-    console.log = function(...args) {
-        originalConsole.log.apply(console, [getTimestamp(), getCallSite(), ...processArgs(args)]);
-    };
-    
-    console.debug = function(...args) {
-        originalConsole.debug.apply(console, [getTimestamp(), getCallSite(), ...processArgs(args)]);
-    };
-    
-    console.info = function(...args) {
-        originalConsole.info.apply(console, [getTimestamp(), getCallSite(), ...processArgs(args)]);
-    };
-    
-    console.warn = function(...args) {
-        originalConsole.warn.apply(console, [getTimestamp(), getCallSite(), ...processArgs(args)]);
-    };
-    
-    console.error = function(...args) {
-        originalConsole.error.apply(console, [getTimestamp(), getCallSite(), ...processArgs(args)]);
-    };
 })();
 
 // Service Imports (Singleton instances OR Classes to be instantiated)

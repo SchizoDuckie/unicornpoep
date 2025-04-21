@@ -1,9 +1,12 @@
 /* Mobile Styles - Generally targeting screens <= 768px */
+html {
+    overflow-y: auto;
+}
 
 /* Base Adjustments */
-#app>h1 { font-size: 2.5rem; }
-h2 { font-size: 2rem; }
-h3 { font-size: 1.8rem; }
+h1 { font-size: 2rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.3rem; }
 
 button { /* General buttons */
     font-size: 1.5rem;
@@ -52,13 +55,28 @@ label { font-size: 1.2rem; }
     border-radius: 20px;
 }
 
+#gameContainer {
+    padding: 0;
+}
+
 
 /* Sheet Selection */
 #sheetSelection {
     grid-template-columns: 1fr; /* Stack columns */
-    gap: 15px;
+    gap: 5px;
     padding-top: 10px;
 }
+
+#sheetSelection label {
+    font-size: 1rem;
+    padding: 0; 
+}
+
+input[type=checkbox] {
+    width: 15px;
+    height: 15px;
+}
+
 #sheetsCol, #difficultyCol {
     flex-basis: auto; /* Reset flex basis */
     width: 100%;
@@ -269,6 +287,13 @@ label { font-size: 1.2rem; }
 
 /* --- Very Small Screens (<= 480px) --- */
 @media (max-width: 480px) {
+
+    #app {
+        padding: 10px;
+        margin:0;
+        margin-top:80px;
+    }
+
     #app>h1 { font-size: 2rem; }
     #app>h1 small { font-size: 0.5em; }
 
@@ -322,4 +347,8 @@ label { font-size: 1.2rem; }
     .opponent-entry { font-size: 0.7rem; min-width: 60px;}
 
     #countdown { font-size: 30vw; } /* Make countdown huge */
+
+    .unicorn-theme {
+        padding: 10px;
+    }
 } 
