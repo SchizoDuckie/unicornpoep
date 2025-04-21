@@ -42,29 +42,18 @@ export default class BaseDialog extends RefactoredBaseComponent {
      * @return void
      */
     show(data = {}) {
-        console.log(`[BaseDialog DEBUG] show() called for ${this.name}`);
-        console.log(`[BaseDialog DEBUG] Dialog element:`, this.rootElement);
-        console.log(`[BaseDialog DEBUG] Is HTMLDialogElement:`, this.rootElement instanceof HTMLDialogElement);
-        console.log(`[BaseDialog DEBUG] Dialog open state:`, this.rootElement.open);
         
         if (this.rootElement instanceof HTMLDialogElement) {
-            console.log(`[BaseDialog DEBUG] Removing hidden class on ${this.name}`);
+        
+            this.rootElement.classList.add('active'); 
             this.rootElement.classList.remove('hidden'); 
+            
             if (!this.rootElement.open) {
-                try {
-                    console.log(`[BaseDialog DEBUG] Calling showModal() on ${this.name}`);
-                    this.rootElement.showModal();
-                    console.log(`[BaseDialog DEBUG] showModal() successful for ${this.name}`);
-                    this.isVisible = true; // Update internal state
-                    eventBus.emit(Events.Component.Shown, { component: this, componentName: this.name, data });
-                    console.debug(`[BaseDialog] Shown (modal): ${this.name}`);
-                } catch (error) {
-                    console.error(`[${this.name}] Error showing dialog modal:`, error);
-                    console.trace(`[BaseDialog DEBUG] Stack trace for showModal error in ${this.name}`);
-                    this.rootElement.classList.add('hidden'); // Add back hidden if showModal failed
-                }
-            } else {
-                console.debug(`[${this.name}] show() called but dialog already open. Ensuring .hidden is removed.`);
+                this.rootElement.showModal();
+    
+                this.isVisible = true; // Update internal state
+                eventBus.emit(Events.Component.Shown, { component: this, componentName: this.name, data });
+                console.debug(`[BaseDialog] Shown (modal): ${this.name}`);
             }
         } else {
             console.warn(`[${this.name}] Cannot show dialog: Element not found or not a dialog.`);
@@ -91,6 +80,7 @@ export default class BaseDialog extends RefactoredBaseComponent {
                 }
             } 
             this.rootElement.classList.add('hidden'); 
+            this.rootElement.classList.remove('active'); 
             this.isVisible = false; // Ensure state is false even if wasn't open
             if (this.rootElement.hasAttribute('open')) {
                 this.rootElement.removeAttribute('open');

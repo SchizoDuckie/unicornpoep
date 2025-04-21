@@ -4,6 +4,88 @@ import Events from './core/event-constants.js';
 import Views from './core/view-constants.js';
 import { getTextTemplate } from './utils/miscUtils.js';
 
+// Set up console logging with timestamps
+(function() {
+    // Store original console methods
+    const originalConsole = {
+        log: console.log,
+        debug: console.debug,
+        info: console.info,
+        warn: console.warn,
+        error: console.error
+    };
+
+    // Function to get current time with millisecond precision
+    const getTimestamp = () => {
+        const now = new Date();
+        return `[${now.toISOString().replace('T', ' ').replace('Z', '')}]`;
+    };
+
+    // Function to get the call site (file:line)
+    const getCallSite = () => {
+        try {
+            const err = new Error();
+            if (!err.stack) return '[unknown]';
+            const stackLines = err.stack.split('\n');
+            
+            // Find the first line outside the logging functions in this file.
+            let callerLine = '';
+            for (let i = 3; i < stackLines.length; i++) { // Start search after Error, getCallSite, wrapper
+                if (stackLines[i] && !stackLines[i].includes('UnicornPoep.js')) { 
+                     callerLine = stackLines[i];
+                     break;
+                }
+            }
+    
+            if (!callerLine) return '[unknown]';
+    
+            // Patterns to extract file:line from common stack formats
+            let match = callerLine.match(/at .*?\((?:.*?)?([^/\\(]+):(\d+):\d+\)?$/) || // V8 with function name
+                        callerLine.match(/at (?:.*?)?([^/\\(]+):(\d+):\d+$/) ||         // V8 without function name
+                        callerLine.match(/@(?:.*?)?([^/\\@]+):(\d+):\d+$/);             // Firefox like
+    
+            if (match && match[1] && match[2]) {
+                // Extract filename without the full path for brevity
+                const fileName = match[1].substring(match[1].lastIndexOf('/') + 1);
+                 return `[${fileName}:${match[2]}]`;
+            }
+    
+            return '[unknown]'; // Parsing failed
+        } catch (e) {
+            originalConsole.error("Error getting call site:", e); 
+            return '[error]';
+        }
+    };
+
+    // Function to process arguments, stringifying objects
+    const processArgs = (args) => {
+        return args.map(arg => 
+            (typeof arg === 'object' && arg !== null) ? JSON.stringify(arg, null, 2) : arg
+        );
+    };
+
+    // Override console methods
+    console.log = function(...args) {
+        originalConsole.log.apply(console, [getTimestamp(), getCallSite(), ...processArgs(args)]);
+    };
+    
+    console.debug = function(...args) {
+        originalConsole.debug.apply(console, [getTimestamp(), getCallSite(), ...processArgs(args)]);
+    };
+    
+    console.info = function(...args) {
+        originalConsole.info.apply(console, [getTimestamp(), getCallSite(), ...processArgs(args)]);
+    };
+    
+    console.warn = function(...args) {
+        originalConsole.warn.apply(console, [getTimestamp(), getCallSite(), ...processArgs(args)]);
+    };
+    
+    console.error = function(...args) {
+        originalConsole.error.apply(console, [getTimestamp(), getCallSite(), ...processArgs(args)]);
+    };
+})();
+
 // Service Imports (Singleton instances OR Classes to be instantiated)
 import uiManager from './ui/UIManager.js'; // Singleton
 import questionsManager from './services/QuestionsManager.js'; // Singleton

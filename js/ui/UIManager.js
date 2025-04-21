@@ -88,32 +88,8 @@ class UIManager extends RefactoredBaseComponent {
      */
     _hideAllViews(viewBeingShown = null) {
         
-        const isShowingGameArea = viewBeingShown === Views.GameArea; // Use View Constant
 
         this.components.forEach((component, name) => {
-            // Skip hiding dialogs (assuming they extend BaseDialog or have a similar marker)
-            if (component instanceof BaseDialog) {
-                return; 
-            }
-
-            // Skip hiding GameArea children if GameArea is being shown
-            if (isShowingGameArea && component.constructor.IS_GAME_AREA_CHILD) {
-                console.debug(`[UIManager] Skipping hide for GameArea child: ${name}`);
-                return;
-            }
-
-            // Skip hiding the LoadingComponent generally - let LoadingStart/End handle it
-            if (component.constructor.VIEW_NAME === LoadingComponent.VIEW_NAME) {
-                 console.debug(`[UIManager] Skipping hide for LoadingComponent.`);
-                 return;
-            }
-            
-            // Skip hiding the ToastComponent - it manages its own lifecycle
-             if (component.constructor.VIEW_NAME === ToastComponent.VIEW_NAME) {
-                  console.debug(`[UIManager] Skipping hide for ToastComponent.`);
-                  return;
-             }
-
             component.hide(); 
         });
         // console.debug('[UIManager] Hide loop finished.'); // Reduced verbosity

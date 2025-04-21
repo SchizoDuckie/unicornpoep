@@ -3,7 +3,7 @@ import Events from '../core/event-constants.js';
 
 
 const HIDDEN_CLASS = 'hidden'; // Define standard hidden class
-
+const VISIBLE_CLASS = 'visible'; // Define standard visible class
 /**
  * Base class for UI components, providing common lifecycle management,
  * visibility control, and automatic event listener cleanup.
@@ -63,6 +63,7 @@ export default class BaseComponent {
     show(data = {}) {
 
         if (!this.isVisible) {
+            this.rootElement.classList.add(VISIBLE_CLASS);
             this.rootElement.classList.remove(HIDDEN_CLASS);
             this.isVisible = true;
             this._lazyInitializeElements();
@@ -116,14 +117,11 @@ export default class BaseComponent {
      * Hides the component's root element by adding the 'hidden' class.
      */
     hide() {
-         if (!this.rootElement) { // Add check for rootElement
-             console.warn(`[${this.name}] Cannot hide, rootElement is null or undefined.`);
-             return;
-         }
-        
+                 
         if (this.isVisible) {
             
             this.rootElement.classList.add(HIDDEN_CLASS);
+            this.rootElement.classList.remove(VISIBLE_CLASS);
             this.isVisible = false;
             
             // Call unregisterListeners when hidden, if it exists
