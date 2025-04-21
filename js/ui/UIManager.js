@@ -87,7 +87,7 @@ class UIManager extends RefactoredBaseComponent {
      * @private
      */
     _hideAllViews(viewBeingShown = null) {
-        console.log(`[UIManager] Hiding views. View being shown: ${viewBeingShown}`);
+        
         const isShowingGameArea = viewBeingShown === Views.GameArea; // Use View Constant
 
         this.components.forEach((component, name) => {
@@ -156,52 +156,37 @@ class UIManager extends RefactoredBaseComponent {
                         this._handleShowView({ viewName: Views.JoinLobby, data: e }); 
                     }
                 },
-                // Ensure SheetSelectionComponent is initialized when MultiplayerChoice.HostClicked is triggered
                 {
                     eventName: Events.UI.MultiplayerChoice.HostClicked,
                     callback: () => {
                         this._lazyInitializeGameComponents();
                     }
                 },
-                // End Dialog Handler
                 {
                     eventName: Events.UI.EndDialog.ReturnToMenuClicked,
                     callback: (e) => this._handleShowView({ viewName: Views.MainMenu })
                 },
-                // Listen for the event to show the waiting dialog
                 {
                     eventName: Events.System.ShowWaitingDialog,
                     callback: (payload) => {
-                        console.log(`[UIManager] ShowWaitingDialog event received with payload:`, payload);
+                        
                         const waitingDialog = this.components.get(WaitingDialog.VIEW_NAME);
-                        if (waitingDialog) {
-                            if (payload && payload.message) {
-                                waitingDialog.show(payload.message);
-                            } else {
-                                waitingDialog.show(); // Uses default message
-                            }
-                            console.log(`[UIManager] WaitingDialog shown successfully.`);
+                        
+                        if (payload && payload.message) {
+                            waitingDialog.show(payload.message);
                         } else {
-                            console.error(`[UIManager] WaitingDialog component not found!`);
-                        }
+                            waitingDialog.show(); // Uses default message
+                        }                    
                     }
                 },
-                // Listen for the event to hide the waiting dialog
                 {
                     eventName: Events.System.HideWaitingDialog,
                     callback: () => {
-                        console.log(`[UIManager] HideWaitingDialog event received.`);
                         const waitingDialog = this.components.get(WaitingDialog.VIEW_NAME);
-                        if (waitingDialog) {
-                            waitingDialog.hide();
-                            console.log(`[UIManager] WaitingDialog hidden successfully.`);
-                        } else {
-                            console.error(`[UIManager] WaitingDialog component not found!`);
-                        }
+                        waitingDialog.hide();
                     }
                 }
-                // Note: MainMenu navigation events handled by MainMenuComponent
-                // Note: NamePrompt events handled by component interactions
+
             ],
             
             domEvents: [], // UIManager doesn't directly handle DOM events
@@ -262,27 +247,19 @@ class UIManager extends RefactoredBaseComponent {
      * @private
      */
     _lazyInitializeGameComponents() {
-        // Only initialize AnswerListComponent if it doesn't already exist
         if (!this.components.has('AnswerListComponent')) {
-            console.log('[UIManager] Lazily initializing AnswerListComponent...');
             this._registerComponent(new AnswerListComponent());
         }
 
-        // Only initialize SheetSelectionComponent if it doesn't already exist
         if (!this.components.has('SheetSelectionComponent')) {
-            console.log('[UIManager] Lazily initializing SheetSelectionComponent...');
             this._registerComponent(new SheetSelectionComponent());
         }
 
-        // Only initialize ToastComponent if it doesn't already exist
         if (!this.components.has('ToastComponent')) {
-            console.log('[UIManager] Lazily initializing ToastComponent...');
             this._registerComponent(new ToastComponent());
         }
 
-        // Only initialize CustomQuestionsComponent if it doesn't already exist
         if (!this.components.has('CustomQuestionsComponent')) {
-            console.log('[UIManager] Lazily initializing CustomQuestionsComponent...');
             this._registerComponent(new CustomQuestionsComponent());
         }
     }

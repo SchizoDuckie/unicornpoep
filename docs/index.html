@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <base href="hls.media.verkeerscentrum.be">
+    <script src="//cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+      body {
+        margin: 0;
+      }
+
+      .controls {
+        height: 35px;
+        display: flex;
+        align-items: center;
+        padding: 0 0.5rem;
+        /* justify-content: center; */
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+        grid-template-rows: 1fr 1fr 1fr 1fr 1fr;
+        height: calc(100vh - 35px);
+        overflow: hidden;
+      }
+
+      .grid .video-container {
+        max-width: 100%;
+        max-height: 100%;
+        height: 100%;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: black;
+        overflow: hidden;
+      }
+
+      .grid video {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .video-container p {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="controls">
+      <p style="margin-right: auto">If there is no playback, click anywhere on the page</p>
+      <button onclick="previousPage()"><</button>
+      <button onclick="nextPage()">></button>
+    </div>
+    <div class="grid"></div>
+      <script>
+        let videoControls = [];
+        let index = 0;
+        const videos = [
+          {
+            videoName: "WEB_VMS5_O4984_A11_BEVEREN_72.9_PTZ.stream",
+            locationName: 'Beveren',
+            highwayCode: 'A11'
+          },
+          {
+            videoName: "WEB_W9085_A11_ROSKAMBRUG_152.9_PTZ.stream",
+            locationName: 'Roskambrug',
+            highwayCode: 'A11'
+          },
+          {
+            videoName: "WEB_K_O5027_A11_ZELZATETNL__103.7_A.stream",
+            locationName: 'Zelzate',
+            highwayCode: 'A11'
+          },
+          {
+            videoName: "WEB_2__A0085_A12_ANTWERPEN-HAVEN_45.0__1.stream",
+            locationName: 'Antwerpen Haven',
+            highwayCode: 'A12'
+          },
+          {
+            videoName: "WEB_A__V6066_A12_MEISE_4.7__B.stream",
+            locationName: 'Meise',
+            highwayCode: 'A12'
+          },
+          {
+            videoName: "WEB_A0439_A12_PUURS_19.6_PTZ.stream",
+            locationName: 'Puurs',
+            highwayCode: 'A12'
+          },
+          {
+            videoName: "WEB_VMS86_W8828_A19_MOORSELE_3.6.stream",
+            locationName: 'Moorsele',
+            highwayCode: 'A19'
+          },
+          {
+            videoName: "WEB_2__A0006_R1_ANTWERPEN-CENTRUM_12.6__1.stream",
+            locationName: 'Antwerpen Centrum',
+            highwayCode: 'R1'
+          },
+          {
+            videoName: "WEB_A0050_R1_ANTWERPEN-OOST_6.9__2.stream",
+            locationName: 'Antwerpen Oost',
+            highwayCode: 'R1'
+          },
+          {
+            videoName: "WEB_A3037_R1__ANTWERPEN-WEST_15.1__PTZ.stream",
+            locationName: 'Antwerpen West',
+            highwayCode: 'R1'
+          },
+          {
+            videoName: "WEB_2__A0026_R1_ANTWERPEN-ZUID_9.7__1.stream",
+            locationName: 'Antwerpen Zuid',
+            highwayCode: 'R1'
+          },
+          {
+            videoName: "WEB_2__A0062_R1_DEURNE_5.3__1.stream",
+            locationName: 'Deurne',
+            highwayCode: 'R1'
+          },
+          {
+            videoName: "WEB_2__A0001_R1_ANTWERPEN-CENTRUM_13.4__1.stream",
+            locationName: 'Antwerpen Centrum',
+            highwayCode: 'R1'
+          },
+          {
+            videoName: "WEB__1_A0104_R1_MERKSEM_2.5__2.stream",
+            locationName: 'Merksem',
+            highwayCode: 'R1'
+          },
+          {
+            videoName: "WEB_2_A3049_A11_ST-ANNA_65.0_1.stream",
+            locationName: 'Sint-Anna',
+            highwayCode: 'A11'
+          },
+          {
+            videoName: "WEB_VMS72_V6140_R0_GRIMBERGEN_40.0_PTZ.stream",
+            locationName: 'Grimbergen',
+            highwayCode: 'R0'
+          },
+          {
+            videoName: "WEB_VMS66_V6133_R0_GROOT-BIJGAARDEN_50.0_PTZ.stream",
+            locationName: 'Groot-Bijgaarden',
+            highwayCode: 'R0'
+          },
+          {
+            videoName: "WEB_J__V6036_R0_LEONARDTNL_22.3__H.stream",
+            locationName: 'Leonardtunnel',
+            highwayCode: 'R0'
+          },
+          {
+            videoName: "WEB_J__V6019_R0_MACHELEN_35.4__H.stream",
+            locationName: 'Machelen',
+            highwayCode: 'R0'
+          },
+          {
+            videoName: "WEB_H__V6008_R0_WEMMEL_44.3__J.stream",
+            locationName: 'Wemmel',
+            highwayCode: 'R0'
+          },
+          {
+            videoName: "WEB_J__V6029_R0_WEZEMBEEK_27.9__H.stream",
+            locationName: 'Wezembeek',
+            highwayCode: 'R0'
+          },
+          {
+            videoName: "WEB_VMS28_O4777_A14_DE_PINTE_45.0_PTZ.stream",
+            locationName: 'De Pinte',
+            highwayCode: 'A14'
+          },
+          {
+            videoName: "WEB_VMS27_O4623_A14_DESTELBERGEN_59.5_PTZ.stream",
+            locationName: 'Destelbergen',
+            highwayCode: 'A14'
+          },
+          {
+            videoName: "WEB_VMS85_W8373_A14_KORTRIJK-OOST_12.6_PTZ.stream",
+            locationName: 'Kortrijk Oost',
+            highwayCode: 'A14'
+          },
+          {
+            videoName: "WEB_G__O4562_A14_P-KRUIBEKE_94.7__A.stream",
+            locationName: 'Kruibeke',
+            highwayCode: 'A14'
+          },
+          {
+            videoName: "WEB_W8423_A14_MOESKROEN_1.1_PTZ.stream",
+            locationName: 'Moeskron',
+            highwayCode: 'A14'
+          },
+          {
+            videoName: "WEB_O4603_A14_ST-NIKLAAS-CENTRUM_85.2_PTZ.stream",
+            locationName: 'Sint-Niklaas Centrum',
+            highwayCode: 'A14'
+          },
+          {
+            videoName: "WEB_A3015_A14_ZWIJNDRECHT_98.5_A.stream",
+            locationName: 'Zwijndrecht',
+            highwayCode: 'A14'
+          },
+          {
+            videoName: "WEB_W8800_A17_AALBEKE_23.9_PTZ.stream",
+            locationName: 'Aalbeke',
+            highwayCode: 'A17'
+          },
+          {
+            videoName: "WEB_2_A0118_R1_ANTWERPEN-NOORD_0.3__1.stream",
+            locationName: 'Antwerpen Noord',
+            highwayCode: 'R1'
+          },
+          {
+            videoName: "WEB_N__A0227_A1_KLEINE_BAREEL_47.8__A.stream",
+            locationName: 'Kleine Bareel',
+            highwayCode: 'A1'
+          },
+          {
+            videoName: "WEB_A0891_A1_LOENHOUT__67.9_PTZ.stream",
+            locationName: 'Loenhout',
+            highwayCode: 'A1'
+          },
+          {
+            videoName: "WEB_A0775_MECHELEN-NOORD_16.9_PTZ.stream",
+            locationName: 'Mechelen Noord',
+            highwayCode: '???'
+          },
+          {
+            videoName: "WEB_VMS74_V6141_A1_VILVOORDE-CARGO_1.3_PTZ.stream",
+            locationName: 'Vilvoorde',
+            highwayCode: 'A1'
+          },
+          {
+            videoName: "WEB_B__A0189_A1_WILRIJK_32.0__A.stream",
+            locationName: 'Wilrijk',
+            highwayCode: 'A1'
+          },
+          {
+            videoName: "WEB_A__A0159_A13_ANTWERPEN-OOST_1.7__H.stream",
+            locationName: 'Antwerpen Oost',
+            highwayCode: 'A13'
+          },
+          {
+            videoName: "WEB_L2053_A13_BERINGEN_57.3_PTZ.stream",
+            locationName: 'Beringen',
+            highwayCode: 'A13'
+          },
+          {
+            videoName: "WEB_H__A0318_A13_GEEL-WEST_35.6__A.stream",
+            locationName: 'Geel West',
+            highwayCode: 'A13'
+          },
+          {
+            videoName: "WEB_H__A0174_A13_RANST_8.7__A.stream",
+            locationName: 'Ranst',
+            highwayCode: 'A13'
+          },
+          {
+            videoName: "WEB_H__A0164_A13_WOMMELGEM_3.5__A.stream",
+            locationName: 'Wommelgem',
+            highwayCode: 'A13'
+          },
+          {
+            videoName: "WEB_VMS32_L2022_A13_INDUSTRIE_ZOLDER_66.6_PTZ.stream",
+            locationName: 'Industrie Zolder',
+            highwayCode: 'A13'
+          },
+          {
+            videoName: "WEB_L2038_A2_X_A13_LUMMEN_PTZ.stream",
+            locationName: 'Lummen',
+            highwayCode: 'A13'
+          },
+          {
+            videoName: "WEB_V6402_A2_AARSCHOT_68.5_PTZ.stream",
+            locationName: 'Aarschot',
+            highwayCode: 'A2'
+          },
+          {
+            videoName: "WEB_V6177_A2_HERENT_81.6_PTZ.stream",
+            locationName: 'Gerent',
+            highwayCode: 'A2'
+          },
+          {
+            videoName: "WEB_L2027_A2_PARK_MIDDEN_LIMBURG_22.3_PTZ.stream",
+            locationName: 'Park Midden Limburg',
+            highwayCode: 'A2'
+          },
+          {
+            videoName: "WEB_A0893_A21_ZOERSEL_19.8_PTZ.stream",
+            locationName: 'Zoersel',
+            highwayCode: 'A21'
+          },
+          {
+            videoName: "WEB_O4005_A10_AALST_19.2_PTZ.stream",
+            locationName: 'Aalst',
+            highwayCode: 'A10'
+          },
+          {
+            videoName: "WEB_O4407_A10_AALTER_63.7_PTZ.stream",
+            locationName: 'Aalter',
+            highwayCode: 'A10'
+          },
+          {
+            videoName: "WEB_W8273_A18_ADINKERKE_8.6_PTZ.stream",
+            locationName: 'Adinkerke',
+            highwayCode: 'A18'
+          },
+          {
+            videoName: "WEB_W8075_A10_BRUGGE_83.3_PTZ.stream",
+            locationName: 'Brugge',
+            highwayCode: 'A10'
+          },
+          {
+            videoName: "WEB_VMS29_O4367_A10_ST-SENIJS-WESTREM_48.5_PTZ.stream",
+            locationName: 'Sint-Senijs-Westrem',
+            highwayCode: 'A10'
+          },
+          {
+            videoName: "WEB_L__V6256_A3_HAASRODE_24.6__B.stream",
+            locationName: 'Haasrode',
+            highwayCode: 'A3'
+          },
+          {
+            videoName: "WEB_W8133_A10_JABBEKE_46.3_PTZ.stream",
+            locationName: 'Jabbeke',
+            highwayCode: 'A10'
+          },
+          {
+            videoName: "WEB_VMS30_O4033_A10_MERELBEKE_37.7_PTZ.stream",
+            locationName: 'Merelbeke',
+            highwayCode: 'A10'
+          },
+          {
+            videoName: "WEB_B_V6205_A3_ST-STEVENS-WOLUWE_6.6__L.stream",
+            locationName: 'Sint-Stevens-Woluwe',
+            highwayCode: 'A3'
+          },
+          {
+            videoName: "WEB_B__V6209_A3_STERREBEEK_7.8__L.stream",
+            locationName: 'Sterrebeek',
+            highwayCode: 'A3'
+          },
+          {
+            videoName: "WEB_G_V6075_A10_TERNAT_5.2_B.stream",
+            locationName: 'Ternat',
+            highwayCode: 'A10'
+          },
+          {
+            videoName: "WEB_O4329_A10_ZWIJNAARDE_44.0_PTZ.stream",
+            locationName: 'Zwijnaarde',
+            highwayCode: 'A10'
+          },
+          {
+            videoName: "WEB_L__V6240_A3_HEVERLEE_18.7__B.stream",
+            locationName: 'Heverlee',
+            highwayCode: 'A3'
+          },
+          {
+            videoName: "WEB_VMS87_W8748_A17_MOORSELE_31.2_PTZ.stream",
+            locationName: 'Moorsele',
+            highwayCode: 'A17'
+          },
+          {
+            videoName: "WEB_W8695_A17_ROESELARE-BEVEREN_45.6_PTZ.stream",
+            locationName: 'Roeselare-Beveren',
+            highwayCode: 'A17'
+          },
+          {
+            videoName: "WEB_W8631_A17_RUDDERVOORDE_61.8_PTZ.stream",
+            locationName: 'Ruddervoorde',
+            highwayCode: 'A17'
+          },
+          {
+            videoName: "WEB_N__V6037_A4_JEZUS-EIK_5.6__B.stream",
+            locationName: 'Jezus-Eik',
+            highwayCode: 'A4'
+          },
+          {
+            videoName: "WEB_B__V6044_A4_OVERIJSE_10.1__N.stream",
+            locationName: 'Overijse',
+            highwayCode: 'A4'
+          },
+          {
+            videoName: "WEB_VMS92_O5120_A11_MALDEGEM_129.4_PTZ.stream",
+            locationName: 'Maldegem',
+            highwayCode: 'A11'
+          },
+          {
+            videoName: "WEB_A1017_N49a_WAASLANDTNL_ING_LO_PTZ.stream",
+            locationName: 'Waaslandtunnel Ingang',
+            highwayCode: 'N49a'
+          },
+          {
+            videoName: "WEB_VMS64_V6146_R0_HALLE_69.3_PTZ.stream",
+            locationName: 'Halle',
+            highwayCode: 'R0'
+          },
+          {
+            videoName: "WEB_V6403_R0_ZAVENTEM-HENNEAU_32.0_PTZ.stream",
+            locationName: 'Zaventem',
+            highwayCode: 'R0'
+          },
+          {
+            videoName: "WEB_2_A0074_R2_LILLO_86.2_1.stream",
+            locationName: 'Lillo',
+            highwayCode: 'R2'
+          },
+          {
+            videoName: "WEB_VMS133_O4531_R2_WAASLANDHAVEN-N_83.2_PTZ.stream",
+            locationName: 'Waaslandhaven Noord',
+            highwayCode: 'R2'
+          },
+          {
+            videoName: "WEB_1_O4532_R2_WAASLANDHAVEN-ZUID_79.8_2.stream",
+            locationName: 'Waaslandhaven Zuid',
+            highwayCode: 'R2'
+          }
+      ];
+
+      const loadVideos = (start, end) => {
+        const grid = document.querySelector(".grid");
+
+        while (grid.firstChild) {
+          grid.removeChild(grid.firstChild);
+        }
+
+        const entries = [...videos].slice(start, end).map(({ videoName, locationName, highwayCode }) => {
+          const video = document.createElement("video");
+          const hls = new Hls();
+          hls.attachMedia(video);
+
+          hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+            console.log("video and hls.js are now bound together !");
+          });
+
+          // hls.on(Hls.Events.MANIFEST_PARSED, function () {
+          //   video.play();
+          // });
+
+          hls.loadSource(`http://hls.media.verkeerscentrum.be/hls/${videoName}/playlist.m3u8`);
+          // bind them together
+
+          const div = document.createElement("div");
+          div.className = "video-container";
+          div.insertBefore(video, null);
+
+          const p = document.createElement("p");
+          p.innerHTML = `${highwayCode} - ${locationName}`;
+          div.insertBefore(p, null)
+
+          grid.insertBefore(div, null);
+
+          videoControls.push({
+            video,
+            hls,
+          })
+        });
+      }
+
+      loadVideos(0, 30);
+
+      document.addEventListener('click', () => {
+        videoControls.forEach(({ video }) => video.play())
+      })
+      
+      const nextPage = () => {
+        videoControls.forEach(({ video, hls }) => {
+          video.remove();
+          hls.destroy();
+        });
+
+        index = index + 30;
+        loadVideos(index, index + 30);
+      }
+
+      const previousPage = () => {
+        videoControls.forEach(({ video, hls }) => {
+          video.remove();
+          hls.destroy();
+        });
+
+        index = index - 30;
+        loadVideos(index, index + 30);
+      }
+    </script>
+  </body>
+</html>

@@ -178,13 +178,24 @@ class WebRTCManager {
     _handleHostOpen(id) {
         if (this.status !== ConnectionStatus.INITIALIZING_PEER) return;
         
-        if (id !== this.myPeerId) {
-            console.error(`[WebRTCManager] Mismatch! Host Peer opened with ID ${id}, but expected ${this.myPeerId}. Check PeerServer configuration or if ID was reused.`);
-            this.myPeerId = id; 
-            this.hostPeerId = id; 
+        // REMOVED Mismatch check - always trust the ID from the 'open' event
+        // if (id !== this.myPeerId) { ... }
+
+        // CORRECTED ASSIGNMENT: Always use the 'id' from the event for hostPeerId
+        this.hostPeerId = id; // This is the actual PeerJS ID
+        
+        // GENERATE the 6-digit hostId FROM the hostPeerId here
+        // Assuming the last 6 digits are the user-facing code.
+        // Add validation or error handling if 'id' is shorter than 6 chars.
+        let generatedHostId = id;
+        if (id && id.length >= 6) {
+            generatedHostId = id.slice(-6); 
         } else {
-             this.hostPeerId = id;
+            console.warn(`[WebRTCManager] Received PeerJS ID '${id}' is shorter than 6 characters. Using full ID as hostId.`);
+            // Fallback or error handling might be needed depending on requirements
         }
+
+        this.myPeerId = generatedHostId; // Store the 6-digit code here for consistency internally
         
         console.log(`[WebRTCManager] Host PeerJS established. Assigned ID (6-digit): ${this.myPeerId}, Actual PeerJS ID used: ${this.hostPeerId}`);
         
@@ -192,8 +203,8 @@ class WebRTCManager {
 
         // Emit Initialized event with IDs for HostManager
         eventBus.emit(Events.Multiplayer.Host.Initialized, {
-            hostId: this.myPeerId,
-            hostPeerId: this.hostPeerId
+            hostId: this.myPeerId,      // Send the generated 6-digit code
+            hostPeerId: this.hostPeerId // Send the full PeerJS ID
         });
 
         this._startHostHeartbeatBroadcast();

@@ -50,9 +50,7 @@ class MultiplayerClientCoordinator {
      * @private
      */
     registerListeners() {
-        console.info("[MultiplayerClientCoordinator] Registering listeners...");
-        
-        // --- NEW: Listen for join code detected from URL ---
+     
         eventBus.on(Events.System.ValidJoinCodeDetected, this.handleValidJoinCodeDetected);
         
         // Main menu
@@ -88,7 +86,6 @@ class MultiplayerClientCoordinator {
         // Listen for End Dialog Close
         eventBus.on(Events.UI.EndDialog.ReturnToMenuClicked, this.handleReturnToMenuClicked);
         
-        console.info("[MultiplayerClientCoordinator] Listeners registered.");
     }
 
     /**
@@ -158,11 +155,7 @@ class MultiplayerClientCoordinator {
         }
 
         if (!this.playerName) {
-            console.error("[MultiplayerClientCoordinator] Player name is missing when trying to join via SubmitCode. This shouldn't happen.");
-            // Attempt to recover or show error - for now, let's try generating one? Or show an error dialog.
-            // Ideally, the UI flow ensures playerName is set before reaching JoinLobbyComponent.
-            // If not, we might need to re-trigger the NamePromptDialog here.
-            // For now, show error and return.
+            
             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('errorMissingPlayerName'), level: 'error' });
             eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu }); // Go back to main menu
             return;
@@ -199,7 +192,7 @@ class MultiplayerClientCoordinator {
      * @event Events.UI.JoinGame.CancelJoinClicked
      */
     handleCancelJoin = () => {
-        console.log("[MultiplayerClientCoordinator] CancelJoinClicked received.");
+        
         this.playerName = null;
         eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
     }
@@ -212,9 +205,6 @@ class MultiplayerClientCoordinator {
      * @event Events.UI.Lobby.LeaveGameClicked
      */
     handleLeaveLobby = () => {
-        console.log("[MultiplayerClientCoordinator] LeaveLobbyClicked received.");
-        
-        // Tell the manager to disconnect
         multiplayerClientManager.disconnect();
         this.resetState();
         eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
@@ -232,7 +222,7 @@ class MultiplayerClientCoordinator {
      * @throws Shows error feedback if game initialization fails
      */
     handleMultiplayerGameStarted = async ({ gameData }) => {
-        console.log("[MultiplayerClientCoordinator] GameStarted received:", gameData);
+        
         // Ensure player name is available (retrieve if needed)
         if (!this.playerName) {
             // Try fetching from manager as a fallback
@@ -257,18 +247,8 @@ class MultiplayerClientCoordinator {
         // Hide the waiting dialog
         eventBus.emit(Events.System.HideWaitingDialog);
         try {
-            // Use the static factory method to create and load the engine from host data
-            console.log("[MultiplayerClientCoordinator] Creating client QuizEngine instance via static factory...");
             const clientQuizEngine = QuizEngine.createInstance(gameData);
-            // No need to call load method separately, createInstance handles it.
             
-            // Removed redundant check, createInstance throws if loading fails.
-            // if (clientQuizEngine.getQuestionCount() === 0) { ... }
-
-            console.log(`[MultiplayerClientCoordinator] Client QuizEngine created with ${clientQuizEngine.getQuestionCount()} questions.`);
-
-            console.log("[MultiplayerClientCoordinator] Creating MultiplayerClientGame instance...");
-            // Correct Argument Order: settings, quizEngineInstance, localPlayerName, hostPeerId
             const gameSettings = { difficulty: gameData.difficulty }; 
             this.activeGame = new MultiplayerClientGame(
                 gameSettings,             // Settings object
@@ -277,13 +257,8 @@ class MultiplayerClientCoordinator {
                 gameData.hostId            // Host's PeerJS ID
             );
             this.currentGameMode = 'multiplayer-client';
-            console.log("[MultiplayerClientCoordinator] MultiplayerClientGame instance created.");
-            
-            // Start the game 
             await this.activeGame.start(); // Start is async in BaseGameMode
-            console.log("[MultiplayerClientCoordinator] Called activeGame.start() after countdown.");
-
-            // Emit event for JoinLobbyComponent to handle navigation
+            
             eventBus.emit(Events.UI.JoinLobby.HostHasStartedGame, { 
                 gameData: {
                     gameMode: this.currentGameMode, 
@@ -310,13 +285,8 @@ class MultiplayerClientCoordinator {
      */
     handleGameFinished = ({ mode }) => {
         if (mode !== 'multiplayer-client') return;
-        
         console.log("[MultiplayerClientCoordinator] Game.Finished received.");
-        
-        // Clean up game but keep client manager active
         this.resetState();
-        
-        // Navigation to results screen is handled by the game/UIManager based on Game.Finished payload
     }
 
     /**
@@ -328,7 +298,6 @@ class MultiplayerClientCoordinator {
      */
     handleLeaveGame = () => {
         console.log("[MultiplayerClientCoordinator] LeaveGame received.");
-        // Tell the manager to disconnect
         multiplayerClientManager.disconnect();
         this.resetState();
         eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
@@ -371,24 +340,21 @@ class MultiplayerClientCoordinator {
     handleValidJoinCodeDetected = ({ joinCode }) => {
         console.log(`[MultiplayerClientCoordinator] ValidJoinCodeDetected received: ${joinCode}`);
 
-        // Check if already in a game or connection process
+        
         if (webRTCManager.status !== ConnectionStatus.DISCONNECTED || this.activeGame) {
             console.warn("[MultiplayerClientCoordinator] Cannot initiate join via URL, connection/game already active.", { status: webRTCManager.status, activeGame: !!this.activeGame });
-            // Optionally show feedback, although the UIManager might already be showing the relevant view
             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('gameErrorJoinWhileActive', 'Cannot join, connection already active.'), level: 'warn' });
             return;
         }
 
-        // Set a default player name when joining from URL - this can be updated by user later
+
         this.playerName = localStorage.getItem('unicornPoepUserName') || miscUtils.generateRandomPlayerName();
         this.currentGameMode = 'multiplayer-client'; // Set expected mode
 
         console.log(`[MultiplayerClientCoordinator] Initiating connection to host via WebRTCManager with code: ${joinCode}`);
-        // Use the singleton manager to initiate connection with the default player name
+
         multiplayerClientManager.initiateConnection(joinCode, this.playerName);
-        
-        // UIManager is responsible for showing JoinLobbyComponent based on the same event.
-        // This coordinator just kicks off the connection in the background.
+
     }
 
     /**
@@ -401,18 +367,11 @@ class MultiplayerClientCoordinator {
      */
     handleJoinFailed = ({ reason }) => {
         console.log(`[MultiplayerClientCoordinator] Join failed: ${reason}`);
-        
-        // Ensure manager disconnects
         multiplayerClientManager.disconnect();
-        
-        // Reset coordinator state but DON'T navigate away
-        // The JoinLobbyComponent will handle showing the error
         this.resetState(); 
         
         // Update JoinGame view state to show error
         eventBus.emit(Events.UI.JoinGame.ConnectionFailed, { error: reason });
-        
-        // No navigation to main menu - stay on the join screen
     }
 
     /**
@@ -428,19 +387,9 @@ class MultiplayerClientCoordinator {
         if (this.currentGameMode === 'multiplayer-client') {
             // Store the current player name before resetting state
             const currentPlayerName = this.playerName;
-            
-            // Ensure manager disconnects and cleans up
             multiplayerClientManager.disconnect();
-            
-            // Reset coordinator state but preserve playerName and DON'T navigate away
             this.resetState(true); // Pass true to preserve player name
-            
-            // Restore the player name after reset
             this.playerName = currentPlayerName;
-            
-            // We do NOT navigate to main menu here anymore
-            // This allows the JoinLobbyComponent to show the error properly
-            // and lets the user try again with another code
         }
     }
 

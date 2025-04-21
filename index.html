@@ -55,7 +55,7 @@
             </div>
 
             <!-- Sheet Selection (NOW A TOP-LEVEL VIEW) -->
-            <div id="sheetSelection" class="hidden">
+            <div id="sheetSelection" class="unicorn-theme hidden">
                <button id="sheetSelectBack" class="backToMain">Terug</button>
 
                <div id="sheetsCol">
@@ -66,6 +66,7 @@
                </div>
                <div id="difficultyCol" class="hidden">
                    <h1>Ben je daar goed in?</h1>
+                   <p>Je krijgt steeds minder tijd om het juiste antwoord te kiezen, maar ook steeds meer punten!</p>
                    <div id="difficultySelection">
                        <label><input type="radio" name="difficulty" value="easy"> Denk het niet (⌛ 60)</label>
                        <label><input type="radio" name="difficulty" value="medium" checked> Misschien (⌛ 30)</label>
@@ -145,38 +146,17 @@
             <div id="multiplayerChoice" class="unicorn-theme hidden" >
                 <button class="backToMain">Terug</button>
                 <h2>Samen spelen</h2>
-                <!-- Name Input Container -->
-                <div class="name-input-container mb-4">
+                <p class="explanation">Hoi! Hier maak je alles klaar om een spel te starten waar een vriendje aan mee kan doen. Kies een leuke naam en hoe moeilijk het mag zijn. Druk daarna op 'Start een nieuw spel' om je code te krijgen!</p>
+                <div class="name-input-container frosty-panel"> 
                     <label for="playerNameInput" class="block mb-1">Jouw naam:</label>
-                    <!-- Wrapper Div for Input + Button -->
                     <div class="input-with-button"> 
                         <input type="text" id="playerNameInput" placeholder="Typ je naam..." class="w-full p-2 rounded bg-white bg-opacity-20 focus:outline-none focus:ring-2 focus:ring-pink-400">
-                        <!-- Refresh Button -->
                         <button id="refreshPlayerNameButton" class="refresh-name-button" title="Genereer willekeurige naam">🔄</button>
                     </div>
                      <p id="choiceError" class="text-red-400 text-sm mt-1 hidden"></p>
                 </div>
                 
-                <!-- Difficulty Selection -->
-                <div class="difficulty-selection-mp">
-                    <h3>Moeilijkheidsgraad:</h3>
-                    <label>
-                        <input type="radio" name="mpDifficulty" value="easy">
-                        Makkelijk (⌛ 60)
-                    </label>
-                    <label>
-                        <input type="radio" name="mpDifficulty" value="medium" checked>
-                        Gemiddeld (⌛ 30)
-                    </label>
-                    <label>
-                        <input type="radio" name="mpDifficulty" value="hard">
-                        Moeilijk (⌛ 5)
-                    </label>
-                </div>
-
-                
-                <button id="hostGame" class="button primary">Maak een spel aan</button>
-                <button id="joinGame" class="button secondary">Doe mee met een spel</button>
+                <button id="hostGame" class="button primary">Start een nieuw spel</button>
             
                 <!-- Multiplayer Choice Templates -->
                 <data data-translation-key="mpChoiceErrorEmptyName">Vul alsjeblieft een naam in.</data>
@@ -354,43 +334,32 @@
             <!-- Custom Questions Screen -->
             <div id="customQuestionsManager" class="hidden">
                 <button class="backToMain">Terug</button>
-                 <h2>Jouw Vragen Beheren</h2>
-                <div id="customSheetSelection">
-                    <div id="customSheetsCol">
+                 <h2>Je eigen vragen beheren</h2>
+                <div id="customSheetSelection" class="custom-questions-grid">
+                    <div id="customSheetsCol" class="custom-questions-edit-area unicorn-theme ">
                         <h3>Nieuwe lijst / Bewerken:</h3>
-                        <div id="customQuestionsInput">
-                            <input type="text" id="customSheetName" placeholder="Naam van je vragenlijst">
-                            <textarea id="customQuestionsTextarea" rows="10" placeholder="Typ je vragen hier. Elke vraag + antwoord op een nieuwe regel. Zorg dat er ' => ' tussen vraag en antwoord staat. Voorbeeld: Hoeveel is 2 x 2? => 4"></textarea>
-                            <button id="saveCustomQuestionsButton">Opslaan</button>
+                        <input type="text" id="customSheetName" placeholder="Naam van je vragenlijst" class="sheet-name-input">
+                        
+                        <div id="questionAnswerPairsContainer" class="qa-pairs-list">
+                            <!-- Q/A pairs will be added here by JS -->
                         </div>
+                        
+                        <button id="addQuestionPairButton" class="button secondary add-question-button">➕ Vraag Toevoegen</button>
+                        <button id="saveCustomQuestionsButton" class="button primary save-button">Lijst Opslaan</button>
                     </div>
-                    <div id="customDifficultyCol">
+                    <div id="customSheetsListCol" class="custom-questions-list-area unicorn-theme ">
                         <h3>Bestaande lijsten:</h3>
-                        <div id="customDifficultySelection">
-                            <select id="existingCustomQuestions">
-                                <option value="">-- Nieuwe lijst maken --</option>
-                            </select>
-                            <button id="editCustomQuestionsButton">Bewerken</button>
-                            <button id="deleteCustomQuestionsButton">Verwijderen</button>
-                        </div>
                          <!-- List container for existing sheets -->
                          <div id="customSheetList">
-                            <template id="custom-sheet-item-template">
-                                <li class="custom-sheet-item" data-sheet-id="">
-                                    <span class="sheet-name">Sheet Name</span>
-                                    <span class="sheet-actions">
-                                        <button class="edit-button" title="Bewerk deze lijst">Bewerk</button>
-                                        <button class="delete-button warn" title="Verwijder deze lijst">Verwijder</button>
-                                    </span>
-                                </li>
-                            </template>
-                            <!-- Custom sheets will be loaded here -->
+                            <!-- Existing sheets list populated by JS -->
+                            <p class="list-placeholder"><i>Nog geen eigen lijsten...</i></p>
                          </div>
                     </div>
                 </div>
                 <!-- Custom Questions Manager Templates -->
                 <data data-translation-key="customQWarnName">Geef je vragenlijst een naam!</data>
-                <data data-translation-key="customQWarnQuestion">Voer minstens één vraag in!</data>
+                <data data-translation-key="customQWarnQuestion">Voer minstens één vraag én antwoord in!</data>
+                <data data-translation-key="customQWarnPairs">Voeg minstens één vraag/antwoord paar toe.</data> <!-- New Key -->
                 <data data-translation-key="customQLoadError">Kon eigen vragenlijsten niet laden.</data>
                 <data data-translation-key="customQListEmpty">Nog geen eigen vragenlijsten opgeslagen.</data>
                 <data data-translation-key="customQListError">Fout bij laden van eigen vragenlijsten.</data>
@@ -399,6 +368,29 @@
                 <data data-translation-key="qmSaveError">Kon eigen vragenlijsten niet opslaan.</data>
                 <data data-translation-key="qmParseErrorLine">Ongeldig formaat op regel %LINE%: '%CONTENT%'. Verwacht 'vraag => antwoord'.</data>
                  <!-- Sheet Selection errors related to custom sheets -->
+                 
+                <!-- Template for a single Q/A pair -->
+                <template id="qa-pair-template">
+                    <div class="qa-pair">
+                        <div class="qa-inputs">
+                            <input type="text" class="question-input" placeholder="Vraag">
+                            <span class="qa-separator">➡️</span>
+                            <input type="text" class="answer-input" placeholder="Antwoord">
+                        </div>
+                        <button class="remove-pair-button button danger small-button" title="Verwijder Vraag">🗑️</button>
+                    </div>
+                </template>
+                
+                <!-- Template for a single sheet list item (kept for reference, might be needed later) -->
+                <template id="custom-sheet-item-template">
+                    <li class="custom-sheet-item" data-sheet-id="">
+                        <span class="sheet-name">Sheet Name</span>
+                        <span class="sheet-actions">
+                            <button class="edit-button button secondary small-button" data-sheet-id="" title="Bewerk deze lijst">✏️</button>
+                            <button class="delete-button button danger small-button" data-sheet-id="" title="Verwijder deze lijst">🗑️</button>
+                        </span>
+                    </li>
+                </template>
             </div>
 
             <!-- About Screen -->

@@ -27,7 +27,6 @@ class EventBus {
      */
     on(eventName, callback) {
 
-        // --- Input Validation --- 
         if (typeof eventName !== 'string' || !eventName) {
             const error = new Error(`[EventBus] Invalid event name provided for registration: Must be a non-empty string, received: ${eventName}`);
             if (error.stack) {
@@ -42,11 +41,7 @@ class EventBus {
             }
             throw error;
         }
-        // --- End Validation --- 
-        
-        // Log all event registrations
-        console.log(`[EventBus] Registering: '${eventName}'`, typeof callback === 'function' ? '' : callback);
-        
+                
         if (!this.listeners[eventName]) {
             this.listeners[eventName] = [];
         }
@@ -92,9 +87,6 @@ class EventBus {
      * @throws {Error} When a non-whitelisted event is emitted with no listeners (fail fast approach)
      */
     emit(eventName, ...args) {
-        if(eventName !== Events.Game.TimeTick) {
-            console.log(`Emitting event: ${eventName} (${JSON.stringify(args)})`);
-        }
         // --- Immediate check for invalid eventName ---
         if (typeof eventName !== 'string' || !eventName) {
             const error = new Error(`[EventBus] Attempted to emit an invalid event: ${eventName}`, arguments);

@@ -20,6 +20,17 @@ class QuestionsManager {
         this.isInitialized = false;
         this.initializationPromise = null;
         this.initialize();
+        this._registerEventListeners();
+    }
+
+    /**
+     * Registers event listeners for UI actions related to custom questions.
+     * @private
+     */
+    _registerEventListeners() {
+        eventBus.on(Events.UI.CustomQuestions.SaveClicked, this._handleSaveCustomSheet);
+        eventBus.on(Events.UI.CustomQuestions.DeleteClicked, this._handleDeleteCustomSheet);
+        eventBus.on(Events.UI.CustomQuestions.EditClicked, this._handleLoadSheetForEdit);
     }
 
     /**
@@ -299,18 +310,22 @@ class QuestionsManager {
     /**
      * Saves a custom question sheet, either creating a new one or updating existing.
      * Parses raw text input.
-     * @param {string} sheetId - The unique ID for the sheet.
+     * @param {string} providedSheetId - The unique ID for the sheet.
      * @param {string} name - The name of the sheet.
      * @param {string} questionsText - The raw text containing questions and answers.
-     * @returns {Promise<boolean>} True if save was successful, false otherwise.
+     * @returns {Promise<string>} The ID of the saved sheet (new or existing).
+     * @throws {Error} If saving fails.
      */
-    async saveCustomSheetFromText(sheetId, name, questionsText) {
+    async saveCustomSheetFromText(providedSheetId, name, questionsText) {
         await this._ensureInitialized();
-        console.log(`[QuestionsManager] Attempting to save custom sheet: ${name} (${sheetId})`);
+        
+        const isEditing = !!providedSheetId;
+        const sheetId = isEditing ? providedSheetId : `custom_${Date.now()}`;
+        console.log(`[QuestionsManager] Attempting to save custom sheet: ${name} (ID: ${sheetId}, Editing: ${isEditing})`);
 
-        if (!sheetId || !name || typeof questionsText !== 'string') {
-            console.error("[QuestionsManager] Invalid arguments for saveCustomSheetFromText.");
-            return false;
+        // Validate name and text
+        if (!name || typeof questionsText !== 'string') {
+            throw new Error("[QuestionsManager] Invalid arguments: Missing name or questionsText.");
         }
 
         try {
@@ -320,9 +335,10 @@ class QuestionsManager {
             }
 
             const newSheetData = {
+                id: sheetId, // Ensure ID is stored within the sheet data itself
                 name: name,
                 questions: questions,
-                isCustom: true // Mark explicitly
+                isCustom: true
             };
 
             this.customSheets.set(sheetId, newSheetData);
@@ -330,13 +346,11 @@ class QuestionsManager {
             this._updateSelectableItems(); // Update the internal list for getAvailableSheets
 
             console.log(`[QuestionsManager] Custom sheet '${name}' saved successfully.`);
-            return true;
+            return sheetId; // Return the ID used for saving
 
         } catch (error) {
             console.error(`[QuestionsManager] Error saving custom sheet '${name}':`, error);
-            // Let the coordinator handle emitting feedback/error events based on return value
-            // eventBus.emit(Events.System.ErrorOccurred, { message: `Kon lijst '${name}' niet opslaan: ${error.message}`, error });
-            return false;
+            throw error; // Re-throw the error to be caught by the handler
         }
     }
 
@@ -660,6 +674,107 @@ class QuestionsManager {
 
         console.log(`[QuestionsManager] Saved received custom sheet '${sheetData.name}' (ID: ${sheetData.id}) from host '${originHostName}'.`);
         eventBus.emit(Events.System.ShowFeedback, { message: `Nieuwe lijst '${sheetData.name}' ontvangen en opgeslagen.`, level: 'success' });
+    }
+
+    // --- Event Handlers --- 
+
+    /**
+     * Handles the SaveClicked event from the UI.
+     * Calls the appropriate save logic.
+     * @param {object} payload - The event payload.
+     * @param {string} payload.name - The name of the sheet.
+     * @param {string} payload.questionsText - The raw text of questions (old format).
+     * @param {string|null} payload.sheetId - The ID of the sheet if editing, null if new.
+     * @private
+     */
+    _handleSaveCustomSheet = async ({ name, questionsText, sheetId }) => {
+        console.log(`[QuestionsManager] Handling SaveClicked event. Sheet ID: ${sheetId}, Name: ${name}`);
+        try {
+            // Pass the potentially null sheetId from the event
+            const actualSheetId = await this.saveCustomSheetFromText(sheetId, name, questionsText);
+            // Get the name from the actually saved sheet data
+            const savedSheetData = this.customSheets.get(actualSheetId);
+            const savedName = savedSheetData?.name || name; // Fallback to original name if needed
+            console.log(`[QuestionsManager] Save successful. Emitting SaveSuccess. ID: ${actualSheetId}, Name: ${savedName}`);
+            eventBus.emit(Events.Menu.CustomQuestions.SaveSuccess, { sheetId: actualSheetId, name: savedName });
+        } catch (error) {
+            console.error(`[QuestionsManager] Error handling SaveClicked event:`, error);
+            eventBus.emit(Events.Menu.CustomQuestions.SaveError, { name, error: error.message || 'Unknown save error' });
+            // Emit feedback event as well
+             eventBus.emit(Events.System.ShowFeedback, {
+                 message: getTextTemplate('qmSaveError') || `Fout bij opslaan van '${name}'.`, 
+                 level: "error"
+             });
+        }
+    }
+
+    /**
+     * Handles the DeleteClicked event from the UI.
+     * Calls the delete logic and emits success/error events.
+     * @param {object} payload - The event payload.
+     * @param {string} payload.sheetId - The ID of the sheet to delete.
+     * @private
+     */
+    _handleDeleteCustomSheet = ({ sheetId }) => {
+        console.log(`[QuestionsManager] Handling DeleteClicked event. Sheet ID: ${sheetId}`);
+        try {
+            // deleteCustomSheet now uses ConfirmationDialog and returns false immediately
+            // The actual deletion and event emission happen in the dialog callback (inside deleteCustomSheet)
+            // We just need to initiate it here.
+            this.deleteCustomSheet(sheetId); 
+            // No need to check return value or emit here anymore
+            /*
+            if (deleted) {
+                eventBus.emit(Events.Menu.CustomQuestions.DeleteSuccess, { sheetId });
+            } else {
+                throw new Error('Sheet not found or deletion failed');
+            }
+            */
+        } catch (error) {
+            console.error(`[QuestionsManager] Error handling DeleteClicked event for sheet ${sheetId}:`, error);
+            eventBus.emit(Events.Menu.CustomQuestions.DeleteError, { sheetId, error: error.message || 'Unknown delete error' });
+            // Emit feedback event as well
+             eventBus.emit(Events.System.ShowFeedback, {
+                 message: `Fout bij verwijderen van lijst.`, 
+                 level: "error"
+             });
+        }
+    }
+
+    /**
+     * Handles the EditClicked event from the UI.
+     * Loads the sheet data and emits an event to populate the form.
+     * @param {object} payload - The event payload.
+     * @param {string} payload.sheetId - The ID of the sheet to load for editing.
+     * @private
+     */
+    _handleLoadSheetForEdit = ({ sheetId }) => {
+        console.log(`[QuestionsManager] Handling EditClicked event. Sheet ID: ${sheetId}`);
+        try {
+            const sheetData = this.customSheets.get(sheetId);
+            if (!sheetData) {
+                throw new Error(`Sheet with ID ${sheetId} not found.`);
+            }
+
+            // Format questions back to text for the component (until component uses array directly)
+            // TODO: Refactor component to accept question array directly
+            const questionsText = this.formatQuestionsForTextarea(sheetData.questions);
+
+            eventBus.emit(Events.Menu.CustomQuestions.SheetLoadedForEdit, {
+                sheetId: sheetData.id, // Use the ID from the sheet data
+                name: sheetData.name,
+                questionsText: questionsText
+            });
+
+        } catch (error) {
+             console.error(`[QuestionsManager] Error handling EditClicked event for sheet ${sheetId}:`, error);
+             eventBus.emit(Events.Menu.CustomQuestions.LoadError, { sheetId, error: error.message || 'Unknown load error' });
+              // Emit feedback event as well
+              eventBus.emit(Events.System.ShowFeedback, {
+                  message: `Fout bij laden van lijst voor bewerken.`, 
+                  level: "error"
+              });
+        }
     }
 }
 

@@ -19,10 +19,10 @@ html {
     place-items: center;
     text-align: center;
     position: absolute;
-    top: 9%;
-    left: 10%;
-    right: 10%;
-    bottom: 10%;
+    top: 5%;
+    left: 5%;
+    right: 5%;
+    bottom: 5%;
 }
 
 
@@ -86,6 +86,9 @@ html {
     user-select: none;
     position: fixed;
     z-index: 10; /* Ensure above gameHeader */
+    /* Adjust positioning relative to new app bounds */
+    top: 6%;
+    left: 6%;
 }
 
 /* Specific positions */
@@ -95,8 +98,8 @@ html {
 }
 .backToMain {
     /* Default position, may be overridden */
-    top: 10%;
-    left: 10%;
+    top: 6%;
+    left: 6%;
 }
 
 /* Specific backToMain positioning */
@@ -108,8 +111,8 @@ html {
 
 #connectionStatus .backToMain { /* Kept from lobby styles */
     position: fixed;
-    top: 11%;
-    left: 11%;
+    top: 6%;
+    left: 6%;
     z-index: 10; /* Keep above lobby content */
 }
 
@@ -175,7 +178,6 @@ h1 small {
 /* --- View Containers --- */
 #gameContainer {
     width: 100%;
-    max-width: 1200px;
     height: 100%;
     margin: auto;
     padding: 20px;
@@ -212,12 +214,96 @@ h1 small {
 
 /* Specific overrides */
 #sheetSelection {
-    grid-template-columns: 52% 38%;
+    /* grid-template-columns: 52% 38%; */ /* Let grid handle sizing */
+    grid-template-columns: 1fr 1fr; /* Two equal columns */
     justify-content: space-around;
-    align-items: start;
-    padding-top: 50px;
-    /* Inherits overflow-y: auto */
+    align-items: stretch; /* Make columns fill height */
+    padding: 50px 20px 20px 20px; /* Adjust padding: Top 50px, others 20px */
+    background-color: transparent; /* Remove default gray background */
+    gap: 30px; /* Add gap between columns */
+    width: 90%; /* Keep container width */
+    box-sizing: border-box;
+    max-height: 80%;
+    overflow: hidden; /* Main container hides overflow */
+    text-align: left; /* Align text left by default */
 }
+
+/* Apply Frosty Panel styles to the columns */
+#sheetSelection #sheetsCol,
+#sheetSelection #difficultyCol {
+    background-color: rgba(255, 255, 255, 0.85); /* Frosty white background */
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
+    height: 100%; /* Ensure columns take full height */
+    display: flex; /* Use flex for internal layout */
+    flex-direction: column; /* Stack title and content */
+    overflow-y: auto; /* Allow columns to scroll internally */
+    overflow-x: hidden; /* Prevent horizontal scrolling */
+}
+
+/* Style Column Titles */
+#sheetSelection #sheetsCol h3,
+#sheetSelection #difficultyCol h3 {
+    color: #614ae2; /* Theme purple */
+    text-shadow: none;
+    text-align: center; /* Center titles */
+    margin-top: 0;
+    margin-bottom: 15px; /* Space below title */
+    flex-shrink: 0; /* Prevent title from shrinking */
+}
+
+/* Style Labels within Sheet Selection */
+#sheetSelection label { /* Target labels specifically within sheet selection */
+    color: #614ae2; /* Theme purple */
+    text-shadow: none;
+    padding: 5px 0; /* Restore padding if needed */
+    font-size: 1.4rem; /* Adjust size if needed */
+    display: grid; /* Keep grid layout for alignment */
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+#sheetSelection label:hover {
+    color: #4A90E2; /* Keep hover effect */
+}
+
+/* Style Checkboxes within Sheet Selection */
+#sheetSelection #sheetsCheckboxes {
+    flex-grow: 1; /* Allow checkbox container to fill space */
+    overflow-y: auto; /* Scroll if needed */
+    padding: 0 5px; /* Add slight padding */
+}
+#sheetSelection input[type="checkbox"] {
+    border-color: #614ae2; /* Purple border */
+    background-color: white;
+}
+#sheetSelection input[type="checkbox"]:checked {
+    background: #614ae2; /* Purple background when checked */
+    border-color: #614ae2;
+}
+#sheetSelection input[type="checkbox"]:checked:after {
+    color: white; /* White checkmark */
+}
+
+/* Style Radio Buttons within Sheet Selection */
+#sheetSelection #difficultySelection label { /* Difficulty options container */
+    margin-left: 0;
+    margin-bottom: 15px; /* Space between radio options */
+}
+#sheetSelection input[type="radio"] {
+    border-color: #614ae2; /* Purple border */
+    background-color: white;
+}
+#sheetSelection input[type="radio"]::after {
+    background-color: #614ae2; /* Purple dot */
+}
+#sheetSelection input[type="radio"]:checked {
+    border-color: #614ae2; /* Ensure border stays purple */
+}
+
 #difficultySelection {
     width: 100%; /* Overrides width: 90% */
     display: block; /* Remove grid */
@@ -240,24 +326,254 @@ h1 small {
     box-shadow: none;
     margin-top: 0;
     border-radius: 0;
+    overflow: visible;
 }
 #multiplayerChoice {
-    
-    width: 100%; /* Takes full width of parent */
-    max-width: none; /* Remove max-width constraint */
-    padding: 30px;
-    border-radius: 30px; /* Override */
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Override */
+    width: 100%; 
+    max-width: none; 
+    padding: 30px 40px 40px 40px; 
+    border-radius: 30px; 
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); 
+    background-color: rgba(255, 255, 255, 0.85); /* Light white main background */
 
-    /* Grid layout */
+    /* Main Grid Layout */
     display: grid;
-    grid-template-columns: 1fr 1fr; /* Two equal columns for inputs/buttons */
-    grid-template-rows: auto auto auto; /* Rows for title, inputs, buttons */
-    gap: 20px; /* Added */
-    margin: 0; /* Remove auto margin */
-    justify-items: stretch; /* Stretch items to fill column width */
-    align-items: start; /* Align items to top */
+    grid-template-columns: 1fr 1fr; /* Two columns for panels */
+    grid-template-rows: auto min-content 1fr auto; /* Changed second row to min-content */
+    gap: 20px 30px; /* Row gap, Column gap */
+    align-items: start; /* Align items to top of their grid area */
+    box-sizing: border-box;
+    line-height: 1.4; /* Improve readability */
 }
+
+#multiplayerChoice h2 { /* Title */
+    grid-column: 1 / -1;
+    grid-row: 1 / 2;
+    text-align: center;
+    color: #614ae2; /* Theme purple */
+    text-shadow: 4px 4px 10px rgba(0,0,0,0.25);
+    margin: 0; /* Use grid gap for spacing */
+    font-size: 2.5rem; /* Ensure consistent size */
+    align-self: center; /* Center vertically in its row */
+}
+
+#multiplayerChoice p.explanation { /* Explanation Text */
+    grid-column: 1 / -1; /* Span columns */
+    grid-row: 2 / 3;
+    text-align: center;
+    color: #614ae2; /* Theme purple */
+    margin: 0; /* Use grid gap */
+    font-size: 1.2rem;
+    padding: 0 20px;
+    align-self: start; /* Align to top */
+    line-height: 1.4; /* Improve readability */
+}
+
+/* Panels now inherit gradient/text styles from .unicorn-theme added in HTML */
+/* Apply only structure styles to the specific panel selectors */
+#multiplayerChoice .name-input-container.unicorn-theme, 
+#multiplayerChoice .difficulty-selection-mp.unicorn-theme {
+    padding: 20px; 
+    border-radius: 15px; 
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1); 
+    display: grid; 
+    align-content: center; 
+    gap: 15px; 
+    width: 100%; 
+    box-sizing: border-box;
+    /* Text color (white) and background (gradient) come from .unicorn-theme */
+}
+
+/* Specific grid positions and internal alignment */
+#multiplayerChoice .name-input-container.unicorn-theme {
+    grid-column: 1 / 2; 
+    grid-row: 3 / 4; 
+    justify-items: center; 
+}
+
+#multiplayerChoice .difficulty-selection-mp.unicorn-theme {
+    grid-column: 2 / 3; 
+    grid-row: 3 / 4; 
+    justify-items: start; 
+}
+
+/* Ensure text size/margin inside panels (color/shadow comes from unicorn-theme) */
+#multiplayerChoice .unicorn-theme label {
+    font-size: 1.5rem; 
+    padding: 0; 
+    margin-left: 0; 
+}
+#multiplayerChoice .unicorn-theme h3 {
+    font-size: 1.8rem; 
+    margin: 0;
+}
+#multiplayerChoice .name-input-container.unicorn-theme label { /* Specific label for name input */
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+}
+
+/* Input/Radio styles inside panels */
+#multiplayerChoice .unicorn-theme .input-with-button {
+    /* Layout styles */
+    display: flex;
+    align-items: center;
+    justify-content: center; 
+    gap: 10px;
+    width: 100%;
+    max-width: 350px; 
+}
+#multiplayerChoice .unicorn-theme input[type="text"] {
+     border: 3px solid rgba(255, 255, 255, 0.8); /* Lighter border on gradient */
+     background-color: rgba(255, 255, 255, 0.2); /* Transparent white */
+     color: white; /* Ensure text input is white */
+     /* Keep padding, font-size */
+}
+#multiplayerChoice .unicorn-theme input[type="text"]::placeholder {
+    color: rgba(255, 255, 255, 0.7);
+}
+#multiplayerChoice .unicorn-theme input[type="radio"] {
+    border: 2px solid rgba(255, 255, 255, 0.8); /* Lighter border */
+    background: rgba(255, 255, 255, 0.3); /* Transparent */
+}
+#multiplayerChoice .unicorn-theme input[type="radio"]::after {
+     background-color: #ffffff; /* White inner dot */
+}
+#multiplayerChoice .unicorn-theme input[type="radio"]:checked {
+    border-color: #ffffff; /* White border when checked */
+}
+#multiplayerChoice .unicorn-theme .refresh-name-button {
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    color: white;
+    /* Keep other styles */
+}
+#multiplayerChoice .unicorn-theme .refresh-name-button:hover {
+    background: rgba(255, 255, 255, 0.5); 
+}
+
+
+/* Button below panels */
+#multiplayerChoice button#hostGame {
+    grid-column: 1 / -1; /* Span both columns */
+    grid-row: 4 / 5; /* Position in last row */
+    justify-self: stretch; 
+    /* Inherit yellow button styles */
+}
+
+
+
+
+/* Style the Explanation Text */
+#multiplayerChoice p.explanation {
+    grid-column: 1 / -1; /* Span both columns */
+    text-align: center;
+    color: #614ae2; /* CHANGE to theme purple */
+    /* text-shadow: 1px 1px 2px rgba(0,0,0,0.4); REMOVE shadow */
+    margin-bottom: 0; /* Rely on grid gap */
+    font-size: 1.2rem;
+}
+
+/* Define the Frosty Panel style */
+.frosty-panel {
+    background-color: rgba(255, 255, 255, 0.85); /* Frosty white background */
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
+    /* Ensure it fills height if needed, adjust based on grid behavior */
+    /* min-height: 150px; Example */
+}
+
+/* Apply panel styles specifically within #multiplayerChoice */
+#multiplayerChoice .name-input-container.frosty-panel {
+    /* Inherit styles from .frosty-panel */
+    display: grid; /* Use grid for internal alignment */
+    justify-items: center;
+    align-content: center;
+    gap: 10px;
+    grid-column: 1 / 2;
+    grid-row: 3 / 4; /* Move to third row */
+    width: 100%;
+    align-self: start; /* Explicitly align to start */
+}
+
+#multiplayerChoice .difficulty-selection-mp.frosty-panel {
+    
+    display: grid;
+    justify-items: start;
+    align-content: center;
+    gap: 15px;
+    grid-column: 2 / 3;
+    grid-row: 3 / 4; /* Move to third row */
+    width: 100%;
+    align-self: start; /* Explicitly align to start */
+}
+
+
+/* Style text INSIDE frosty panels to be purple */
+#multiplayerChoice .frosty-panel label,
+#multiplayerChoice .frosty-panel h3 {
+    color: #614ae2 !important; /* Use !important to override unicorn-theme */
+    text-shadow: none !important; /* Remove shadow inherited from unicorn-theme */
+}
+
+/* Ensure Name input label size */
+#multiplayerChoice .name-input-container.frosty-panel label {
+    font-size: 1.8rem; 
+}
+
+/* Ensure Difficulty title (h3) size */
+#multiplayerChoice .difficulty-selection-mp.frosty-panel h3 {
+    font-size: 1.8rem; 
+    margin: 0;
+}
+
+/* Ensure Difficulty option label size */
+#multiplayerChoice .difficulty-selection-mp.frosty-panel label {
+    font-size: 1.5rem; 
+    padding: 0; 
+    margin-left: 0; 
+}
+
+/* Keep input/radio styles standard */
+#multiplayerChoice .frosty-panel input[type="text"] {
+     border: 3px solid #614ae2; 
+     background-color: white; 
+}
+#multiplayerChoice .frosty-panel input[type="radio"] {
+    border: 2px solid #614ae2; 
+    background: white; 
+}
+#multiplayerChoice .frosty-panel input[type="radio"]::after {
+     background-color: #614ae2; 
+}
+#multiplayerChoice .frosty-panel .refresh-name-button {
+     /* Styles seem ok from previous step */
+}
+
+
+/* Style the remaining button ("Maak een spel aan") */
+#multiplayerChoice button#hostGame {
+    grid-column: 1 / -1; /* Span both columns */
+    grid-row: 4 / 5; /* Move to last row */
+    justify-self: stretch; /* Stretch to fill width */
+    /* Inherit yellow button styles */
+    padding: 15px 20px; 
+    font-size: 1.8rem;
+    margin: 0; 
+    width: auto; 
+}
+
+
+/* Cleanup potentially conflicting rules */
+/* Remove specific background/color overrides previously attempted on #multiplayerChoice children if they exist */
+#multiplayerChoice h2 {
+    /* Should inherit white color/shadow from unicorn-theme */
+    /* Add explicit style if needed */
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
 
 /* Game Area specific styling */
 #gameArea {
@@ -469,6 +785,40 @@ input[type="checkbox"]:checked:after {
     color: white;
 }
 
+/* --- Custom Radio Buttons --- */
+input[type="radio"] {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+    width: 25px;
+    height: 25px;
+    background: white;
+    border-radius: 50%; /* Make it round */
+    border: 2px solid #614ae2;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-right: 10px;
+    display: inline-grid; /* Allows placing the ::after pseudo-element */
+    place-items: center;
+}
+
+input[type="radio"]::after {
+    content: "";
+    width: 15px; /* Size of the inner circle */
+    height: 15px;
+    border-radius: 50%;
+    background-color: #614ae2;
+    transform: scale(0); /* Hidden by default */
+    transition: transform 0.1s ease-in-out;
+}
+
+input[type="radio"]:checked::after {
+    transform: scale(1); /* Visible when checked */
+}
+
+/* --- End Custom Radio Buttons --- */
+
 label {
     font-family: 'Fredoka One', cursive;
     display: grid;
@@ -491,10 +841,10 @@ label:hover {
 /* --- Game Elements: Header --- */
 #gameHeader {
     position: fixed;
-    top: 10%; /* Match #app */
-    left: 10%;
-    right: 10%;
-    width: 80%;
+    top: 6%;
+    left: 6%;
+    right: 6%;
+    width: 88%;
     display: grid;
     grid-template-columns: minmax(150px, 1fr) auto minmax(100px, 0.5fr);
     align-items: center;
@@ -834,69 +1184,213 @@ th.score-rank { /* Specific th styling */
 /* #about container styles merged into common section styles */
 
 /* --- Custom Questions Manager --- */
-#customQuestionsManager { /* This is the main container */
-    /* Removed absolute positioning, assumed it's shown/hidden */
-    /* top: 9%; left: 10%; right: 10%; bottom: 10%; */
+#customQuestionsManager {
     border-radius: 30px;
-    display: grid;
+    display: grid; /* Changed from flex */
     justify-items: center;
     align-content: start;
     text-align: center;
-    overflow-y: auto;
-    background-color: rgb(154 147 147 / 40%);
+    width: 100%; /* Add this line */
+
+    background-color: rgba(255, 255, 255, 0.85); /* Slightly less transparent */
+    padding: 20px 30px 30px 30px; /* Adjusted padding */
+    box-sizing: border-box;
+    grid-template-rows: auto 1fr; /* Title row, content grid takes rest */
+    gap: 15px; /* Added gap between title and grid */
+}
+
+#customQuestionsManager h2 {
+    grid-row: 1 / 2;
+    margin-bottom: 0; /* Remove margin, use grid gap */
+    color: #614ae2;
+    padding-top: 10px; /* Add some space above title */
+}
+
+.custom-questions-grid { /* Renamed from #customSheetSelection */
+    grid-row: 2 / 3;
+    display: grid;
+    grid-template-columns: 2fr 1fr; /* Make edit area wider */
+    gap: 30px; /* Increased gap */
+    width: 100%;
+    padding: 0; /* Removed padding */
+    background-color: transparent;
+    box-shadow: none;
+    margin-top: 0;
+    border-radius: 0;
+    
+    min-height: 0;
+}
+
+.custom-questions-edit-area, /* Renamed from #customSheetsCol */
+.custom-questions-list-area { /* Renamed from #customDifficultyCol */
+    display: flex; /* Use flexbox for internal layout */
+    flex-direction: column;
+    background-color: rgba(97, 74, 226, 0.08); /* Light purple background */
     padding: 20px;
+    border-radius: 15px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden; /* Important: children will handle overflow */
+    height: 100%; /* Ensure these take full height of their grid cell */
     box-sizing: border-box;
-    view-transition-name: main-content; /* Added for transitions */
 }
 
-/* #customQuestionsManager #customSheetSelection merged into common rules */
-
-#customSheetsCol {
-    width: 60%;
-    view-transition-name: sheets-column; /* Added */
+.custom-questions-edit-area h3,
+.custom-questions-list-area h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #614ae2;
+    text-align: center;
+    flex-shrink: 0; /* Prevent shrinking */
 }
 
-#customDifficultyCol {
-    width: 35%;
-    view-transition-name: difficulty-column; /* Added */
-}
-
-#customQuestionsInput {
-    display: grid;
-    gap: 10px;
-}
-
-#customQuestionsInput input[type="text"],
-#customQuestionsTextarea {
+.sheet-name-input {
     width: 100%;
-    padding: 10px;
-    border: 2px solid #614ae2;
+    padding: 12px 15px;
+    border: 2px solid #b9aeff;
     border-radius: 10px;
-    font-size: 16px;
-    box-sizing: border-box;
-}
-
-#customQuestionsTextarea {
-    min-height: 200px;
-    resize: vertical;
-}
-
-#customDifficultySelection {
-    display: grid;
-    gap: 10px;
-}
-
-#customDifficultySelection button,
-#customDifficultySelection select {
-    width: 100%;
-    margin-bottom: 10px;
-    padding: 0.75rem 1rem;
     font-size: 1.2rem;
-    /* Uses general button styles */
+    box-sizing: border-box;
+    margin-bottom: 15px;
+    font-family: 'Fredoka', sans-serif;
+    flex-shrink: 0; /* Prevent shrinking */
 }
 
-#deleteCustomQuestionsButton {
-    background: linear-gradient(45deg, #ff4d4d, #ff6666); /* Specific delete color */
+.sheet-name-input:focus {
+    outline: none;
+    border-color: #614ae2;
+    box-shadow: 0 0 5px rgba(97, 74, 226, 0.3);
+}
+
+.qa-pairs-list { /* Container for Q/A pairs */
+    flex-grow: 1; /* Allow to take available space */
+    overflow-y: auto; /* Enable scrolling */
+    padding: 10px;
+    margin-bottom: 15px;
+    background-color: rgba(255, 255, 255, 0.6);
+    border-radius: 10px;
+    border: 1px solid #dcd7ff;
+    min-height: 150px; /* Ensure minimum height */
+    /* Add max-height if needed, but flex-grow should handle it */
+}
+
+.qa-pair { /* Individual Q/A row */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: background-color 0.2s ease;
+}
+
+.qa-pair:nth-child(odd) {
+    background-color: #f7f5ff;
+}
+
+.qa-inputs { /* Wrapper for Q and A inputs */
+    display: flex;
+    flex-grow: 1;
+    align-items: center;
+    gap: 8px;
+}
+
+.qa-inputs input[type="text"] { /* Q and A inputs */
+    flex-grow: 1;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-family: 'Fredoka', sans-serif;
+    min-width: 100px; /* Prevent extreme shrinking */
+}
+
+.qa-inputs input[type="text"]:focus {
+    outline: none;
+    border-color: #614ae2;
+    box-shadow: 0 0 3px rgba(97, 74, 226, 0.2);
+}
+
+.qa-separator {
+    font-size: 1.2rem;
+    color: #614ae2;
+    font-weight: bold;
+}
+
+.button.small-button { /* General small button style */
+    padding: 5px 10px;
+    font-size: 1rem;
+    min-width: 40px; /* Ensure minimum width */
+    line-height: 1;
+    border-radius: 8px;
+}
+
+.remove-pair-button {
+    flex-shrink: 0; /* Prevent shrinking */
+    /* Uses .button.danger.small-button styles */
+}
+
+.add-question-button {
+    flex-shrink: 0; /* Prevent shrinking */
+    margin-bottom: 10px; /* Space before save */
+    /* Uses .button.secondary styles */
+}
+
+.save-button {
+    flex-shrink: 0; /* Prevent shrinking */
+    /* Uses .button.primary styles */
+}
+
+.custom-questions-list-area #customSheetList {
+    flex-grow: 1; /* Take available space */
+    overflow-y: auto;
+    padding: 5px;
+    background-color: rgba(255, 255, 255, 0.6);
+    border-radius: 10px;
+    border: 1px solid #dcd7ff;
+    /* Add min-height if needed */
+}
+
+.custom-sheet-item { /* List item for existing sheets */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    margin-bottom: 8px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    list-style: none;
+}
+
+.custom-sheet-item .sheet-name {
+    font-weight: 500;
+    color: #333;
+    flex-grow: 1;
+    margin-right: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.custom-sheet-item .sheet-actions {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.custom-sheet-item .sheet-actions button {
+    /* Uses .button.small-button styles */
+    /* Specific icons are set in HTML */
+}
+
+.custom-questions-list-area .list-placeholder {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+    font-style: italic;
 }
 
 /* --- Multiplayer Name Input --- */
@@ -945,54 +1439,6 @@ th.score-rank { /* Specific th styling */
     background-color: white;
 }
 
-
-/* --- Multiplayer Choice Screen --- */
-/* #multiplayerChoice container styles merged into common section styles */
-#multiplayerChoice h2 {
-    grid-column: 1 / -1; /* Title spans both columns */
-    text-align: center; /* Ensure title text is centered */
-}
-
-#multiplayerChoice .name-input-container {
-    grid-column: 1 / 2; /* First column, second row */
-    grid-row: 2 / 3;
-    width: 100%; /* Fill the grid cell */
-    margin-bottom: 0; /* Rely on grid gap */
-    /* Styles inherited from general .name-input-container */
-    /* display: grid; justify-items: center; */
-}
-
-/* Placeholder for difficulty selection */
-#multiplayerChoice .difficulty-selection-container {
-    grid-column: 2 / 3; /* Second column, second row */
-    grid-row: 2 / 3;
-    width: 100%; /* Fill the grid cell */
-    /* Add specific styles for difficulty elements inside this */
-    display: grid; /* Example: Use grid */
-    justify-items: center;
-    align-content: center;
-}
-
-#multiplayerChoice button.menuButton { /* More specific than general button */
-    /* Inherit base button styles like background, border, color, etc. */
-    /* Override styles for this specific context: */
-    padding: 20px;
-    font-size: 1.8rem;
-    margin: 0; /* Ensure base margin is overridden */
-    justify-self: stretch; /* Make button fill grid cell width */
-    width: auto; /* Allow justify-self to control width */
-}
-
-/* Position buttons using :nth-of-type to avoid ID reliance */
-#multiplayerChoice button.menuButton:nth-of-type(1) { /* Assuming 'Join' is the first button */
-    grid-column: 1 / 2; /* First column, third row */
-    grid-row: 3 / 4;
-}
-
-#multiplayerChoice button.menuButton:nth-of-type(2) { /* Assuming 'Create' is the second button */
-    grid-column: 2 / 3; /* Second column, third row */
-    grid-row: 3 / 4;
-}
 
 /* --- Multiplayer Connection Status / Lobby --- */
 /* This is the <dialog> element, styled to fill its container */
@@ -1542,7 +1988,7 @@ th.score-rank { /* Specific th styling */
     position: relative;
     overflow: visible;
     padding: 30px;
-    color: white;
+
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
 }
 
@@ -2010,7 +2456,7 @@ data[data-translation-key] {
     }
 
     #app {
-        top: 5%; left: 5%; right: 5%; bottom: 5%;
+        top: 2%; left: 2%; right: 2%; bottom: 2%;
         border-radius: 20px;
     }
 
@@ -2393,3 +2839,96 @@ html.to-sheet-selection::view-transition-new(difficulty-column) {
 .will-animate.hidden {
   display: inherit !important; /* Override hidden class */
 }
+
+/* 3a. Name Input Panel Container */
+#multiplayerChoice .name-input-container {
+    grid-column: 1 / -1; /* Span both columns */
+    grid-row: 3 / 4;
+    /* Common panel styles will be applied via .unicorn-theme or .frosty-panel */
+    display: grid; /* Internal grid for alignment */
+    align-content: center; /* Center content vertically */
+    justify-items: center; /* Center items horizontally */
+    gap: 15px; /* Space between label and input group */
+    width: 100%; /* Fill grid cell */
+    max-width: 500px; /* Optional: Limit width */
+    height: 100%; /* Fill grid cell height */
+    box-sizing: border-box;
+    justify-self: center; /* Center the panel in the spanned columns */
+    padding: 20px; /* Add padding directly */
+    border-radius: 15px; /* Add border-radius directly */
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1); /* Add shadow directly */
+}
+
+/* 3b. Difficulty Selection Panel Container - REMOVED */
+/* Styles for .difficulty-selection-mp inside #multiplayerChoice are removed as the element is deleted from HTML */
+
+/* 4. Host Game Button */
+#multiplayerChoice button#hostGame {
+    grid-column: 1 / -1; /* Span both columns */
+    grid-row: 4 / 5; /* Move to last row */
+    justify-self: stretch; /* Stretch to fill width */
+    /* Inherit yellow button styles */
+    padding: 15px 20px; 
+    font-size: 1.8rem;
+    margin: 0; 
+    width: auto; 
+}
+
+/* --- Panel Theme Styles --- */
+
+/* A. Unicorn Theme */
+#multiplayerChoice .unicorn-theme { /* Now only applies to .name-input-container */
+    background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 99%, #fad0c4 100%); /* Example gradient */
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+}
+#multiplayerChoice .unicorn-theme label,
+#multiplayerChoice .unicorn-theme h3 { /* This h3 rule might become unused */
+    color: white; /* Ensure text is white */
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3); /* Add subtle shadow */
+}
+/* Removed h3 specific styles for difficulty title */
+#multiplayerChoice .name-input-container.unicorn-theme label { /* Name label specific */
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+}
+/* Removed label styles for difficulty radio */
+#multiplayerChoice .unicorn-theme .input-with-button { /* Container for name input + refresh */
+    /* Inherit padding, font-size from general input styles if needed */
+}
+/* Removed input[type=radio] styles for unicorn theme */
+#multiplayerChoice .unicorn-theme .refresh-name-button {
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    color: white;
+    /* Keep other styles */
+}
+#multiplayerChoice .unicorn-theme .refresh-name-button:hover {
+    background: rgba(255, 255, 255, 0.5); 
+}
+
+/* B. Frosty Panel Theme */
+#multiplayerChoice .frosty-panel { /* Now only applies to .name-input-container */
+    background-color: rgba(255, 255, 255, 0.85); /* Frosty white background */
+    /* Inherits padding, border-radius, shadow from base panel styles */
+}
+#multiplayerChoice .frosty-panel label,
+#multiplayerChoice .frosty-panel h3 { /* This h3 rule might become unused */
+    color: #614ae2; /* Theme purple text */
+    text-shadow: none; /* Remove any potential inherited shadow */
+}
+/* Removed h3 specific styles for difficulty title */
+#multiplayerChoice .name-input-container.frosty-panel label { /* Name label specific */
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+}
+/* Removed label styles for difficulty radio */
+#multiplayerChoice .frosty-panel .input-with-button { /* Container for name input + refresh */
+    /* Inherit padding, font-size from general input styles if needed */
+}
+/* Removed input[type=radio] styles for frosty theme */
+#multiplayerChoice .frosty-panel .refresh-name-button {
+    /* Styles seem ok from previous step */
+}
+
+/* --- End Multiplayer Choice Consolidated Styles --- */

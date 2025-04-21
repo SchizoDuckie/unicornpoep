@@ -61,33 +61,14 @@ export default class BaseComponent {
      * Shows the component's root element by removing the 'hidden' class.
      */
     show(data = {}) {
-        console.debug(`[${this.name}] Attempting to show. Current isVisible: ${this.isVisible}`);
-        console.debug(`[${this.name}] Root element:`, this.rootElement);
-        if (!this.rootElement) {
-            console.error(`[${this.name}] Cannot show, rootElement is null or undefined.`);
-            return;
-        }
 
         if (!this.isVisible) {
-            console.debug(`[${this.name}] Removing hidden class.`);
             this.rootElement.classList.remove(HIDDEN_CLASS);
-            
-            console.log(`[${this.name}] CHECK: classList after remove:`, this.rootElement.className); 
-            if (this.rootElement.classList.contains(HIDDEN_CLASS)) {
-                console.error(`[${this.name}] URGENT: hidden class STILL PRESENT immediately after classList.remove!`);
-            } else {
-                 console.log(`[${this.name}] CHECK: hidden class successfully removed (at this moment).`);
-            }
             this.isVisible = true;
-            
-            // Lazy initialize elements when shown if configured with lazyInit
             this._lazyInitializeElements();
-            
-            console.info(`Show: ${this.name}`);
-            // Emit Component.Shown event
             eventBus.emit(Events.Component.Shown, { component: this, componentName: this.name, data });
         } else {
-            console.debug(`[${this.name}] Already visible. Skipping show logic.`);
+            
         }
     }
 
@@ -107,7 +88,7 @@ export default class BaseComponent {
         const lazyElements = this._domElementsConfig.filter(config => config.lazyInit === true);
         
         if (lazyElements.length) {
-            console.debug(`[BaseComponent] Lazily initializing ${lazyElements.length} elements for ${this.name}`);
+            
             
             lazyElements.forEach(elementConfig => {
                 const { name, selector, required = false } = elementConfig;
@@ -121,7 +102,7 @@ export default class BaseComponent {
                 
                 if (element) {
                     this.elements[name] = element;
-                    console.debug(`[BaseComponent] Lazily initialized element '${name}' for ${this.name}`);
+                    
                 } else if (required) {
                     console.error(`[BaseComponent] Required element not found during lazy init: ${selector} in component '${this.name}'.`);
                 } else {
@@ -141,7 +122,7 @@ export default class BaseComponent {
          }
         
         if (this.isVisible) {
-            console.debug(`[${this.name}] Adding hidden class.`);
+            
             this.rootElement.classList.add(HIDDEN_CLASS);
             this.isVisible = false;
             
@@ -154,7 +135,7 @@ export default class BaseComponent {
             // Emit Component.Hidden event
              eventBus.emit(Events.Component.Hidden, { component: this, componentName: this.name });
         } else {
-             console.debug(`[${this.name}] Already hidden. Skipping hide logic.`);
+             
         }
     }
 
@@ -175,7 +156,7 @@ export default class BaseComponent {
         const boundCallback = callback.bind(this);
         this._listeners.push({ eventName, callback, boundCallback });
         eventBus.on(eventName, boundCallback);
-        console.debug(`[BaseComponent] Listener implicitly added for '${eventName}' in '${this.name}'`);
+        
     }
 
     /**
@@ -191,7 +172,7 @@ export default class BaseComponent {
             const { boundCallback } = this._listeners[index];
             eventBus.off(eventName, boundCallback);
             this._listeners.splice(index, 1);
-            console.debug(`[BaseComponent] Listener implicitly removed for '${eventName}' in '${this.name}'`);
+            
         }
     }
 
@@ -213,7 +194,7 @@ export default class BaseComponent {
         const boundHandler = handler.bind(this);
         element.addEventListener(eventName, boundHandler);
         this._domListeners.push({ element, eventName, handler: boundHandler });
-        console.debug(`[BaseComponent] DOM listener added for '${eventName}' in '${this.name}'`);
+        
     }
 
     /**
@@ -243,7 +224,7 @@ export default class BaseComponent {
         // Attach the delegated handler to the root element
         this.rootElement.addEventListener(eventName, delegatedHandler);
         this._domListeners.push({ element: this.rootElement, eventName, handler: delegatedHandler });
-        console.debug(`[BaseComponent] Delegated DOM listener added for '${eventName}' with selector '${selector}' in '${this.name}'`);
+        
     }
 
     /**
@@ -255,7 +236,6 @@ export default class BaseComponent {
      */
     _createEventEmitter(eventBusEventName, extraData = {}) {
         return function domEventHandler(e) {
-            console.debug(`[${this.name}] DOM event triggered, emitting: ${eventBusEventName}`);
             eventBus.emit(eventBusEventName, extraData);
         }.bind(this);
     }
@@ -266,13 +246,11 @@ export default class BaseComponent {
      */
     _cleanupDOMListeners() {
         if (this._domListeners.length > 0) {
-            console.debug(`[BaseComponent] Cleaning up ${this._domListeners.length} DOM listeners for: '${this.name}'`);
+            
             this._domListeners.forEach(({ element, eventName, handler }) => {
                 element.removeEventListener(eventName, handler);
             });
             this._domListeners = []; // Clear the stored listeners after removal
-        } else {
-            console.debug(`[BaseComponent] No DOM listeners to clean up for: '${this.name}'`);
         }
     }
 
@@ -283,13 +261,10 @@ export default class BaseComponent {
      */
     _cleanupListeners() {
         if (this._listeners.length > 0) {
-            console.debug(`[BaseComponent] Cleaning up ${this._listeners.length} EventBus listeners for: '${this.name}'`);
             this._listeners.forEach(({ eventName, boundCallback }) => {
                 eventBus.off(eventName, boundCallback);
             });
             this._listeners = []; // Clear the stored listeners after removal
-        } else {
-            console.debug(`[BaseComponent] No EventBus listeners to clean up for: '${this.name}'`);
         }
     }
 
@@ -332,9 +307,7 @@ export default class BaseComponent {
         const element = this.rootElement.querySelector(selector);
         
         if (element) {
-            // Cache the element for future use
             this.elements[elementName] = element;
-            console.debug(`[${this.name}] Lazily loaded element '${elementName}' on demand`);
             return element;
         } else if (required && warnIfMissing) {
             console.error(`[${this.name}] Required element '${elementName}' (${selector}) not found in component '${this.name}' during on-demand loading`);
@@ -508,10 +481,6 @@ export default class BaseComponent {
                     const combinedHandler = function domEventHandler(e, target) {
                         // First call the custom handler
                         handler.call(this, e, target);
-                        // Then emit the event
-                        console.debug(`[${this.name}] DOM event '${event}' triggered on '${selector}', emitting: ${emits}`);
-                        
-                        // Start with the static payload or empty object
                         const payload = domEventConfig.payload || {};
                         
                         // When includeEvent is true, adds the original DOM event object (e) to the payload
@@ -530,33 +499,16 @@ export default class BaseComponent {
                     }.bind(this);
                     this._addDelegatedEventListener(selector, event, combinedHandler);
                 } else if (emits) {
-                    // Log the value of 'emits' when the handler is CREATED
-                    console.log(`[${this.name}] DEBUG: Creating emitHandler for selector '${selector}'. 'emits' value at creation:`, emits);
-                    
-                    // Only emits provided - create a handler that simply emits the event
                     const emitHandler = (e, target) => {
-                        // --- Validate the event name *before* emitting ---
-                        console.log(`[${this.name}] DEBUG: Validating emits value:`, emits); // Explicit log
+
                         if (typeof emits !== 'string' || !emits) {
                             const error = new Error(`[${this.name}] Attempted to emit an invalid event via domEvents configuration. Event name must be a non-empty string, but received: ${emits}`);
-                            if (error.stack) {
-                                console.error(`Invalid emit definition in ${this.name} (selector: ${selector}, event: ${event}):`, error.stack);
-                            }
                             throw error;
                         }
-                        // --- End validation ---
-                        
-                        console.debug(`[${this.name}] DOM event '${event}' triggered on '${selector}', emitting: ${emits}`);
-                        
-                        // Start with the static payload or empty object
                         const payload = domEventConfig.payload || {};
-                        
-                        // When includeEvent is true, adds the original DOM event object (e)
                         if (domEventConfig.includeEvent && !payload.event) {
                             payload.event = e;
                         }
-                        
-                        // When includeTarget is true, adds the target DOM element
                         if (domEventConfig.includeTarget && !payload.target) {
                             payload.target = target;
                         }
