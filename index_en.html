@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>🦄💩</title>
     <link href="css/fredoka.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/styles.css?v=1743986807">
+    <link rel="stylesheet" href="css/styles.css?">
+    <link rel="stylesheet" href="css/animations.css?">
+    <link rel="stylesheet" href="css/mobile.css?" media="screen and (max-width: 768px)">
 
 
     <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
@@ -23,86 +26,85 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="apple-mobile-web-app-title" content="Unicorn Poep">
+    <meta name="apple-mobile-web-app-title" content="Unicorn Poop">
 
     <link rel="icon" href="favicon.ico" type="image/x-icon">
 </head>
+
 <body>
     <div id="app">
         <h1>🦄 Unicorn Poop 💩<br>
-            <small>By SchizoDuckie, for Sanne <img src="img/heart.gif" alt="<3"></small></h1>
+            <small>By SchizoDuckie, for Sanne <img src="img/heart.gif" alt="<3"></small>
+        </h1>
         <div id="gameContainer">
             <!-- Loading Indicator -->
             <div id="loading"> <!-- Starts visible -->
                 <img src="img/loading.gif" alt="Loading...">
-                <h1>Loading some things, one moment!</h1>
+                <h1>Loading, one moment!</h1>
                 <!-- Loading Template -->
                 <data data-translation-key="loadingDefault">Loading...</data>
             </div>
 
             <!-- Main Menu & Sheet Selection -->
             <div id="mainMenu" class="hidden">
-                 <div id="menuItems">
+                <div id="menuItems">
                     <button id="practice">📚 Practice</button>
                     <button id="takeTest">⏱ Take Test</button>
                     <button id="viewHighscores">🥇 High Scores</button>
-                    <button id="myQuestions">🎒 Create Questions</button>
-                    <button id="multiplayer">👥 Play Together</button>
+                    <button id="myQuestions">🎒 Create Your Own Questions</button>
+                    <button id="hostGame">👥 Play Together: New Game</button>
+                    <button id="joinGame">🔗 Play Together: Join Game</button>
                     <button id="hoeDan">🦄 What is Unicorn Poop?</button>
-                 </div>
+                </div>
             </div>
 
             <!-- Sheet Selection (NOW A TOP-LEVEL VIEW) -->
-            <div id="sheetSelection" class="hidden">
-               <!-- Moved Back Button outside sheetNavigation -->
-               <button id="sheetSelectBack" class="backToMain">Back</button> <!-- Removed hidden class, showView will manage -->
+            <div id="sheetSelection" class="unicorn-theme hidden">
+                <button id="sheetSelectBack" class="backToMain">Back</button>
 
-               <div id="sheetsCol">
-                   <h1>What do you want to do?</h1>
-                   <div id="sheetsCheckboxes">
-                       <!-- Checkboxes populated by JS -->
-                   </div>
-               </div>
-               <div id="difficultyCol" class="hidden">
-                   <h1>Are you good at it?</h1>
-                   <div id="difficultySelection">
-                       <label><input type="radio" name="difficulty" value="easy"> Don't think so (⏱ 60)</label>
-                       <label><input type="radio" name="difficulty" value="medium" checked> Maybe (⏱ 30)</label>
-                       <label><input type="radio" name="difficulty" value="hard"> Definitely! (⏱ 5)</label>
-                   </div>
-               </div>
-               <!-- Sheet Navigation NOW ONLY CONTAINS Start Button -->
-               <div id="sheetNavigation">
-                   <button id="startGame" disabled>Start!</button> <!-- No general button class needed if specific style used -->
-               </div>
-               <data data-translation-key="sheetSelectNoneAvailable">No question sheets found.</data>
-               <data data-translation-key="sheetSelectLoadError">Error loading question sheets.</data>
+                <div id="sheetsCol">
+                    <h1>What do you want to do?</h1>
+                    <div id="sheetsCheckboxes">
+                        <!-- Checkboxes populated by JS -->
+                    </div>
+                </div>
+                <div id="difficultyCol" class="hidden">
+                    <h1>How good are you at it?</h1>
+                    <p>You get less time to choose the right answer, but also more points!</p>
+                    <div id="difficultySelection">
+                        <label><input type="radio" name="difficulty" value="easy"> I don't think so (⌛ 60)</label>
+                        <label><input type="radio" name="difficulty" value="medium" checked> Maybe (⌛ 30)</label>
+                        <label><input type="radio" name="difficulty" value="hard"> Definitely! (⌛ 5)</label>
+                    </div>
+                </div>
+                <!-- Sheet Navigation NOW ONLY CONTAINS Start Button -->
+                <div id="sheetNavigation">
+                    <button id="startGame" disabled>Start!</button>
+                </div>
+                <data data-translation-key="sheetSelectNoneAvailable">No question sheets found.</data>
+                <data data-translation-key="sheetSelectLoadError">Error loading question sheets.</data>
             </div>
 
-             <!-- Game Area -->
+            <!-- Game Area -->
             <div id="gameArea" class="hidden">
                 <div id="gameHeader">
-                    <!-- NEW: Container for left items -->
                     <div id="gameHeaderLeft">
-                        <div id="scoreDisplay">Score: 0</div>
-                        <div id="timerDisplay">00:00</div>
+                        <div id="scoreDisplay" class="hidden">Score: 0</div>
+                        <div id="timerDisplay" class="hidden">00:00</div>
                         <!-- Timer Display Template -->
                         <data id="timerDefault">⏳</data>
-                        <!-- NEW: Placeholder for sheet title -->
-                        <div id="sheetTitleDisplay">Loading...</div>
+                        <div id="sheetTitleDisplay" class="hidden">Loading...</div>
                     </div>
-                    <!-- END NEW -->
 
-                    <div id="progressIndicator" class=""> <!-- Removed hidden -->
+                    <div id="progressIndicator" class="">
                         <span id="progressText">Question 0 / 0</span>
                         <progress id="progressBar" value="0" max="100"></progress>
-                        <!-- Progress Display Templates (Already moved, example) -->
+                        <!-- Progress Display Templates -->
                         <data data-translation-key="progressLabel">Question</data>
                     </div>
 
                     <div id="playerListContainer">
-                        <!-- Template for Player List Item (Previously Missing) -->
-
+                        <!-- Template for Player List Item -->
                     </div>
                     <template id="player-list-item-template">
                         <div class="opponent-entry" data-peer-id="">
@@ -112,12 +114,12 @@
                         </div>
                     </template>
                     <!-- Player list items will be added here by JS -->
-                    <!-- Moved Player List Templates -->
+                    <!-- Player List Templates -->
                     <data data-translation-key="playerListUnnamed">Nameless</data>
                     <data data-translation-key="playerListHostTag">(Host)</data>
                     <data data-translation-key="playerListYouTag">(You)</data>
                 </div>
-                <!-- Moved Countdown Template -->
+                <!-- Countdown Template -->
                 <data data-translation-key="countdownGo">Go!</data>
                 <div id="question">Loading...</div>
                 <div id="answers">
@@ -128,58 +130,39 @@
                     <button id="stopGame" class="button danger">Stop</button>
                 </div>
                 <template id="player-list-item-template">
-                            <div class="opponent-entry" data-peer-id="">
-                                <span class="opponent-name"></span>
-                                <span class="opponent-score"></span>
-                                <span class="opponent-status"></span>
-                            </div>
-                        </template>
-                        <!-- Player list items will be added here by JS -->
-                        <!-- Moved Player List Templates -->
-                        <data data-translation-key="playerListUnnamed">Nameless</data>
-                        <data data-translation-key="playerListHostTag">(Host)</data>
-                        <data data-translation-key="playerListYouTag">(You)</data>
-                <!-- Moved QuizEngine Templates -->
+                    <div class="opponent-entry" data-peer-id="">
+                        <span class="opponent-name"></span>
+                        <span class="opponent-score"></span>
+                        <span class="opponent-status"></span>
+                    </div>
+                </template>
+                <!-- Player list items will be added here by JS -->
+                <!-- Player List Templates -->
+                <data data-translation-key="playerListUnnamed">Nameless</data>
+                <data data-translation-key="playerListHostTag">(Host)</data>
+                <data data-translation-key="playerListYouTag">(You)</data>
+                <!-- QuizEngine Templates -->
                 <data data-translation-key="qeLoading">Loading questions...</data>
                 <data data-translation-key="qeLoadError">Could not load questions.</data>
             </div>
 
             <!-- Multiplayer Choice Screen -->
-            <div id="multiplayerChoice" class="unicorn-theme hidden" >
+            <div id="multiplayerChoice" class="unicorn-theme hidden">
                 <button class="backToMain">Back</button>
                 <h2>Play Together</h2>
-                <!-- RESTORED Name Input Container -->
-                <div class="name-input-container mb-4">
+                <p class="explanation">Hi! Here you prepare everything to start a game that a friend can join. Choose a fun name and how difficult it should be. Then press 'Start a new game' to get your code!</p>
+                <div class="name-input-container frosty-panel">
                     <label for="playerNameInput" class="block mb-1">Your name:</label>
-                    <!-- ADDED Wrapper Div for Input + Button -->
                     <div class="input-with-button">
-                        <input type="text" id="playerNameInput" placeholder="Type your name..." class="w-full p-2 rounded bg-white bg-opacity-20 focus:outline-none focus:ring-2 focus:ring-pink-400">
-                        <!-- ADDED Refresh Button -->
-                        <button id="refreshPlayerNameButton" class="refresh-name-button" title="Generate random name">🔄</button>
+                        <input type="text" id="playerNameInput" placeholder="Type your name..."
+                            class="w-full p-2 rounded bg-white bg-opacity-20 focus:outline-none focus:ring-2 focus:ring-pink-400">
+                        <button id="refreshPlayerNameButton" class="refresh-name-button"
+                            title="Generate random name">🔄</button>
                     </div>
-                     <p id="choiceError" class="text-red-400 text-sm mt-1 hidden"></p> <!-- Adjusted error display -->
+                    <p id="choiceError" class="text-red-400 text-sm mt-1 hidden"></p>
                 </div>
 
-                <!-- Difficulty Selection -->
-                <div class="difficulty-selection-mp">
-                    <h3>Choose Difficulty:</h3>
-                    <label>
-                        <input type="radio" name="mpDifficulty" value="easy">
-                        Easy
-                    </label>
-                    <label>
-                        <input type="radio" name="mpDifficulty" value="medium" checked>
-                        Medium
-                    </label>
-                    <label>
-                        <input type="radio" name="mpDifficulty" value="hard">
-                        Hard
-                    </label>
-                </div>
-
-
-                <button id="hostGame" class="button primary">Create a game</button>
-                <button id="joinGame" class="button secondary">Join a game</button>
+                <button id="hostGame" class="button primary">Start a new game</button>
 
                 <!-- Multiplayer Choice Templates -->
                 <data data-translation-key="mpChoiceErrorEmptyName">Please enter a name.</data>
@@ -187,23 +170,32 @@
             </div>
 
             <!-- Multiplayer Connection Status Dialog -->
-            <dialog id="connectionStatus" class="hidden">
+            <div id="connectionStatus" class="unicorn-theme hidden">
                 <button class="backToMain">Back</button>
                 <h2>Play Together</h2>
 
                 <!-- Host View -->
-                <div id="connectionCode" class="unicorn-theme hidden host-view"> <!-- Added host-view class for clarity -->
-                    <!-- Removed host-lobby-content wrapper -->
-                    <!-- Removed Left Column wrapper -->
-                    <div class="host-lobby-section code-section"> <!-- Removed inline style -->
+                <div id="connectionCode" class="unicorn-theme hidden host-view">
+                    <div class="host-lobby-section code-section">
                         <p class="help-text">Share this code with the other player:</p>
                         <div class="host-code-wrapper">
                             <span id="hostCodeDisplay" class="host-code-text">Loading...</span>
                             <button id="copyCodeButton" class="copy-button" title="Copy code">
-                                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"
+                                    fill="#FFFFFF">
+                                    <path d="M0 0h24v24H0z" fill="none" />
+                                    <path
+                                        d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                                </svg>
                             </button>
-                            <a id="whatsappShareButton" class="share-button whatsapp-button" href="#" target="_blank" title="Share via WhatsApp" data-whatsapp-url="" data-share-text="Join my Unicorn Poop game! Click here:">
-                                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                            <a id="whatsappShareButton" class="share-button whatsapp-button" href="#" target="_blank"
+                                title="Share via WhatsApp" data-whatsapp-url=""
+                                data-share-text="Join my Unicorn Poop game! Click here:">
+                                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"
+                                    fill="#FFFFFF">
+                                    <path
+                                        d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+                                </svg>
                             </a>
                         </div>
 
@@ -211,18 +203,25 @@
                         <div class="host-code-wrapper">
                             <span id="hostJoinLinkDisplay" class="host-code-text join-link-text">Loading...</span>
                             <button id="copyJoinLinkButton" class="copy-button" title="Copy link">
-                                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0z" fill="none"/><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"
+                                    fill="#FFFFFF">
+                                    <path d="M0 0h24v24H0z" fill="none" />
+                                    <path
+                                        d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                                </svg>
                             </button>
                         </div>
                     </div>
 
                     <!-- Player List Section -->
-                    <div class="host-lobby-section player-list-section"> <!-- Removed inline style -->
+                    <div class="host-lobby-section player-list-section">
                         <p id="hostWaitingText" class="waitingText">
-                            <span id="host-status-initializing" class="host-status hidden" data-translation-key="host-status-initializing">Initializing host...</span>
+                            <span id="host-status-initializing" class="host-status hidden"
+                                data-translation-key="host-status-initializing">Initializing host...</span>
                             <span id="host-status-waiting" class="host-status hidden">
                                 <span id="playerCount" class="font-bold text-xl">0</span>
-                                <span id="playerLabelSingular"> other player</span><span id="playerLabelPlural" class="hidden"> other players</span> connected.
+                                <span id="playerLabelSingular"> other player</span><span id="playerLabelPlural"
+                                    class="hidden"> other players</span> connected.
                             </span>
                         </p>
                         <!-- Player names list container -->
@@ -233,38 +232,38 @@
                     </div>
 
                     <!-- Start Button Section -->
-                    <div class="host-lobby-section start-section"> <!-- Removed inline style -->
+                    <div class="host-lobby-section start-section">
                         <p class="help-text mb-2">Start the game when you're ready!</p>
                         <button id="hostStartButton" class="menuButton yellow-button hidden">Start Game!</button>
                     </div>
 
                     <!-- Error Display -->
-                    <div id="hostErrorDisplay" class="error-message hidden"></div> <!-- Removed inline style -->
+                    <div id="hostErrorDisplay" class="error-message hidden"></div>
 
                     <!-- Host Lobby Templates (General) -->
                     <data data-translation-key="hostLoading">Loading...</data>
                     <data data-translation-key="hostWhatsappShare">Join my Unicorn Poop game! Click here:</data>
-                     <data data-translation-key="hostLobbyErrorCode">Error!</data>
-                     <data data-translation-key="hostLobbyErrorLink">Link error!</data>
-                     <data data-translation-key="mpHostErrorNoQuestions">No questions loaded for the selected sheets/difficulty.</data>
-                     <data data-translation-key="mpHostErrorStartPrefix">Host error starting game: </data>
-                     <data data-translation-key="mpHostErrorNextQPrefix">Host error: Could not retrieve question data for index </data>
-
+                    <data data-translation-key="hostLobbyErrorCode">Error!</data>
+                    <data data-translation-key="hostLobbyErrorLink">Link error!</data>
                 </div>
 
                 <!-- Client Join View -->
                 <div id="joinView" class="connectionBox unicorn-theme hidden">
-                    <p id="joinPlayerName" class="help-text" style="font-size: 1.2em; margin-bottom: 20px;" data-welcome-text="Hi! Someone invited you to play Unicorn Poop! Enter the code you received below.">Hi! Someone invited you to play Unicorn Poop! Enter the code you received below.</p>
-                    <input type="number" maxlength="6" pattern="[0-9]*" inputmode="numeric" placeholder="Enter 6-digit code" id="connectionCodeInput" data-placeholder-text="Enter 6-digit code">
+                    <p id="joinPlayerName" class="help-text" style="font-size: 1.2em; margin-bottom: 20px;"
+                        data-welcome-text="Hi! Someone invited you to play Unicorn Poop! Enter the code you received below.">
+                        Hi! Someone invited you to play Unicorn Poop! Enter the code you received below.</p>
+                    <input type="number" maxlength="6" pattern="[0-9]*" inputmode="numeric"
+                        placeholder="Enter 6-digit code" id="connectionCodeInput"
+                        data-placeholder-text="Enter 6-digit code">
                     <button id="submitCode" class="menuButton yellow-button" data-button-text="Connect">Connect</button>
                     <p class="help-text" data-help-text="Ask the other player for the code">Ask the other player for the code</p>
                     <p id="connectionErrorMessage" class="error-message hidden"></p>
                     <!-- Join Lobby Templates (Join View Specific & Errors) -->
-                     <data data-translation-key="joinWelcome">Hi %NAME%! Enter the code you got from the host.</data>
-                     <data data-translation-key="joinErrorConnectPrefix">Could not connect: </data>
-                     <data data-translation-key="joinErrorInvalidCode">Please enter a valid 6-digit code.</data>
-                     <data data-translation-key="joinErrorEmptyName">Please enter your name.</data>
-                     <data data-translation-key="joinErrorNameTooLong">Name can be a maximum of 40 characters long.</data>
+                    <data data-translation-key="joinWelcome">Hi %NAME%! Enter the code you got from the host.</data>
+                    <data data-translation-key="joinErrorConnectPrefix">Could not connect: </data>
+                    <data data-translation-key="joinErrorInvalidCode">Please enter a valid 6-digit code.</data>
+                    <data data-translation-key="joinErrorEmptyName">Please enter your name.</data>
+                    <data data-translation-key="joinErrorNameTooLong">Name can be a maximum of 40 characters long.</data>
                 </div>
 
                 <!-- Client Fetching Info View -->
@@ -274,12 +273,12 @@
                 </div>
 
                 <!-- Client Join Confirmation View -->
-                <div id="joinConfirmView" class="connectionBox unicorn-theme hidden join-confirm-grid"> <!-- Added class for grid styling -->
+                <div id="joinConfirmView" class="connectionBox unicorn-theme hidden join-confirm-grid">
                     <h2 data-confirm-title="Join game?" class="join-confirm-title">Join game?</h2>
 
                     <!-- Left Column with Panel -->
                     <div class="host-lobby-section join-confirm-left-panel">
-                        <p class="help-text panel-title">Game Details:</p> <!-- Added class -->
+                        <p class="help-text panel-title">Game Details:</p>
                         <div id="joinGameInfo" class="game-info-display">
                             <!-- Game info populated by JS -->
                         </div>
@@ -289,18 +288,22 @@
                     <div class="host-lobby-section join-confirm-right-panel">
                         <div class="name-input-container">
                             <label for="joinConfirmPlayerNameInput" data-name-label="Your Name:" class="help-text">Your Name:</label>
-                            <!-- ADDED Wrapper Div for Input + Button -->
+                            <!-- Wrapper Div for Input + Button -->
                             <div class="input-with-button">
-                                <input type="text" id="joinConfirmPlayerNameInput" placeholder="Name" data-name-placeholder="Name" required>
-                                <!-- ADDED Refresh Button -->
-                                <button id="refreshJoinConfirmNameButton" class="refresh-name-button" title="Generate random name">🔄</button>
+                                <input type="text" id="joinConfirmPlayerNameInput" placeholder="Name"
+                                    data-name-placeholder="Name" required>
+                                <!-- Refresh Button -->
+                                <button id="refreshJoinConfirmNameButton" class="refresh-name-button"
+                                    title="Generate random name">🔄</button>
                             </div>
                         </div>
                     </div>
 
                     <div class="dialog-buttons join-confirm-buttons">
-                        <button id="confirmJoinButton" class="menuButton green-button" data-confirm-button="Yes, join!">Yes, join!</button>
-                        <button id="cancelJoinButton" class="menuButton red-button" data-cancel-button="Cancel">Cancel</button>
+                        <button id="confirmJoinButton" class="menuButton green-button"
+                            data-confirm-button="Yes, join!">Yes, join!</button>
+                        <button id="cancelJoinButton" class="menuButton red-button"
+                            data-cancel-button="Cancel">Cancel</button>
                     </div>
 
                     <!-- Join Lobby Templates (Confirm View Specific & Fallbacks) -->
@@ -313,30 +316,31 @@
 
                 <!-- Client Waiting For Start View -->
                 <div id="waitingForStartView" class="connectionBox hidden">
-                     <p class="waitingText" data-waiting-text="Connected! Waiting for the host to start the game...">Connected! Waiting for the host to start the game...</p>
-                     <img src="img/loading.gif" alt="Waiting..." class="waiting-kirby">
-                 </div>
+                    <p class="waitingText" data-waiting-text="Connected! Waiting for host to start the game...">Connected! Waiting for host to start the game...</p>
+                    <img src="img/loading.gif" alt="Waiting..." class="waiting-kirby">
+                </div>
 
-                 <!-- Error Message Display Area -->
-                 <p id="connectionErrorMessage" class="hidden"></p>
-                 <!-- Multiplayer Client Manager Fallback Templates (Attach to dialog level) -->
-                 <data data-translation-key="mcDisconnect">Disconnected from host.</data>
-                 <data data-translation-key="mcDefaultPlayerName">Unknown</data>
+                <!-- Error Message Display Area -->
+                <p id="connectionErrorMessage" class="hidden"></p>
+                <!-- Multiplayer Client Manager Fallback Templates (Attach to dialog level) -->
+                <data data-translation-key="mcDisconnect">Disconnected from host.</data>
+                <data data-translation-key="mcDefaultPlayerName">Unknown</data>
 
-            </dialog> <!-- End #connectionStatus Dialog -->
+            </div> <!-- End #connectionStatus Dialog -->
 
             <!-- Highscores Screen -->
-            <div id="highscores" class="hidden">
+            <div id="highscores" class="unicorn-theme hidden">
                 <h1>These people are the very best!</h1>
                 <table>
                     <thead>
-                    <tr>
-                        <th>Rank</th>
-                        <th>Game</th>
-                        <th>Name</th>
-                        <th>Score</th>
-                        <th>Date</th>
-                    </tr></thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Game</th>
+                            <th>Name</th>
+                            <th>Score</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
                     <tbody id="scoreList"></tbody>
                 </table>
                 <!-- Template for a single high score row -->
@@ -361,45 +365,36 @@
             </div>
 
             <!-- Custom Questions Screen -->
-            <div id="customQuestionsManager" class="hidden">
+            <div id="customQuestionsManager" class="unicorn-theme hidden">
                 <button class="backToMain">Back</button>
-                 <h2>Manage Your Questions</h2>
-                <div id="customSheetSelection">
-                    <div id="customSheetsCol">
-                        <h3>New list / Edit:</h3>
-                        <div id="customQuestionsInput">
-                            <input type="text" id="customSheetName" placeholder="Name of your question list">
-                            <textarea id="customQuestionsTextarea" rows="10" placeholder="Type your questions here. Each question + answer on a new line. Make sure there is ' => ' between the question and answer. Example: How much is 2 x 2? => 4"></textarea>
-                            <button id="saveCustomQuestionsButton">Save</button>
+                <h2>Manage Your Own Questions</h2>
+                <div id="customSheetSelection" class="custom-questions-grid">
+                    <div id="customSheetsCol" class="custom-questions-edit-area frosted ">
+                        <h3>New List / Edit:</h3>
+                        <input type="text" id="customSheetName" placeholder="Name of your question list"
+                            class="sheet-name-input">
+
+                        <div id="questionAnswerPairsContainer" class="qa-pairs-list">
+                            <!-- Q/A pairs will be added here by JS -->
                         </div>
+
+                        <button id="addQuestionPairButton" class="button secondary add-question-button">➕ Add Question</button>
+                        <button id="saveCustomQuestionsButton" class="button primary save-button">Save List</button>
                     </div>
-                    <div id="customDifficultyCol">
-                        <h3>Existing lists:</h3>
-                        <div id="customDifficultySelection">
-                            <select id="existingCustomQuestions">
-                                <option value="">-- Create new list --</option>
-                            </select>
-                            <button id="editCustomQuestionsButton">Edit</button>
-                            <button id="deleteCustomQuestionsButton">Delete</button>
+                    <div id="customSheetsListCol" class="custom-questions-list-area unicorn-theme ">
+                        <h3>Existing Lists:</h3>
+                        <!-- List container for existing sheets -->
+                        <div id="customSheetList">
+                            <!-- Existing sheets list populated by JS -->
+                            <p class="list-placeholder"><i>No custom lists yet...</i></p>
                         </div>
-                         <!-- List container for existing sheets -->
-                         <div id="customSheetList">
-                            <template id="custom-sheet-item-template">
-                                <li class="custom-sheet-item" data-sheet-id="">
-                                    <span class="sheet-name">Sheet Name</span>
-                                    <span class="sheet-actions">
-                                        <button class="edit-button" title="Edit this list">Edit</button>
-                                        <button class="delete-button warn" title="Delete this list">Delete</button>
-                                    </span>
-                                </li>
-                            </template>
-                            <!-- Custom sheets will be loaded here -->
-                         </div>
                     </div>
                 </div>
                 <!-- Custom Questions Manager Templates -->
                 <data data-translation-key="customQWarnName">Give your question list a name!</data>
-                <data data-translation-key="customQWarnQuestion">Enter at least one question!</data>
+                <data data-translation-key="customQWarnQuestion">Enter at least one question AND answer!</data>
+                <data data-translation-key="customQWarnPairs">Add at least one question/answer pair.</data>
+                <!-- New Key -->
                 <data data-translation-key="customQLoadError">Could not load custom question lists.</data>
                 <data data-translation-key="customQListEmpty">No custom question lists saved yet.</data>
                 <data data-translation-key="customQListError">Error loading custom question lists.</data>
@@ -407,37 +402,62 @@
                 <data data-translation-key="qmDefaultCustomName">Nameless</data>
                 <data data-translation-key="qmSaveError">Could not save custom question lists.</data>
                 <data data-translation-key="qmParseErrorLine">Invalid format on line %LINE%: '%CONTENT%'. Expected 'question => answer'.</data>
-                 <!-- Moved Sheet Selection errors here as they relate to custom sheets mostly -->
+                <!-- Sheet Selection errors related to custom sheets -->
+
+                <!-- Template for a single Q/A pair -->
+                <template id="qa-pair-template">
+                    <div class="qa-pair">
+                        <div class="qa-inputs">
+                            <input type="text" class="question-input" placeholder="Question">
+                            <span class="qa-separator">➡️</span>
+                            <input type="text" class="answer-input" placeholder="Answer">
+                        </div>
+                        <button class="remove-pair-button button danger small-button"
+                            title="Remove Question">🗑️</button>
+                    </div>
+                </template>
+
+                <!-- Template for a single sheet list item (kept for reference, might be needed later) -->
+                <template id="custom-sheet-item-template">
+                    <li class="custom-sheet-item" data-sheet-id="">
+                        <span class="sheet-name">Sheet Name</span>
+                        <span class="sheet-actions">
+                            <button class="edit-button button secondary small-button" data-sheet-id=""
+                                title="Edit this list">✏️</button>
+                            <button class="delete-button button danger small-button" data-sheet-id=""
+                                title="Delete this list">🗑️</button>
+                        </span>
+                    </li>
+                </template>
             </div>
 
             <!-- About Screen -->
             <div id="about" class="hidden">
                 <button class="backToMain">Back</button>
                 <h2>What is Unicorn Poop?</h2>
-                <p>Unicorn Poop is a very simple game that helps you quickly get better at multiplication tables,
-                    vocabulary words, and other things you need to remember for school.</p>
+                <p>Unicorn Poop is a very simple game that helps you quickly get better at times tables, vocabulary, and other things you need to remember for school.</p>
                 <h3>How do you play the game?</h3>
                 <p>It's very simple! <br>
                     When you start the game, you'll see questions with a few answers.<br>
-                    Your job is to choose the correct answer.<br>
+                    Your task is to choose the correct answer.<br>
                     If you get it right, you'll see confetti 🎉 and get points.<br>
                     The faster you are, the more points you get!<br>
                     If you get it wrong, you'll see 😿 but ALSO the correct answer in green,<br> so remember it well for next time!
                 </p>
                 <h3>Practice or Take a Test</h3>
                 <p>You can choose to practice or take a test to see how good you are.<br>
-                    In practice mode, there's no time limit, so you can think calmly.<br>
-                    In the test, you need to be quick and collect points for each question.<br>
-                    The more points you get, the higher your name will appear on the High Scores list!
+                    When practicing, there's no time limit, so you can think calmly.<br>
+                    In the test, you need to be fast and collect points for each question.<br>
+                    The more points you get, the higher your name will be on the High Scores list!
                 </p>
-                <h3>Make your own questions</h3>
-                <p>Already know all the multiplication tables by heart? You can keep using Unicorn Poop by making your own question game for anything you need to learn!<br>
+                <h3>Create your own questions</h3>
+                <p>Do you already know all the times tables by heart? You can keep using Unicorn Poop by making your own question game for anything you need to learn!<br>
                     Click on 'My Questions' and type your questions in the large box.<br>
                     Type a new question on each line, then <em>=></em> and then the answer.<br>
-                    So, each question + answer must be on its own line!
+                    So each question + answer must be on its own line!
                     For example:
                 </p>
-                    <code>
+                <code>
                     How much is 1 + 1? => 2<br>
                     What do you spread on your sandwich? => Unicornpoop<br>
                     What color is unicorn poop? => Rainbow
@@ -445,223 +465,206 @@
                 <p> You can also give your question list a name.<br>
                     This way you can always come back and play your own games.</p>
                 <h3>Have fun!</h3>
-                <p>Have fun playing Unicorn Poop.<br> Don't forget, every time you play, you get better than the last time!</p>
+                <p>Have fun playing Unicorn Poop.<br> Remember, every time you play, you get better than the last time!</p>
             </div>
 
         </div> <!-- End #gameContainer -->
 
-         <!-- Dialogs (visibility controlled by JS showModal/close) -->
-         <dialog id="endOfGameDialog" class="unicorn-theme hidden">
+        <!-- Dialogs (visibility controlled by JS showModal/close) -->
+        <dialog id="endOfGameDialog" class="unicorn-theme hidden">
             <h1>Well done!</h1>
             <p>Your score is: <strong id="finalScore"></strong>!</p>
             <div>
-                <label for="playerName">Your name (for high score list):</label>
+                <label for="playerName">Your name (for highscore list):</label>
                 <div class="input-with-button">
                     <input type="text" id="playerName" placeholder="Type here...">
-                    <button id="refreshNameButton" class="refresh-name-button" title="Generate random name">🔄</button>
+                    <button id="refreshNameButton" class="refresh-name-button"
+                        title="Generate random name">🔄</button>
                 </div>
             </div>
             <div id="endGameButtons">
                 <button id="saveHighscore">Save</button>
-                <button id="restartGame">Restart</button>
-                <!-- NOTE: Leaving menuButton class here as it's an action within the dialog, not strictly a 'back' navigation -->
+                <button id="restartGame">Play Again</button>
                 <button id="spEndMenuButton" class="backToMain menuButton">Main Menu</button>
             </div>
-            <!-- Moved Single Player End Templates -->
+            <!-- Single Player End Templates -->
             <data data-translation-key="spEndErrorSaveName">Please enter a name!</data>
-         </dialog>
+        </dialog>
 
-         <dialog id="disconnectionDialog" class="unicorn-theme hidden">
-             <h2>Connection Lost</h2>
-             <p class="dialog-message">Connection lost.</p>
-             <button id="disconnectionOkButton" class="button primary">OK</button>
-             <!-- Disconnection Dialog Templates -->
-             <data data-translation-key="disconnectDefault">The other player has disconnected.</data>
-         </dialog>
+        <dialog id="disconnectionDialog" class="unicorn-theme hidden">
+            <h2>Connection Lost</h2>
+            <p class="dialog-message">Connection lost.</p>
+            <button id="disconnectionOkButton" class="button primary">OK</button>
+            <!-- Disconnection Dialog Templates -->
+            <data data-translation-key="disconnectDefault">The other player has disconnected.</data>
+        </dialog>
 
-         <!-- Corrected Name Prompt Dialog (Matching Multiplayer Input Pattern) -->
-         <dialog id="namePromptDialog" class="unicorn-theme hidden">
-             <h2>What's your name?</h2>
-             <input type="text" id="namePromptInput" placeholder="Name...">
-             <p id="nameError" class="error-message hidden"></p>
-             <button id="namePromptConfirm">Ok</button>
-         </dialog>
+        <!-- Name Prompt Dialog -->
+        <dialog id="namePromptDialog" class="unicorn-theme hidden">
+            <h2>What's your name?</h2>
+            <div class="input-with-button">
+                <input type="text" id="namePromptInput" placeholder="Name...">
+                <button id="refreshPlayerNameButton" class="refresh-name-button"
+                    title="Generate random name">🔄</button>
+            </div>
+            <p id="nameError" class="error-message hidden"></p>
+            <button id="namePromptConfirm">Ok</button>
+        </dialog>
 
-         <dialog id="errorDialog" class="unicorn-theme hidden">
-             <h2 class="dialog-title">Error</h2>
-             <p class="dialog-message">An unknown error occurred.</p>
-             <button class="dialog-close-button" data-dialog-close>OK</button>
-         </dialog>
+        <dialog id="errorDialog" class="unicorn-theme hidden">
+            <h2 class="dialog-title">Error</h2>
+            <p class="dialog-message">An unknown error occurred.</p>
+            <button class="dialog-close-button" data-dialog-close>OK</button>
+        </dialog>
 
-         <!-- New Multiplayer End Results Dialog -->
-         <dialog id="multiplayerEndDialog" class="dialog unicorn-theme hidden">
-             <h2 id="multiplayerEndTitle">Game Over!</h2>
-             <div id="multiplayerEndResults">
-                 <!-- Added list container and template -->
-                 <table id="mpResultsTable">
-                     <thead>
-                         <tr>
-                             <th>Rank</th>
-                             <th>Name</th>
-                             <th>Score</th>
-                         </tr>
-                     </thead>
-                     <tbody id="mpResultsList">
-                         <!-- Results populated by JS -->
-                     </tbody>
-                 </table>
-                 <template id="mp-results-row-template">
-                     <tr>
-                         <td class="rank"></td>
-                         <td class="name"></td>
-                         <td class="score"></td>
-                     </tr>
-                 </template>
-                 <!-- End added elements -->
-             </div>
-             <!-- Remove Play Again Button -->
-             <button id="mpReturnToMenuButton" class="menuButton yellow-button">Main Menu</button> <!-- Renamed button ID -->
-             <!-- Moved Multiplayer End Templates -->
-             <data data-translation-key="mpEndDefaultPlayerName">Unknown</data>
-             <data data-translation-key="mpEndLoadError">Could not load results.</data>
-             <data data-translation-key="mpEndNoData">No players found.</data>
-         </dialog>
+        <!-- Multiplayer End Results Dialog -->
+        <dialog id="multiplayerEndDialog" class="dialog unicorn-theme hidden">
+            <h2 id="multiplayerEndTitle">Game Over!</h2>
+            <div id="multiplayerEndResults">
+                <!-- Results Table -->
+                <table id="mpResultsTable">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Name</th>
+                            <th>Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mpResultsList">
+                        <!-- Results populated by JS -->
+                    </tbody>
+                </table>
+                <template id="mp-results-row-template">
+                    <tr>
+                        <td class="rank"></td>
+                        <td class="name"></td>
+                        <td class="score"></td>
+                    </tr>
+                </template>
+            </div>
+            <button id="mpReturnToMenuButton" class="menuButton yellow-button">Main Menu</button>
+            <!-- Multiplayer End Templates -->
+            <data data-translation-key="mpEndDefaultPlayerName">Unknown</data>
+            <data data-translation-key="mpEndLoadError">Could not load results.</data>
+            <data data-translation-key="mpEndNoData">No players found.</data>
+            <data data-translation-key="mpEndDraw">It's a draw!</data>
+            <data data-translation-key="mpEndWinnerPrefix">%NAME% wins!</data>
+            <data data-translation-key="mpEndLocalWin">You won!</data>
+            <data data-translation-key="hostLinkCopied">Link copied!</data>
+            <data data-translation-key="hostStartButton">Start Game!</data>
+            <data data-translation-key="hostStartButtonWaiting">Waiting for players...</data>
+        </dialog>
 
-         <!-- New Practice End Dialog HTML -->
-         <dialog id="practiceEndDialog" class="unicorn-theme hidden">
+        <!-- Practice End Dialog -->
+        <dialog id="practiceEndDialog" class="unicorn-theme hidden">
             <div class="dialog-container">
-                <h2 class="dialog-title">Practice Done!</h2>
+                <h2 class="dialog-title">Practice Finished!</h2>
                 <div class="dialog-content content">
-                    <p>Good job practicing! Think you're ready for a test?</p>
+                    <p>Great job practicing! Do you think you're ready for a test?</p>
                 </div>
                 <div class="dialog-buttons buttons">
                     <button id="practiceTryAgainButton" class="button button-secondary">Try Again</button>
                     <button id="practiceMenuButton" class="button button-primary">Main Menu</button>
                 </div>
             </div>
-         </dialog>
+        </dialog>
 
-         <!-- New Confirmation Dialog -->
-         <dialog id="confirmationDialog" class="unicorn-theme">
-             <h2 id="confirmationTitle">Confirm</h2>
-             <p class="dialog-message">Are you sure?</p>
-             <div class="dialog-actions">
-                 <button id="cancelButton" class="button secondary">No</button>
-                 <button id="confirmButton" class="button primary">Yes</button>
-             </div>
-             <!-- Moved Confirmation Dialog Templates -->
-             <data data-translation-key="confirmDefaultTitle">Confirmation</data>
-             <data data-translation-key="confirmDefaultOk">Ok</data>
-             <data data-translation-key="confirmDefaultCancel">Cancel</data>
-             <data data-translation-key="deleteSheetTitle">Delete List?</data>
-             <data data-translation-key="deleteSheetMessage">Are you sure you want to delete the list '%NAME%'? This cannot be undone.</data>
-             <data data-translation-key="deleteSheetOk">Delete</data>
-             <data data-translation-key="deleteSheetCancel">Cancel</data>
-         </dialog>
+        <!-- Confirmation Dialog -->
+        <dialog id="confirmationDialog" class="unicorn-theme">
+            <h2 id="confirmationTitle">Confirm</h2>
+            <p class="dialog-message">Are you sure?</p>
+            <div class="dialog-actions">
+                <button id="cancelButton" class="button secondary">No</button>
+                <button id="confirmButton" class="button primary">Yes</button>
+            </div>
+            <!-- Confirmation Dialog Templates -->
+            <data data-translation-key="confirmDefaultTitle">Confirmation</data>
+            <data data-translation-key="confirmDefaultOk">Ok</data>
+            <data data-translation-key="confirmDefaultCancel">Cancel</data>
+            <data data-translation-key="deleteSheetTitle">Delete List?</data>
+            <data data-translation-key="deleteSheetMessage">Are you sure you want to delete the list '%NAME%'? This cannot be undone.</data>
+            <data data-translation-key="deleteSheetOk">Delete</data>
+            <data data-translation-key="deleteSheetCancel">Cancel</data>
+        </dialog>
 
-         <!-- START Waiting Dialog -->
-         <dialog id="waitingDialog" class="dialog unicorn-theme">
-           <div class="dialog-content text-center"> <!-- Added text-center -->
-             <!-- Title using translation key -->
-             <h2 data-translation-key="waitingDialogTitle" class="text-2xl font-bold mb-4">Taking a While...</h2>
+        <!-- Waiting Dialog -->
+        <dialog id="waitingDialog" class="dialog unicorn-theme">
+            <div class="dialog-content text-center">
+                <!-- Title using translation key -->
+                <h2 data-translation-key="waitingDialogTitle" class="text-2xl font-bold mb-4">Waiting...</h2>
 
-             <!-- Message using translation key - CORRECTED CLASS -->
-             <p class="dialog-message" data-translation-key="waitingDialogDefaultMsg">Please wait, the game host will start soon!</p> <!-- Changed id="waitingMessage" class="mb-4" to class="dialog-message" -->
+                <!-- Message using translation key -->
+                <p class="dialog-message" data-translation-key="waitingDialogDefaultMsg">Please wait, the game host will start soon!</p>
 
-             <!-- Cute animated unicorn/poop image -->
-             <img src="img/loading.gif" alt="Waiting..." class="mx-auto my-4 h-20 w-20"> <!-- Use your loading gif -->
+                <!-- Cute animated unicorn/poop image -->
+                <img src="img/loading.gif" alt="Waiting..." class="mx-auto my-4 h-20 w-20"> <!-- Use your loading gif -->
 
-             <!-- Optional: Spinner (if the gif isn't animated) -->
-             <!-- <div class="spinner" style="margin: 1em auto; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--color-accent); border-radius: 50%; animation: spin 1s linear infinite;"></div> -->
 
-             <!-- Optional: Add a cancel button if needed later, with translation -->
-             <!--
-             <button id="cancelWaitingButton" class="button secondary mt-4" data-translation-key="waitingDialogCancel">Cancel</button>
-             -->
-           </div>
-         </dialog>
-         <!-- END Waiting Dialog -->
+            </div>
+        </dialog>
+        <!-- END Waiting Dialog -->
 
-         <!-- START Multiplayer Lobby Dialog -->
-         <dialog id="multiplayerLobbyDialog" class="dialog unicorn-theme hidden">
-             <h2 class="dialog-title">Lobby</h2> <!-- Assuming title class -->
-             <p id="lobbyStatusText" class="dialog-status">Waiting...</p> <!-- Added status text -->
-             <ul id="lobbyPlayerList" class="player-list"></ul> <!-- Added player list UL -->
-             <div class="dialog-actions">
-                  <!-- Add the standard back button -->
-                  <button class="backToMain button">Back</button>
-                  <!-- <button id="lobbyLeaveButton" class="button danger">Leave Lobby</button> --> <!-- Removed leave button -->
-             </div>
-              <!-- Lobby Dialog Templates -->
-              <data data-translation-key="lobbyWaitingForHost">Waiting for host to start game...</data>
-              <data data-translation-key="lobbyWaitingForPlayers">Waiting for players...</data>
-              <!-- Template for player item in lobby - CORRECTED ID -->
-              <template id="lobby-player-item-template"> <!-- Corrected ID -->
-                  <li class="lobby-player-item" data-peer-id="">
-                      <span class="lobby-player-name"></span>
-                      <span class="lobby-player-tags"></span>
-                  </li>
-              </template>
-         </dialog>
-         <!-- END Multiplayer Lobby Dialog -->
+        <!-- Multiplayer Lobby Dialog -->
+        <dialog id="multiplayerLobbyDialog" class="dialog unicorn-theme hidden">
+            <h2 class="dialog-title">Lobby</h2>
+            <p id="lobbyStatusText" class="dialog-status">Waiting...</p>
+            <ul id="lobbyPlayerList" class="player-list"></ul>
+            <div class="dialog-actions">
+                <!-- Standard back button -->
+                <button class="backToMain button">Back</button>
+            </div>
+            <!-- Lobby Dialog Templates -->
+            <data data-translation-key="lobbyWaitingForHost">Waiting for host to start game...</data>
+            <data data-translation-key="lobbyWaitingForPlayers">Waiting for players...</data>
+            <!-- Template for player item in lobby -->
+            <template id="lobby-player-item-template">
+                <li class="lobby-player-item" data-peer-id="">
+                    <span class="lobby-player-name"></span>
+                    <span class="lobby-player-tags"></span>
+                </li>
+            </template>
+        </dialog>
+        <!-- END Multiplayer Lobby Dialog -->
 
-         <!-- Add spinner CSS if you choose to use the div spinner -->
-         <style>
-         @keyframes spin {
-           0% { transform: rotate(0deg); }
-           100% { transform: rotate(360deg); }
-         }
-         </style>
+        <!-- Toast Notification Area -->
+        <div id="toastNotification" class="hidden">
+            <span id="toastMessage"></span>
+            <!-- Toast/Feedback Templates -->
+            <data data-translation-key="hostCopyCodeSuccess">Code copied!</data>
+            <data data-translation-key="hostCopyCodeError">Copy failed</data>
+            <data data-translation-key="hostCopyLinkSuccess">Link copied!</data>
+            <data data-translation-key="hostCopyLinkError">Copy failed</data>
+            <data data-translation-key="easterEggActivated">🦄💩 Easter Egg Activated! 🥳 Click around!</data>
+            <data data-translation-key="coordSaveSuccess">Question list '%NAME%' saved.</data>
+            <data data-translation-key="coordSaveErrorDefault">Unknown error saving question list.</data>
+            <data data-translation-key="coordSaveErrorFeedback">Error saving '%NAME%'.</data>
+            <data data-translation-key="coordDeleteSuccess">Question list deleted.</data>
+            <data data-translation-key="coordDeleteErrorDefault">Unknown error deleting question list.</data>
+            <data data-translation-key="coordDeleteErrorFeedback">Error deleting question list.</data>
+            <data data-translation-key="coordEditLoadErrorFeedback">Error loading question list for editing.</data>
+            <data data-translation-key="mpHostPlayerLeft">%PLAYER_NAME% has left the game.</data>
+            <data data-translation-key="hsLoadErrorFeedback">Error loading high scores.</data>
+            <data data-translation-key="hsSaveError">Could not save high score.</data>
+        </div>
 
-         <!-- Toast Notification Area -->
-         <div id="toastNotification" class="hidden">
-             <span id="toastMessage"></span>
-             <!-- Moved Toast/Feedback Templates -->
-             <data data-translation-key="hostCopyCodeSuccess">Code copied!</data>
-             <data data-translation-key="hostCopyCodeError">Copy failed</data>
-             <data data-translation-key="hostCopyLinkSuccess">Link copied!</data>
-             <data data-translation-key="hostCopyLinkError">Copy failed</data>
-             <data data-translation-key="easterEggActivated">🦄💩 Easter Egg Activated! 🥳 Click around!</data>
-             <data data-translation-key="coordSaveSuccess">Question list '%NAME%' saved.</data>
-             <data data-translation-key="coordSaveErrorDefault">Unknown error saving question list.</data>
-             <data data-translation-key="coordSaveErrorFeedback">Error saving '%NAME%'.</data>
-             <data data-translation-key="coordDeleteSuccess">Question list deleted.</data>
-             <data data-translation-key="coordDeleteErrorDefault">Unknown error deleting question list.</data>
-             <data data-translation-key="coordDeleteErrorFeedback">Error deleting question list.</data>
-             <data data-translation-key="coordEditLoadErrorFeedback">Error loading question list for editing.</data>
-             <data data-translation-key="mpHostPlayerLeft">%PLAYER_NAME% has left the game.</data>
-             <data data-translation-key="hsLoadErrorFeedback">Error loading high scores.</data>
-             <data data-translation-key="hsSaveError">Could not save high score.</data>
-         </div>
+        <!-- Global/RTC Templates -->
+        <data data-translation-key="rtcErrorPeerJSLoad">PeerJS library not loaded. Multiplayer is not available.</data>
 
-        <!-- Moved Global/RTC Templates (Place near top of #app or body) -->
-        <data data-translation-key="rtcErrorPeerJSLoad">PeerJS library not loaded. Multiplayer is unavailable.</data>
-
-        <!-- Renamed ID to #countdown and added inner #countdownText -->
+        <!-- Countdown -->
         <div id="countdown" class="hidden">
-            <span id="countdownText">5</span> 
+            <span id="countdownText">5</span>
         </div>
 
     </div> <!-- End #app -->
 
-    <script src="js/lib/peerjs.min.js"></script>
-    
-    <script src="js/lib/confetti.js"></script>
-
-    <!-- V2 Application Entry Point (Module) -->
-    <script type="module" src="js/UnicornPoep.js"></script>
-
-    <!-- Analytics -->
-    <script data-goatcounter="https://unicornpoep.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
-
     <div id="text-templates" style="display: none;">
-        <!-- ... existing templates ... -->
+        <!-- ... existing translation keys ... -->
 
         <data data-translation-key="timerDefault">⏳</data>
         <data data-translation-key="hostLoading">Loading...</data>
-        <data data-translation-key="errorDialogHostUnavailable">Oops! Could not find the game. Maybe the code is wrong, or the other player has already stopped?</data>
-        <data data-translation-key="errorDialogNetwork">Oops! There is something wrong with the internet. Try again later!</data>
-        <data data-translation-key="errorDialogGenericConnection">Oops! Something went wrong while connecting. Try again!</data>
+        <data data-translation-key="errorDialogHostUnavailable">Oops! Couldn't find the game. Maybe the code is wrong, or the other player has already stopped?</data>
+        <data data-translation-key="errorDialogNetwork">Oops! There's something wrong with the internet. Try again later!</data>
+        <data data-translation-key="errorDialogGenericConnection">Oops! Something went wrong connecting. Try again!</data>
         <data data-translation-key="genericInternalError">An unexpected error occurred. Please try again.</data>
         <data data-translation-key="gameWarnAlreadyActive">You are already in a game!</data>
         <data data-translation-key="gameErrorStartWhileActive">Cannot start a new game, a game is already active.</data>
@@ -682,24 +685,24 @@
         <data data-translation-key="joinErrorConnectFail">Could not connect to host.</data>
 
         <!-- Waiting Dialog Translations -->
-        <data data-translation-key="waitingDialogTitle">Waiting for the Host...</data>
+        <data data-translation-key="waitingDialogTitle">Waiting for the game host...</data>
         <data data-translation-key="waitingDialogDefaultMsg">Please wait, the game host will start soon!</data>
-        <!-- <data data-translation-key="waitingDialogCancel">Cancel</data> --> <!-- Uncomment if adding cancel button -->
 
         <data data-translation-key="lobbyReadyTag">[IS READY]</data>
 
-        <!-- ADDED Missing Keys -->
         <data data-translation-key="mpHostWaitOthers">Waiting for other players...</data>
-        <data data-translation-key="mpClientWaitOthers">You are ready! Waiting for the other players...</data>
+        <data data-translation-key="mpClientWaitOthers">You're ready! Waiting for the other players...</data>
         <data data-translation-key="mpEndDraw">It's a draw!</data>
         <data data-translation-key="mpEndWinnerPrefix">%NAME% wins!</data>
-        <data data-translation-key="hsSaveErrorInvalidData">Error saving: Invalid data.</data>
-        <data data-translation-key="errorUnexpectedConsole">An unexpected console error occurred.</data>
-        <!-- END ADDED -->
+
+        <data data-translation-key="mpEndLocalWin">You won!</data>
+        <data data-translation-key="hostLinkCopied">Link copied!</data>
+        <data data-translation-key="hostStartButton">Start Game!</data>
+        <data data-translation-key="hostStartButtonWaiting">Waiting for players...</data>
 
         <!-- Random name generator word lists -->
         <datalist id="name-adjectives">
-            <option value="Shiny"></option>
+            <option value="Shining"></option>
             <option value="Rainbow"></option>
             <option value="Sparkling"></option>
             <option value="Happy"></option>
@@ -714,7 +717,7 @@
             <option value="Singing"></option>
             <option value="Idiotic"></option>
             <option value="Spitting"></option>
-            <option value="Croaking"></option>
+            <option value="Quacking"></option>
             <option value="Mashed"></option>
             <option value="Barking"></option>
             <option value="Fluffy"></option>
@@ -749,62 +752,80 @@
             <option value="Fairy"></option>
             <option value="Gnome"></option>
             <option value="Pancake"></option>
-            <option value="Sausage"></option>
+            <option value="Hotdog"></option> <!-- Approximated Knakworst -->
             <option value="Croquette"></option>
-            <option value="CheeseSouffle"></option>
-            <option value="NoodleDisk"></option>
-            <option value="Meatball"></option>
+            <option value="Cheese Souffle"></option> <!-- Approximated Kaassoufflé -->
+            <option value="Noodle Disk"></option> <!-- Approximated Bamischijf -->
+            <option value="Meatball"></option> <!-- Approximated Bal Gehakt -->
             <option value="Raindrop"></option>
             <option value="Moonbeam"></option>
             <option value="Rocket"></option>
             <option value="Sock"></option>
             <option value="Slipper"></option>
             <option value="Teapot"></option>
-            <option value="CookieJar"></option>
+            <option value="Cookie Jar"></option>
             <option value="Goldfish"></option>
             <option value="Cricket"></option>
             <option value="Carrot"></option>
             <option value="Pizza"></option>
             <option value="Waffle"></option>
-            <option value="TeddyBear"></option>
-            <option value="BouncyBall"></option>
-            <option value="LaserBeam"></option>
+            <option value="Teddy Bear"></option>
+            <option value="Bouncy Ball"></option>
+            <option value="Laser Beam"></option>
             <option value="Ninja"></option>
             <option value="Pirate"></option>
         </datalist>
     </div>
 
-    <!-- Add more template keys as needed -->
+    <!-- Translation Keys -->
     <data data-translation-key="namePromptTitle">Enter Your Name</data>
     <data data-translation-key="namePromptButton">Join Game</data>
     <data data-translation-key="hostLobbyLinkCopied">Join link copied to clipboard!</data>
-    <data data-translation-key="hostLobbyCodeCopied">Host code copied to clipboard!</data> <!-- Added just in case -->
+    <data data-translation-key="hostLobbyCodeCopied">Host code copied to clipboard!</data>
 
     <!-- General UI -->
     <data data-translation-key="backButton">Back</data>
 
 
-    <!-- ADD Basic Styling for the button container -->
+    <!-- Basic Styling for the input+button container -->
     <style>
         .input-with-button {
             display: flex;
             align-items: center;
         }
+
         .input-with-button input[type="text"] {
             flex-grow: 1;
             /* Optional: Adjust margin if needed */
-            /* margin-right: 5px; */ 
+            /* margin-right: 5px; */
         }
+
         .refresh-name-button {
             background: none;
             border: none;
-            font-size: 1.5em; /* Adjust size as needed */
+            font-size: 1.5em;
+            /* Adjust size as needed */
             cursor: pointer;
-            padding: 0 5px; /* Add some padding */
-            margin-left: 5px; /* Space between input and button */
-            line-height: 1; /* Align vertically */
+            padding: 0 5px;
+            /* Add some padding */
+            margin-left: 5px;
+            /* Space between input and button */
+            line-height: 1;
+            /* Align vertically */
         }
     </style>
 
+
+    <script src="js/lib/peerjs.min.js"></script>
+
+    <script src="js/lib/confetti.js"></script>
+
+    <!-- V2 Application Entry Point (Module) -->
+    <script type="module" src="js/UnicornPoep.js"></script>
+
+    <!-- Analytics -->
+    <script data-goatcounter="https://unicornpoep.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+
 </body>
+
 </html>
