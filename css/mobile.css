@@ -52,12 +52,6 @@ label { font-size: 1.2rem; }
     border-radius: 20px;
 }
 
-/* --- Layout Adjustments --- */
-
-/* Main Menu */
-#menuItems {
-    width: 95%; /* Slightly wider on mobile */
-}
 
 /* Sheet Selection */
 #sheetSelection {
@@ -69,23 +63,6 @@ label { font-size: 1.2rem; }
     flex-basis: auto; /* Reset flex basis */
     width: 100%;
     padding: 0;
-}
-
-/* Game Area */
-#gameArea {
-    width: 100%; /* Make game area full width */
-    height: calc(100% - 20px); /* Adjust height slightly */
-    padding: 15px;
-    padding-bottom: 100px; /* Ensure space for nav */
-    box-sizing: border-box; /* Ensure padding included */
-}
-#gameElements {
-    padding-top: 55px; /* Adjust for smaller header */
-    height: calc(100% - 55px);
-}
-#answers {
-    gap: 10px;
-    padding: 10px;
 }
 
 /* Multiplayer Choice */
@@ -298,6 +275,10 @@ label { font-size: 1.2rem; }
     button { /* General buttons */
         font-size: 1.2rem;
         padding: 0.8rem 1rem;
+    }
+
+    #gameArea {
+        max-width: unset;
     }
 
     #answers button {
