@@ -512,7 +512,7 @@ class JoinLobbyComponent extends RefactoredBaseComponent {
      */
     _handleBackClick(event) {
         event.preventDefault();
-        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MultiplayerChoice });
+        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
     }
 
     /**

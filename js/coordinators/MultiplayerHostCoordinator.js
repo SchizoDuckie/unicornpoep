@@ -80,6 +80,9 @@ class MultiplayerHostCoordinator {
         // Listen for End Dialog Close
         eventBus.on(Events.UI.EndDialog.ReturnToMenuClicked, this.handleReturnToMenuClicked);
         
+        // Listen for WebRTC PeerDisconnected events
+        eventBus.on(Events.WebRTC.PeerDisconnected, this.handlePeerDisconnected);
+        
         console.info("[MultiplayerHostCoordinator] Listeners registered.");
     }
 
@@ -557,6 +560,84 @@ class MultiplayerHostCoordinator {
     }
 
     /**
+     * Handles the WebRTC PeerDisconnected event for the host.
+     * If the host peer is disconnected, attempts to recover by restarting the host session.
+     * @param {Object} payload - The event payload
+     * @param {string} payload.peerId - The ID of the disconnected peer
+     * @private
+     */
+    handlePeerDisconnected = ({ peerId }) => {
+        console.log(`[MultiplayerHostCoordinator] PeerDisconnected event received for peer: ${peerId}`);
+        
+        // Check if we're actually in host mode
+        if (this.currentGameMode !== 'multiplayer-host' || !this.activeHostManager) {
+            console.log("[MultiplayerHostCoordinator] Ignoring PeerDisconnected event - not in host mode or no active host manager");
+            return;
+        }
+        
+        // Check if this is a host peer disconnection (the host's own peer)
+        const hostPeerId = this.activeHostManager.getHostPeerId?.() || this.pendingJoinCode;
+        if (peerId === hostPeerId) {
+            console.warn("[MultiplayerHostCoordinator] Host peer itself disconnected. Attempting to recover...");
+            
+            // Save the current state before resetting
+            const playerName = this.playerName;
+            const gameSettings = this.pendingGameSettings || 
+                (this.activeHostManager && typeof this.activeHostManager.getGameSettings === 'function' 
+                ? this.activeHostManager.getGameSettings() 
+                : null);
+            const joinCode = this.pendingJoinCode;
+            
+            // Reset the state to clean up resources
+            this.resetState();
+            
+            // Show a feedback message
+            eventBus.emit(Events.System.ShowFeedback, { 
+                message: miscUtils.getTextTemplate('mpHostReconnecting', 'Connection lost. Reconnecting...'), 
+                level: 'warn' 
+            });
+            
+            // If we have the needed data, try to restart the host session with the same code
+            if (playerName && gameSettings && joinCode) {
+                console.log("[MultiplayerHostCoordinator] Attempting to restart host session with same code");
+                
+                // Store the settings and player name
+                this.playerName = playerName;
+                this.pendingGameSettings = gameSettings;
+                
+                // Show loading screen during reconnection
+                eventBus.emit(Events.Navigation.ShowView, { viewName: Views.Loading });
+                
+                // Attempt to restart the host session
+                setTimeout(() => {
+                    // Attempt to restart WebRTC with the same code
+                    try {
+                        webRTCManager.startHost(playerName);
+                    } catch (error) {
+                        console.error(`[MultiplayerHostCoordinator] Failed to restart host session: ${error.message}`, error);
+                        eventBus.emit(Events.System.ShowFeedback, { 
+                            message: miscUtils.getTextTemplate('mpHostReconnectFailed', 'Failed to reconnect. Please try again.'), 
+                            level: 'error' 
+                        });
+                        eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+                    }
+                }, 1000); // Brief delay to allow previous connections to fully close
+            } else {
+                console.error("[MultiplayerHostCoordinator] Unable to restart host - missing required data");
+                eventBus.emit(Events.System.ShowFeedback, { 
+                    message: miscUtils.getTextTemplate('mpHostReconnectFailed', 'Failed to reconnect. Please try again.'), 
+                    level: 'error' 
+                });
+                eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+            }
+        } else {
+            // This is a client disconnection, handle normally through host manager
+            console.log(`[MultiplayerHostCoordinator] Client peer disconnected: ${peerId}`);
+            // This is handled automatically by WebRTCManager's ClientDisconnected event
+        }
+    }
+
+    /**
      * Resets the coordinator's internal state.
      * Destroys active host manager, game, and quiz engine if they exist.
      * @private
@@ -593,6 +674,8 @@ class MultiplayerHostCoordinator {
         
         // Remove event listeners when resetting
         eventBus.off(Events.Multiplayer.Host.Initialized, this.handleHostInitialized);
+        // Also remove PeerDisconnected listener to avoid duplicates if we're reconnecting
+        eventBus.off(Events.WebRTC.PeerDisconnected, this.handlePeerDisconnected);
         
         this.currentGameMode = null;
         this.pendingGameSettings = null;

@@ -334,13 +334,13 @@ class UIManager extends RefactoredBaseComponent {
                  console.log(`[UIManager] GameArea shown. Is multiplayer: ${isMultiplayer}`);
 
                  // Always show these core game components when GameArea is active
-                 this.components.get(QuestionDisplayComponent.VIEW_NAME)?.show();
-                 this.components.get(AnswerListComponent.VIEW_NAME)?.show(); // Assuming AnswerList is always needed
-                 this.components.get(TimerDisplayComponent.VIEW_NAME)?.show();
-                 this.components.get(ProgressDisplayComponent.VIEW_NAME)?.show();
-                 this.components.get(ScoreDisplayComponent.VIEW_NAME)?.show();
-                 this.components.get(GameFeedbackComponent.VIEW_NAME)?.show(); // Show feedback area
-                 this.components.get(GameNavigationComponent.VIEW_NAME)?.show(); // Show navigation (like Stop button)
+                 this.components.get(QuestionDisplayComponent.VIEW_NAME).show();
+                 this.components.get(AnswerListComponent.VIEW_NAME).show(); // Assuming AnswerList is always needed
+                 this.components.get(TimerDisplayComponent.VIEW_NAME).show();
+                 this.components.get(ProgressDisplayComponent.VIEW_NAME).show();
+                 this.components.get(ScoreDisplayComponent.VIEW_NAME).show();
+                 this.components.get(GameFeedbackComponent.VIEW_NAME).show(); // Show feedback area
+                 this.components.get(GameNavigationComponent.VIEW_NAME).show(); // Show navigation (like Stop button)
 
                  // Conditionally show/hide PlayerList
                  const playerListComponent = this.components.get(PlayerListComponent.VIEW_NAME);

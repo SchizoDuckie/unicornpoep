@@ -50,7 +50,7 @@ html {
     margin-top: 80px;
 }
 
-.dialog {
+dialog, .dialog {
     width: fit-content;
     min-width: 20em;
     max-width: 90%;
@@ -196,7 +196,6 @@ h1 small {
 #sheetSelection,
 #difficultySelection,
 #highscores,
-#endOfGameDialog,
 #customQuestionsManager #customSheetSelection, 
 #about,
 #multiplayerChoice {

@@ -148,25 +148,23 @@ class MultiplayerHostManager {
             return;
         }
         console.log(`[${this.constructor.name}] Stopping hosting (Lobby Phase)...`);
-        this.isHosting = false;
-        // Remove listeners
+        // Keep isHosting true until fully stopped/game started
+        // this.isHosting = false; // Defer setting this?
+
+        // Remove listeners specific to the LOBBY phase
         eventBus.off(Events.Multiplayer.Host.ClientConnected, this.handleClientConnected);
-        eventBus.off(Events.Multiplayer.Host.ClientDisconnected, this.handleClientDisconnected);
-        eventBus.off(Events.WebRTC.MessageReceived, this.handleDataReceived);
-        eventBus.off(Events.Multiplayer.Common.PlayerListUpdated, this._handlePlayerListUpdate);
-        // Optionally, clear player list or keep it? Let's clear for a clean stop.
-        // this.players.clear(); 
+        // DO NOT remove ClientDisconnected here - needed during game phase
+        // eventBus.off(Events.Multiplayer.Host.ClientDisconnected, this.handleClientDisconnected); 
+        eventBus.off(Events.WebRTC.MessageReceived, this.handleDataReceived); // Stop listening for lobby messages
+        eventBus.off(Events.Multiplayer.Common.PlayerListUpdated, this._handlePlayerListUpdate); // Stop sync based on WebRTC list
+        eventBus.off(Events.UI.HostLobby.StartGameClicked, this.handleStartGameClicked); // Stop listening for UI start click
 
-        // ADDED: Remove StartGameClicked listener
-        eventBus.off(Events.UI.HostLobby.StartGameClicked, this.handleStartGameClicked);
+        // Keep the activeGame instance, it's needed for the game phase
+        // if (this.activeGame) { ... }
 
-        // ADDED: Clean up active game instance if it exists
-        if (this.activeGame) {
-             if (typeof this.activeGame.destroy === 'function') {
-                 this.activeGame.destroy();
-             }
-             this.activeGame = null;
-         }
+        // Mark lobby as inactive, but the manager might still be active for the game
+        // this.isHosting = false; // Maybe rename this flag or use gameHasStarted?
+        console.log(`[${this.constructor.name}] Lobby phase listeners removed.`);
     }
 
     /**
@@ -289,16 +287,36 @@ class MultiplayerHostManager {
      * Removes player from lobby list.
      * @param {object} payload
      * @param {string} payload.peerId Client's PeerJS ID.
+     * @param {string} payload.reason Reason for disconnect.
      * @event Events.WebRTC.ClientDisconnected
      */
-    handleClientDisconnected = ({ peerId }) => {
-        console.log(`[${this.constructor.name} Lobby] Client disconnected: ${peerId}`);
-        const playerName = this.players.get(peerId).name || 'Unknown';
-        this.removePlayer(peerId);
-        this._rematchRequestedPeers.delete(peerId); // <<< Clear rematch request on disconnect
+    handleClientDisconnected = ({ peerId, reason }) => {
+        if (!this.players.has(peerId)) {
+            console.warn(`[${this.constructor.name}] Received disconnect for unknown or already removed peer: ${peerId}`);
+            return;
+        }
 
-        // Host UI update handled by removePlayer
-        eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('mpHostLobbyCancelled', {'%NAME%': playerName }), level: 'info' });
+        const playerName = this.players.get(peerId)?.name || 'Unknown';
+        console.log(`[${this.constructor.name}] Client disconnected: ${playerName} (${peerId}). Reason: ${reason}. Game started: ${this.gameHasStarted}`);
+
+        this.removePlayer(peerId); // Remove from internal list (conditionally broadcasts)
+        this._rematchRequestedPeers.delete(peerId); // Clear rematch request on disconnect
+
+        // Show feedback regardless of game state
+        eventBus.emit(Events.System.ShowFeedback, { message: getTextTemplate('mpHostPlayerLeft', {'%NAME%': playerName }), level: 'info' });
+
+        // --- Notify Active Game if it has started ---
+        if (this.gameHasStarted && this.activeGame) {
+            if (typeof this.activeGame.handlePlayerDisconnect === 'function') {
+                console.log(`[${this.constructor.name}] Notifying active game about player disconnect: ${playerName} (${peerId})`);
+                this.activeGame.handlePlayerDisconnect(peerId, playerName);
+            } else {
+                console.warn(`[${this.constructor.name}] Active game instance exists but has no 'handlePlayerDisconnect' method.`);
+            }
+        } else {
+             console.log(`[${this.constructor.name}] Player disconnected during lobby phase or no active game. Lobby UI updated via removePlayer.`);
+             // Lobby UI update (local emit) happens inside removePlayer if gameHasStarted is false
+        }
     }
 
     /**
@@ -529,11 +547,26 @@ class MultiplayerHostManager {
      */
     destroy() {
         console.log(`[${this.constructor.name}] Destroying...`);
-        this.leaveLobby(); // Ensure lobby stops and listeners are removed
+        this.leaveLobby(); // Ensure lobby stops and lobby-specific listeners are removed
+        
+        // Explicitly remove listeners that might persist after stopHosting
+        eventBus.off(Events.Multiplayer.Host.ClientDisconnected, this.handleClientDisconnected);
+        eventBus.off(Events.WebRTC.MessageReceived, this.handleDataReceived); // Ensure this is off too
+        eventBus.off(Events.UI.HostLobby.StartGameClicked, this.handleStartGameClicked); // Ensure this is off
+
+        // Clean up active game instance if it exists
+        if (this.activeGame) {
+            if (typeof this.activeGame.destroy === 'function') {
+                this.activeGame.destroy();
+            }
+            this.activeGame = null;
+        }
+
         this.players.clear();
         this.quizEngine = null; // Release reference
         this.isHosting = false;
-        this._rematchRequestedPeers.clear(); // <<< Clear rematch requests on destroy
+        this.gameHasStarted = false; // Reset flag
+        this._rematchRequestedPeers.clear(); 
         console.log(`[${this.constructor.name}] Destroyed.`);
     }
 
@@ -620,7 +653,7 @@ class MultiplayerHostManager {
 
         // 1. Stop listening specifically for *lobby* events (join requests, ready)
         // Keep listeners for generic messages and disconnects active for the game phase.
-        this.stopHosting(); // Rename or refine this if needed
+        this.stopHosting(); // Removes LOBBY listeners only now
 
         // 2. Broadcast GAME_START to all connected clients
         console.log(`[${this.constructor.name}] Broadcasting GAME_START.`);
