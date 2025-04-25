@@ -541,7 +541,52 @@ class MultiplayerHostCoordinator {
 
         console.log("[MultiplayerHostCoordinator] HostWaiting event received.", payload);
         eventBus.emit(Events.System.ShowWaitingDialog, { message: miscUtils.getTextTemplate('mpHostWaitOthers', 'You finished! Waiting for other players...') });
+        
+        // Check if there are any clients connected at all
+        this._checkForAutoComplete();
     };
+
+    /**
+     * Checks if there are any clients connected while host is waiting.
+     * If no clients are connected, automatically completes the game.
+     * @private
+     */
+    _checkForAutoComplete = () => {
+        // Only relevant when host is waiting for clients to finish
+        if (!this.activeHostManager || !this.activeGame || this.currentGameMode !== 'multiplayer-host') {
+            return;
+        }
+        
+        // Check if the game instance has a waiting state flag we can check
+        const isHostWaiting = this.activeGame.isHostFinished && this.activeGame.isHostFinished();
+        if (!isHostWaiting) {
+            return; // Host isn't in waiting state
+        }
+        
+        // Get connected client count
+        const connectedPlayers = this.activeHostManager.getPlayerList ? this.activeHostManager.getPlayerList() : new Map();
+        const clientCount = connectedPlayers.size - 1; // Subtract 1 for the host itself
+        
+        console.log(`[MultiplayerHostCoordinator] Checking for auto-complete. Connected clients: ${clientCount}`);
+        
+        if (clientCount <= 0) {
+            console.log("[MultiplayerHostCoordinator] No clients connected while host is waiting. Auto-completing game.");
+            // Hide waiting dialog
+            eventBus.emit(Events.System.HideWaitingDialog);
+            
+            // Force game completion by calling the game's complete method
+            if (this.activeGame.forceGameCompletion && typeof this.activeGame.forceGameCompletion === 'function') {
+                this.activeGame.forceGameCompletion();
+            } else if (this.activeGame.endGame && typeof this.activeGame.endGame === 'function') {
+                this.activeGame.endGame();
+            } else {
+                console.error("[MultiplayerHostCoordinator] No method available to force game completion.");
+                // Fallback: reset state and return to main menu
+                this.resetState();
+                eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
+            }
+        }
+    }
 
     /**
      * Handles the ReturnToMenuClicked event from the end dialog.
@@ -562,6 +607,7 @@ class MultiplayerHostCoordinator {
     /**
      * Handles the WebRTC PeerDisconnected event for the host.
      * If the host peer is disconnected, attempts to recover by restarting the host session.
+     * If a client disconnects while host is waiting, checks if all clients have disconnected.
      * @param {Object} payload - The event payload
      * @param {string} payload.peerId - The ID of the disconnected peer
      * @private
@@ -631,9 +677,11 @@ class MultiplayerHostCoordinator {
                 eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
             }
         } else {
-            // This is a client disconnection, handle normally through host manager
+            // This is a client disconnection
             console.log(`[MultiplayerHostCoordinator] Client peer disconnected: ${peerId}`);
-            // This is handled automatically by WebRTCManager's ClientDisconnected event
+            
+            // Check if we need to auto-complete the game (if the host is waiting and all clients are gone)
+            setTimeout(() => this._checkForAutoComplete(), 500); // Small delay to ensure player list is updated
         }
     }
 

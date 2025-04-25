@@ -238,31 +238,9 @@ class MultiplayerHostGame extends BaseGameMode {
                 this._hostHandleClientLeft(sender);
                 break;
 
-            case MSG_TYPE.CLIENT_READY:
-            case 'client_ready': // Keep fallback if needed based on client sending behavior
-                console.log(`[MultiplayerHostGame] Late join: Received CLIENT_READY from ${sender}. Payload:`, payload);
-                if (!this.clientScores.has(sender)) {
-                    // Add the late joiner to score tracking
-                    this.clientScores.set(sender, null);
-                    this.playersMap.set(sender, { name: payload.name || sender, isHost: false });
-                    console.log(`[MultiplayerHostGame] Added late joiner ${sender} to score tracking.`);
-                }
-                // Optionally, mark as ready or update player info
-                // Send the current game state to the late joiner
-                // For now, send the current question and scores (expand as needed)
-                this._sendCurrentGameStateToLateJoiner(sender);
-                break;
-
-            // Restore the correct case for C_SCORE_UPDATE
             case MSG_TYPE.C_SCORE_UPDATE:
                 this._hostHandleClientScoreUpdate({ sender, payload });
                 break;
-
-            default:
-                // Log unhandled message types during game phase for debugging
-                if (sender !== this.hostPeerId) { // Avoid logging host's own potential loopback messages
-                    console.log(`[MultiplayerHostGame] Ignoring unhandled message type '${type}' from ${sender}`);
-                }
         }
     }
 
@@ -446,12 +424,6 @@ class MultiplayerHostGame extends BaseGameMode {
                 isHost: peerId === this.hostPeerId
             };
         });
-
-        console.log("[MultiplayerHostGame] Broadcasting scores:", scoresPayload);
-        
-        // DEBUG: Log all connections before broadcast
-        console.log(`[MultiplayerHostGame] Active connections before broadcast:`, 
-            Array.from(this.connections?.keys() || []).join(', '));
 
         eventBus.emit(Events.Multiplayer.Common.SendMessage, {
             type: MSG_TYPE.H_PLAYER_SCORES_UPDATE,
@@ -928,6 +900,61 @@ class MultiplayerHostGame extends BaseGameMode {
             this.timer.off('end', this._boundHandleTimeUp);
             this._boundHandleTimeUp = null; // Clear the stored bound function
             console.log(`[MultiplayerHostGame] Removed timer 'end' listener.`);
+        }
+    }
+
+    /**
+     * Forces game completion when all clients have disconnected.
+     * This is called by the coordinator when it detects all clients are gone
+     * while the host is waiting for them to finish.
+     * @public
+     */
+    forceGameCompletion() {
+        console.log("[MultiplayerHostGame] Force completing game due to all clients disconnected");
+        
+        // Hide any game UI elements if needed
+        eventBus.emit(Events.System.HideWaitingDialog);
+        
+        // Determine a winner based only on host scores since clients are gone
+        const finalResults = this._prepareFinalResults();
+        
+        // Log results
+        console.log("[MultiplayerHostGame] Game completed by force with results:", finalResults);
+        
+        // Emit game finished event with these results
+        eventBus.emit(Events.Game.Finished, {
+            mode: 'multiplayer-host',
+            results: finalResults
+        });
+        
+        // Clean up resources
+        this.destroy();
+    }
+
+    /**
+     * Checks if the host has completed their own questions.
+     * @returns {boolean} True if the host has finished answering all questions.
+     * @public
+     */
+    isHostFinished() {
+        return this.hostFinished === true;
+    }
+
+    /**
+     * Handles a player disconnection by forwarding to _hostHandleClientLeft.
+     * This method is called by MultiplayerHostManager when a player disconnects.
+     * @param {string} peerId - The peer ID of the disconnected client.
+     * @public
+     */
+    handlePlayerDisconnect(peerId) {
+        console.log(`[MultiplayerHostGame] Handling player disconnect for ${peerId}`);
+        
+        // Use the existing client left handler which already has all the logic
+        this._hostHandleClientLeft(peerId);
+        
+        // Check for auto-completion after handling the client left
+        if (this.hostFinished) {
+            this._hostCheckCompletion();
         }
     }
 }

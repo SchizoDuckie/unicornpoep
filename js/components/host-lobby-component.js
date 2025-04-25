@@ -371,11 +371,11 @@ class HostLobbyComponent extends RefactoredBaseComponent {
      * @private 
      */
     updateStartButtonState(clientCount) {
-        if (!this.elements.startGameButton) return;
-        // Example rule: Enable start button if at least one client has joined.
         const canStart = clientCount >= 1; 
         this.elements.startGameButton.disabled = !canStart;
-        this.elements.startGameButton.classList.toggle('hidden', !canStart); 
+        this.elements.startGameButton.parentElement.classList.toggle('hidden', !canStart); 
+        this.elements.startGameButton.parentElement.classList.toggle('active', canStart); 
+    
         
         if (canStart) {
              this.elements.startGameButton.textContent = getTextTemplate('hostStartButton', 'Start Game');

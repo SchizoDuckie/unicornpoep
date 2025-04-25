@@ -1,5 +1,5 @@
 /* Mobile Styles - Generally targeting screens <= 768px */
-html {
+body {
     overflow-y: auto;
 }
 

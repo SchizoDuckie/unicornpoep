@@ -91,7 +91,7 @@ class MultiplayerClientManager {
             console.log(`[${this.constructor.name}] QuizEngine prepared. Notifying host with client_ready.`);
             // Protocol: After confirming join, explicitly notify the host that this client is ready.
             const currentName = this._playerName || 'Unknown Player'; // Use stored name or fallback
-            webRTCManager.sendToHost(MSG_TYPE.C_REQUEST_JOIN, { 
+            webRTCManager.sendToHost(MSG_TYPE.CLIENT_READY, { 
                 name: currentName,
                 isReady: true
             });
@@ -471,32 +471,20 @@ class MultiplayerClientManager {
         }
         console.log(`[MultiplayerClientManager] Sending join request to host ${this.hostPeerId} with name: ${playerName}`);
 
-        // Send the join request
+        // Step 1: Send the initial join request with the player name
         webRTCManager.sendToHost(MSG_TYPE.C_REQUEST_JOIN, { name: playerName });
         
-        // Send CLIENT_READY with explicit string type to avoid null type issues
+        // Step 2: After a delay, send the CLIENT_READY message to indicate readiness
         setTimeout(() => {
-            // Use the constant directly to avoid any issues with undefined imports
-            console.log(`[MultiplayerClientManager] Sending CLIENT_READY message (first attempt).`);
+            console.log(`[MultiplayerClientManager] Sending CLIENT_READY message to finalize joining.`);
             
-            const currentName = this._playerName || 'Unknown Player'; // Use stored name or fallback
-            // *** FIX: Use MSG_TYPE.CLIENT_READY ***
+            const currentName = this._playerName || playerName; // Use stored name or original name
+            // Use the constant to ensure type consistency
             webRTCManager.sendToHost(MSG_TYPE.CLIENT_READY, { 
                 name: currentName,
-                isReady: true  // Explicitly include isReady flag
+                isReady: true
             });
-            
-            // Send a second CLIENT_READY message as backup with explicit string
-            setTimeout(() => {
-                console.log(`[MultiplayerClientManager] Sending CLIENT_READY message (second attempt).`);
-                const backupName = this._playerName || 'Unknown Player'; // Use stored name again
-                // *** FIX: Use MSG_TYPE.CLIENT_READY ***
-                webRTCManager.sendToHost(MSG_TYPE.CLIENT_READY, { 
-                    name: backupName,
-                    isReady: true  // Explicitly include isReady flag
-                });
-            }, 1000); // Try again 1 second after the first attempt
-        }, 800); // Increase delay to ensure join request is fully processed first
+        }, 800); // Delay to ensure join request is processed first
     }
 
     /**

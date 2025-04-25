@@ -189,6 +189,7 @@ class UIManager extends RefactoredBaseComponent {
 
         // --- Instantiate Utility/Overlay Components (extend BaseComponent) ---
         this._registerComponent(new LoadingComponent());
+        this._registerComponent(new ToastComponent());
         this._registerComponent(new CountdownComponent());
         
         // --- Instantiate Game Area Components ---
@@ -200,8 +201,7 @@ class UIManager extends RefactoredBaseComponent {
         this._registerComponent(new PlayerListComponent());
         this._registerComponent(new GameNavigationComponent());
         this._registerComponent(new SheetSelectionComponent());
-        this._registerComponent(new LoadingComponent());
-        this._registerComponent(new ToastComponent());
+        
 
         // --- Instantiate Dialog Components (extend BaseDialog) ---
         this._registerComponent(new SinglePlayerEndDialog());
@@ -247,14 +247,11 @@ class UIManager extends RefactoredBaseComponent {
      * @private
      */
     _registerComponent(componentInstance) {
-        console.info(`[UIManager] Registering '${componentInstance.name}'.`);
-
         if (!componentInstance || !componentInstance.name) {
             console.error("[UIManager] Cannot register invalid component instance:", componentInstance);
             return;
         }
         
-        // Check if it extends RefactoredBaseComponent or BaseDialog
         if (!(componentInstance instanceof RefactoredBaseComponent || componentInstance instanceof BaseDialog)) { 
             console.warn(`[UIManager] Component '${componentInstance.name}' does not extend RefactoredBaseComponent or BaseDialog.`);
         }

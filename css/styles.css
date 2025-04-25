@@ -592,8 +592,7 @@ h1 small {
 }
 
 
-#sheetNavigation,
-#gameNavigation {
+#sheetNavigation, #gameNavigation, #connectionCode .start-section {
     position: fixed;
     bottom: -100%; 
     left: 0%; 
@@ -606,19 +605,17 @@ h1 small {
     z-index: 15;
     display: grid;
     place-items: center;
-    border-bottom-left-radius: 30px;
-    border-bottom-right-radius: 30px;
+    border-radius: 0;
     box-sizing: border-box;
 }
 
 #sheetNavigation.active,
-#gameNavigation.active {
-    bottom: 0%;
-    
+#gameNavigation.active,
+#connectionCode .start-section.active {
+    bottom: 0%;   
 }
 
-#startGame,
-#gameNavigation #nextButton { 
+#startGame, #gameNavigation #nextButton { 
     width: 80%;
     padding: 1rem 2rem;
     font-size: 2rem;

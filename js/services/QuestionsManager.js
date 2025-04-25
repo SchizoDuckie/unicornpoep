@@ -43,22 +43,11 @@ class QuestionsManager {
 
         this.initializationPromise = (async () => {
             this.selectableItems = []; // Reset selectable items list
-            try {
-                // Discover default sheets AND PARSE CATEGORIES
-                await this._discoverAndParseDefaultSheets();
+            await this._discoverAndParseDefaultSheets();
+            this._loadCustomSheets();
 
-                // Load custom sheets and add them to selectable items
-                this._loadCustomSheetsAndAddToSelectable();
-
-                this.isInitialized = true;
-                console.log(`[QuestionsManager] Initialization complete. ${this.selectableItems.length} selectable items available.`);
-
-            } catch (error) {
-                console.error("[QuestionsManager] Critical initialization error:", error);
-                this.isInitialized = false;
-                this.selectableItems = []; // Clear list on error
-                throw error;
-            }
+            this.isInitialized = true;
+            console.log(`[QuestionsManager] Initialization complete. ${this.selectableItems.length} selectable items available.`);            
         })();
 
         return this.initializationPromise;
@@ -160,13 +149,20 @@ class QuestionsManager {
         }
     }
 
-    /** Loads custom sheets and adds their metadata to the selectableItems list. */
-    _loadCustomSheetsAndAddToSelectable() {
-        console.log("[QuestionsManager] Loading custom sheets from localStorage...");
-        // Load data first (uses CUSTOM_SHEETS_STORAGE_KEY = 'customSheets')
-        this._loadCustomSheets(); // This populates this.customSheets Map
+    /** Loads custom sheets from localStorage. */
+    _loadCustomSheets() {
 
-        // Now add them to the selectable list
+        const storedData = localStorage.getItem(CUSTOM_SHEETS_STORAGE_KEY);
+        if (storedData) {
+            const parsedData = JSON.parse(storedData);
+            if (typeof parsedData === 'object' && parsedData !== null) {
+                this.customSheets = new Map(Object.entries(parsedData)); 
+                console.log(`[QuestionsManager] Loaded ${this.customSheets.size} custom sheets data.`);
+            } else {
+                console.warn("[QuestionsManager] Invalid data format found in localStorage for custom sheets. Starting fresh.");
+                localStorage.removeItem(CUSTOM_SHEETS_STORAGE_KEY);
+            }
+        }
         this.customSheets.forEach((sheetData, sheetId) => {
             this.selectableItems.push({
                 id: sheetId, // Use the custom sheet's unique ID
@@ -174,34 +170,7 @@ class QuestionsManager {
                 isCustom: true
             });
         });
-         console.log(`[QuestionsManager] Added ${this.customSheets.size} custom sheets to selectable items.`);
-    }
-
-    /** Loads custom sheets from localStorage. */
-    _loadCustomSheets() {
-        console.log("[QuestionsManager] Loading custom sheets from localStorage...");
-        try {
-            const storedData = localStorage.getItem(CUSTOM_SHEETS_STORAGE_KEY);
-            if (storedData) {
-                const parsedData = JSON.parse(storedData);
-                // V2: Expecting format { sheetId: { id, name, questions, isCustom, originHostName? } }
-                if (typeof parsedData === 'object' && parsedData !== null) {
-                    // Directly create Map from entries, assuming stored data has correct format
-                    this.customSheets = new Map(Object.entries(parsedData)); 
-                    console.log(`[QuestionsManager] Loaded ${this.customSheets.size} custom sheets data.`);
-                } else {
-                    console.warn("[QuestionsManager] Invalid data format found in localStorage for custom sheets. Starting fresh.");
-                    this.customSheets = new Map();
-                    localStorage.removeItem(CUSTOM_SHEETS_STORAGE_KEY);
-                }
-            } else {
-                // console.log("[QuestionsManager] No custom sheets found in localStorage.");
-                this.customSheets = new Map();
-            }
-        } catch (error) {
-            console.error("[QuestionsManager] Error loading custom sheets from localStorage:", error);
-            this.customSheets = new Map();
-        }
+        
     }
 
     /** Saves the current custom sheets map to localStorage. */
