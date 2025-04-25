@@ -97,9 +97,8 @@ class MultiplayerHostCoordinator {
         console.log("[MultiplayerHostCoordinator] CreateGameClicked received.");
         
         if (this.activeHostManager || this.activeGame) {
-            console.warn("[MultiplayerHostCoordinator] Cannot create game, already hosting a session.");
-            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('gameWarnAlreadyActive'), level: 'warn' });
-            return;
+            // this should basically not happen, but just in case
+            this.resetState();
         }
         
         // Show game setup screen
@@ -121,6 +120,8 @@ class MultiplayerHostCoordinator {
         
         if (this.activeHostManager || this.activeGame) {
             console.warn("[MultiplayerHostCoordinator] Cannot host game, already in a session.");
+            // Reset state to clear any lingering connections
+            this.resetState();
             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('gameErrorHostWhileActive'), level: 'error' });
             return;
         }
@@ -687,37 +688,36 @@ class MultiplayerHostCoordinator {
 
     /**
      * Resets the coordinator's internal state.
-     * Destroys active host manager, game, and quiz engine if they exist.
+     * Destroys active host manager and game if they exist.
      * @private
      */
     resetState = () => {
         console.log("[MultiplayerHostCoordinator] Resetting state...");
         
-        // Clean up WebRTC connection FIRST
-        webRTCManager.closeConnection();
-
-        // Clean up active game
-        if (this.activeGame) {
-            if (typeof this.activeGame.destroy === 'function') {
-                this.activeGame.destroy();
-            }
-            this.activeGame = null;
+        // Close the WebRTC connection if it's still active
+        if (webRTCManager.status !== 'disconnected') {
+            webRTCManager.closeConnection();
         }
         
         // Clean up host manager
         if (this.activeHostManager) {
-            if (typeof this.activeHostManager.stopHosting === 'function') {
+            if (typeof this.activeHostManager.destroy === 'function') {
+                this.activeHostManager.destroy();
+            } else if (typeof this.activeHostManager.stopHosting === 'function') {
                 this.activeHostManager.stopHosting();
             }
             this.activeHostManager = null;
         }
         
         // Clean up quiz engine
-        if (this.quizEngine) {
-            if (typeof this.quizEngine.destroy === 'function') {
-                this.quizEngine.destroy();
-            }
-            this.quizEngine = null;
+        
+        if (typeof this.quizEngine?.destroy === 'function') {
+            this.quizEngine.destroy();
+            
+        }
+        if (typeof this.activeGame?.destroy === 'function') {
+            this.activeGame.destroy();
+            
         }
         
         // Remove event listeners when resetting
@@ -725,10 +725,12 @@ class MultiplayerHostCoordinator {
         // Also remove PeerDisconnected listener to avoid duplicates if we're reconnecting
         eventBus.off(Events.WebRTC.PeerDisconnected, this.handlePeerDisconnected);
         
+        // Reset state variables
+        this.activeGame = null;
+        this.quizEngine = null;
         this.currentGameMode = null;
         this.pendingGameSettings = null;
         this.pendingJoinCode = null;
-        this.playerName = null;
         
         console.log("[MultiplayerHostCoordinator] State reset complete.");
     }

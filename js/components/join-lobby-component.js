@@ -52,7 +52,7 @@ class JoinLobbyComponent extends RefactoredBaseComponent {
                 { eventName: Events.WebRTC.ConnectionFailed, callback: this._handleConnectionFailed },
                 { eventName: Events.Multiplayer.Client.DisconnectedFromHost, callback: this._handleConnectionFailed },
                 { eventName: Events.UI.JoinLobby.HostHasStartedGame, callback: this._handleHostHasStartedGame },
-                { eventName: Events.UI.MainMenu.JoinGameClicked, callback: this._handleShowView },
+                 { eventName: Events.UI.MainMenu.JoinGameClicked, callback: this._handleShowView },
             ],
             domEvents: [
                 {
@@ -127,40 +127,40 @@ class JoinLobbyComponent extends RefactoredBaseComponent {
      */
     _handleShowView(payload) {
         const { viewName, data = {} } = payload;
-        if (viewName === this.name) {
-            this.lastReceivedGameInfo = null;
-            
-            // First try to use the provided name, then localStorage, then generate random
-            this.playerName = data.playerName || 
-                              localStorage.getItem('unicornPoepUserName') || 
-                              miscUtils.generateRandomPlayerName();
-            
-            // Store the selected name in localStorage for future use
-            if (this.playerName && !localStorage.getItem('unicornPoepUserName')) {
-                localStorage.setItem('unicornPoepUserName', this.playerName);
-            }
-            
-            const joinCodeFromUrl = data && data.joinCode;
-
-            if (joinCodeFromUrl) {
-                if (!data.playerName) {
-                    this._showSpecificView('joinView');
-                    this._clearError();
-                    
-                    this.joinCodeInput.value = joinCodeFromUrl;
-                    this.joinCodeInput.focus();
-                } else {
-                    this._showSpecificView('fetchingInfoView'); 
-                    this._clearError();
-                }
-            } else {
-                this._showSpecificView('joinView'); 
+        
+        this.lastReceivedGameInfo = null;
+        
+        // First try to use the provided name, then localStorage, then generate random
+        this.playerName = data.playerName || 
+                            localStorage.getItem('unicornPoepUserName') || 
+                            miscUtils.generateRandomPlayerName();
+        
+        // Store the selected name in localStorage for future use
+        if (this.playerName && !localStorage.getItem('unicornPoepUserName')) {
+            localStorage.setItem('unicornPoepUserName', this.playerName);
+        }
+        
+        const joinCodeFromUrl = data && data.joinCode;
+        
+        if (joinCodeFromUrl) {
+            if (!data.playerName) {
+                this._showSpecificView('joinView');
                 this._clearError();
                 
-                this.joinCodeInput.value = '';
+                this.joinCodeInput.value = joinCodeFromUrl;
                 this.joinCodeInput.focus();
+            } else {
+                this._showSpecificView('fetchingInfoView'); 
+                this._clearError();
             }
+        } else {
+            this._showSpecificView('joinView'); 
+            this._clearError();
+            
+            this.joinCodeInput.value = '';
+            this.joinCodeInput.focus();
         }
+    
     }
 
     /** Shows only the specified sub-view within the component. @private */
@@ -458,6 +458,42 @@ class JoinLobbyComponent extends RefactoredBaseComponent {
             viewName: Views.GameArea, 
             data: gameData
         });
+    }
+
+    /**
+     * Override the hide method to ensure all sub-views are properly hidden
+     * before hiding the main component.
+     * @override
+     */
+    hide() {
+        // Hide all internal views
+        this._hideAllViews();
+        
+        // Now call parent hide method
+        super.hide();
+    }
+    
+    /**
+     * Hides all the component's internal views.
+     * @private
+     */
+    _hideAllViews() {
+        const joinView = this.rootElement.querySelector(JoinLobbyComponent.JOIN_VIEW_SELECTOR);
+        const fetchingView = this.rootElement.querySelector(JoinLobbyComponent.FETCHING_VIEW_SELECTOR);
+        const confirmView = this.rootElement.querySelector(JoinLobbyComponent.CONFIRM_VIEW_SELECTOR);
+        const waitingView = this.rootElement.querySelector(JoinLobbyComponent.WAITING_VIEW_SELECTOR);
+        
+        if (joinView) joinView.classList.add('hidden');
+        if (fetchingView) fetchingView.classList.add('hidden');
+        if (confirmView) confirmView.classList.add('hidden');
+        if (waitingView && waitingView.classList) waitingView.classList.add('hidden');
+        
+        // Reset UI state
+        if (this.submitCodeButton) this.submitCodeButton.disabled = false;
+        if (this.joinErrorDisplay) this.joinErrorDisplay.textContent = '';
+        
+        // Clear stored data
+        this.lastReceivedGameInfo = null;
     }
 }
 

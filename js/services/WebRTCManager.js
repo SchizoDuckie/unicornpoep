@@ -127,6 +127,8 @@ class WebRTCManager {
         if (this.status !== ConnectionStatus.DISCONNECTED && this.status !== ConnectionStatus.ERROR) {
              const message = `[WebRTCManager] Cannot start host, current status is ${this.status}. Call closeConnection() first.`;
              console.error(message);
+             // Automatically clean up before throwing error
+             this.closeConnection();
              throw new Error(message);
         }
         this.resetState();
@@ -418,6 +420,8 @@ class WebRTCManager {
         if (this.status !== ConnectionStatus.DISCONNECTED && this.status !== ConnectionStatus.ERROR) {
              const message = `[WebRTCManager] Cannot connect, current status is ${this.status}. Call closeConnection() first.`;
             console.error(message);
+            // Automatically clean up before returning
+            this.closeConnection();
             eventBus.emit(Events.WebRTC.ConnectionFailed, { error: new Error(message), context: 'client-connect-state' });
             return;
         }

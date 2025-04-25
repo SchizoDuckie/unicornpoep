@@ -100,8 +100,7 @@ class MultiplayerClientCoordinator {
         
         if (this.activeGame || webRTCManager.status !== ConnectionStatus.DISCONNECTED) {
             console.warn("[MultiplayerClientCoordinator] Already connected or in a game.");
-            eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('warnAlreadyConnected'), level: 'warn' });
-            return;
+            
         }
        // uiManager.showDialog(Views.MultiplayerLobby);
         eventBus.emit(Events.Navigation.ShowView, { viewName: Views.JoinLobby });
@@ -121,6 +120,9 @@ class MultiplayerClientCoordinator {
         
         if (this.activeGame || webRTCManager.status !== ConnectionStatus.DISCONNECTED) {
             console.warn("[MultiplayerClientCoordinator] Already connected or in a game.");
+            // Clean up existing connections first
+            multiplayerClientManager.disconnect();
+            this.resetState();
             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('warnAlreadyConnected'), level: 'warn' });
             return;
         }
@@ -163,6 +165,9 @@ class MultiplayerClientCoordinator {
 
         if (this.activeGame || webRTCManager.status !== ConnectionStatus.DISCONNECTED) {
             console.warn("[MultiplayerClientCoordinator] Already connected or in a game.");
+            // Clean up existing connections first
+            multiplayerClientManager.disconnect();
+            this.resetState();
             eventBus.emit(Events.System.ShowFeedback, { message: miscUtils.getTextTemplate('warnAlreadyConnected'), level: 'warn' });
             return;
         }
@@ -192,8 +197,11 @@ class MultiplayerClientCoordinator {
      * @event Events.UI.JoinGame.CancelJoinClicked
      */
     handleCancelJoin = () => {
-        
+        console.log("[MultiplayerClientCoordinator] CancelJoinClicked received.");
+        // Make sure WebRTC connections are closed
+        multiplayerClientManager.disconnect();
         this.playerName = null;
+        this.resetState();
         eventBus.emit(Events.Navigation.ShowView, { viewName: Views.MainMenu });
     }
 

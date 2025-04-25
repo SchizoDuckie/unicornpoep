@@ -180,7 +180,7 @@ input[type=checkbox] {
 
 
 #connectionStatus #joinView .connectionBox { width: 100%; padding: 20px; }
-#connectionStatus #joinView #connectionCodeInput { font-size: 2rem; padding: 10px; }
+#connectionStatus #joinView #connectionCodeInput { font-size: 1.2rem; padding: 10px; }
 #connectionStatus #joinView #connectionErrorMessage {
    display: none; /* Hide the technical error message */
 }
@@ -221,11 +221,16 @@ input[type=checkbox] {
     font-size: 1.1rem; /* Smaller label */
     margin-bottom: 3px; /* Tighter margin */
 }
-#joinConfirmView .join-confirm-right-panel input[type="text"] {
+#joinConfirmView .join-confirm-right-panel input[type="text"], #connectionCodeInput {
     font-size: 1.2rem; /* Reduce font size */
     padding: 8px 10px; /* Reduce padding */
     width: auto; /* Let flexbox handle width */
     border-width: 2px; /* Slightly thinner border */
+}
+
+input[type="text"]::placeholder {
+    color: #614ae280;
+    font-size: 1.1rem !important;
 }
 
 #joinConfirmView .join-confirm-left-panel { grid-column: 1 / -1; grid-row: 2 / 3; }

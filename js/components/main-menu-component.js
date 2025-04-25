@@ -135,8 +135,10 @@ class MainMenuComponent extends RefactoredBaseComponent {
     _handleJoinGameClick(event) {
         eventBus.emit(Events.UI.HideAllViews);
 
-        eventBus.emit(Events.UI.MainMenu.JoinGameClicked);
-        
+        // Emit the event with a proper payload object containing viewName
+        eventBus.emit(Events.UI.MainMenu.JoinGameClicked, {
+            viewName: 'JoinLobbyComponent'
+        });
     }
 }
 
